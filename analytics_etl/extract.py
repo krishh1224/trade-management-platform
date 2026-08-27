@@ -192,6 +192,10 @@ class FauxnanceClient:
         if status == 401:
             logger.error("Authentication failed (401) for %s", path)
             raise AuthenticationError()
+        
+        if status == 403:
+            logger.error("Access forbidden (403) for %s", path)
+            resp.raise_for_status()
 
         if status == 429:
             retry_after = resp.headers.get("Retry-After")

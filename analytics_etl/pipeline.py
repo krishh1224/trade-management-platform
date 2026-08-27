@@ -12,7 +12,7 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 
-from analytics_etl.extract import extract
+from .extract import extract
 from analytics_etl.transform import transform
 from analytics_etl.load import load
 
