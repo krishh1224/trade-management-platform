@@ -1,0 +1,63 @@
+{
+  "data": {
+    "symbol": "AAPL",
+    "interval": "1d",
+    "currency": "USD",
+    "candles": [
+      {
+        "date": "2025-08-01",
+        "open": 218.36,
+        "high": 222.95,
+        "low": 217.13,
+        "close": 222.64,
+        "adjclose": 221.50,
+        "volume": 45231000,
+        "synthetic": false
+      },
+      {
+        "date": "2025-08-04",
+        "open": 223.10,
+        "high": 225.60,
+        "low": 221.85,
+        "close": 224.72,
+        "adjclose": 223.57,
+        "volume": 38912000,
+        "synthetic": false
+      },
+      {
+        "date": "2025-08-05",
+        "open": 225.00,
+        "high": 227.30,
+        "low": 223.50,
+        "close": 226.15,
+        "adjclose": 224.99,
+        "volume": 41003000,
+        "synthetic": false
+      },
+      {
+        "date": "2025-08-06",
+        "open": 226.50,
+        "high": 228.00,
+        "low": 224.10,
+        "close": 225.40,
+        "adjclose": 224.24,
+        "volume": 35678000,
+        "synthetic": false
+      },
+      {
+        "date": "2025-08-07",
+        "open": 225.80,
+        "high": 229.10,
+        "low": 225.00,
+        "close": 228.55,
+        "adjclose": 227.38,
+        "volume": 42100000,
+        "synthetic": false
+      }
+    ]
+  },
+  "meta": {
+    "asOf": "2025-08-07T20:00:00Z",
+    "disclaimer": "Educational data. Not for investment use."
+  }
+}
