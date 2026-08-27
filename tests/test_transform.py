@@ -7,7 +7,7 @@ import pytest
 from analytics_etl.transform import transform
 
 
-FIXTURES = Path(__file__).parent.parent / "fixtures"
+FIXTURES = Path(__file__).parent.parent / ".cache"
 
 
 def load_fixture(filename: str):
@@ -21,14 +21,14 @@ def load_fixture(filename: str):
 
 def test_valid_reliance_fixture_transforms():
     raw = load_fixture(
-        "candles-reliance-ns-2026-07.json"
+        "RELIANCE.NS_2025-08-01_2026-08-26_956f592a.json"
     )
 
     result = transform(raw)
 
     assert isinstance(result, pd.DataFrame)
 
-    assert len(result) == 9
+    assert len(result) == 261
 
     assert list(result.columns) == [
         "symbol",
@@ -57,7 +57,7 @@ def test_valid_reliance_fixture_transforms():
 
 def test_missing_close_value_is_removed():
     raw = load_fixture(
-        "candles-malformed.json"
+        "TATASTEEL.BO_2025-08-01_2026-08-26_e967c611.json"
     )
 
     result = transform(raw)
@@ -75,7 +75,7 @@ def test_missing_close_value_is_removed():
 
 def test_non_numeric_open_value_is_removed():
     raw = load_fixture(
-        "candles-malformed.json"
+        "TATASTEEL.BO_2025-08-01_2026-08-26_e967c611.json"
     )
 
     result = transform(raw)
@@ -93,7 +93,7 @@ def test_non_numeric_open_value_is_removed():
 
 def test_rejects_high_below_low():
     raw = load_fixture(
-        "candles-malformed.json"
+        "TATASTEEL.BO_2025-08-01_2026-08-26_e967c611.json"
     )
 
     result = transform(raw)
@@ -117,7 +117,7 @@ def test_rejects_high_below_low():
 
 def test_negative_volume_is_removed():
     raw = load_fixture(
-        "candles-malformed.json"
+        "TATASTEEL.BO_2025-08-01_2026-08-26_e967c611.json"
     )
 
     result = transform(raw)
@@ -166,12 +166,12 @@ def test_invalid_response_type_raises_error():
 # ---------------------------------------------------------
 def test_non_iso_date():
     raw = load_fixture(
-        "candles-malformed.json"
+        "TATASTEEL.BO_2025-08-01_2026-08-26_e967c611.json"
     )
 
     result = transform(raw)
 
     assert (
         result["date"]
-        == pd.Timestamp("2026-07-09")
+        == pd.Timestamp("2026-07-17")
     ).any()
