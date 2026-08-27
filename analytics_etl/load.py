@@ -4,9 +4,9 @@ import duckdb
 import pandas as pd
 
 
-DATABASE_PATH = (
-    Path(__file__).resolve().parent.parent / "database" / "trade_data.duckdb"
-)
+# DATABASE_PATH = (
+#     Path(__file__).resolve().parent.parent / "database" / "trade_data.duckdb"
+# )
 
 
 def load(clean_data: pd.DataFrame, db_path: str | None = None) -> None:

@@ -12,6 +12,9 @@ dist/
 build/
 *.egg
 
+#charts
+/charts/
+
 # Virtual environment
 .venv/
 venv/
