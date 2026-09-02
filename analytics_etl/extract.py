@@ -77,20 +77,8 @@ class FauxnanceClient:
         params: dict[str, str] | None = None,
         auth_required: bool = True,
     ) -> dict[str, Any]:
-        """Send an HTTP request with retry / back-off and status dispatch.
-
-        Raises
-        ------
-        AuthenticationError
-            On 401.
-        SymbolNotFoundError
-            On 404 (the symbol component is parsed from *path*).
-        BadRequestError
-            On 400.
-        QuotaExhaustedError
-            On 429.
-        ExtractionError
-            When all retries are exhausted on a transient failure.
+        """
+        Raises AuthenticationError for 401, SymbolNotFoundError for 404, BadRequestError for 400, QuotaExhaustedError on 429, ExtractionError when all retries get exhausted
         """
         url = f"{BASE_URL}{path}"
         headers: dict[str, str] = {}
@@ -174,14 +162,13 @@ class FauxnanceClient:
         return {}  
 
     # cache layer 
-
     def _cache_key(
         self,
         symbol: str,
         start: str | None,
         end: str | None,
     ) -> Path:
-        """Build a filesystem-safe cache path for this request."""
+        #Build a filesystem-safe cache path for this request/
         safe_symbol = symbol.replace(":", "_").replace("/", "_")
         tag = f"{safe_symbol}_{start or 'none'}_{end or 'none'}"
         # using a short hash suffix here to avoid collisions on very long tags
@@ -211,7 +198,6 @@ class FauxnanceClient:
         end: str | None,
         data: dict[str, Any],
     ) -> None:
-        """Persist the raw API response to disk."""
         path = self._cache_key(symbol, start, end)
         try:
             path.write_text(

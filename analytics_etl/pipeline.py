@@ -1,11 +1,5 @@
-"""Pipeline orchestrator – wires extract → transform → load.
-
-This module does *nothing else*.  It imports the three step functions,
-calls them in order, and provides a CLI entry point.
-"""
-
+#Pipeline orchestrator = wires extract → transform → load.
 from __future__ import annotations
-
 import logging
 import sys
 from pathlib import Path
@@ -18,19 +12,17 @@ from analytics_etl.load import load
 
 logger = logging.getLogger(__name__)
 
-# ── Configuration ────────────────────────────────────────────────────────
-
-# Symbol universe – at least two NSE/BSE instruments
+# Symbol universe 
 SYMBOLS: list[str] = [
-    "INFY.NS",        # Infosys – NSE
-    "RELIANCE.NS",    # Reliance Industries – NSE
-    "TATASTEEL.BO",   # Tata Steel – BSE
-    "AAPL",           # Apple – US
-    "MSFT",           # Microsoft – US
-    "X:BTC-USD",      # Bitcoin – Crypto
+    "INFY.NS",        
+    "RELIANCE.NS",    
+    "TATASTEEL.BO",  
+    "AAPL",           
+    "MSFT",          
+    "X:BTC-USD",      
 ]
 
-# Date range for candle extraction (roughly the last year)
+# Date range for candle extraction for 1 yr
 DEFAULT_START = "2025-08-01"
 DEFAULT_END = "2026-08-26"
 
@@ -38,7 +30,7 @@ DEFAULT_END = "2026-08-26"
 DEFAULT_DB_PATH = Path("analytics.duckdb")
 
 
-# ── Pipeline ─────────────────────────────────────────────────────────────
+# Pipeline
 
 def run_pipeline(
     symbols: list[str] = SYMBOLS,
@@ -46,31 +38,13 @@ def run_pipeline(
     end: str = DEFAULT_END,
     db_path: Path = DEFAULT_DB_PATH,
 ):
-    """Execute the full extract → transform → load pipeline.
-
-    Parameters
-    ----------
-    symbols:
-        Ticker symbols to pull from Fauxnance.
-    start:
-        ISO-8601 start date (inclusive).
-    end:
-        ISO-8601 end date (inclusive).
-    db_path:
-        Path to the DuckDB analytical store file.
-
-    Returns
-    -------
-    pandas.DataFrame
-        The cleaned DataFrame that was loaded, useful for downstream
-        dashboard generation.
-    """
+   
     logger.info(
         "Pipeline starting – %d symbols, range %s → %s",
         len(symbols), start, end,
     )
 
-    # Step 1: Extract ──────────────────────────────────────────────────────
+    # Step 1: Extract
     logger.info("Step 1/3: Extract")
     raw_data = extract(symbols, start=start, end=end)
     logger.info(
@@ -78,7 +52,7 @@ def run_pipeline(
         len(raw_data), ", ".join(raw_data.keys()),
     )
 
-    # Step 2: Transform ────────────────────────────────────────────────────
+    # Step 2: Transform 
     logger.info("Step 2/3: Transform")
     
     import pandas as pd
@@ -102,7 +76,7 @@ def run_pipeline(
         len(cleaned_df), len(cleaned_df.columns),
     )
 
-    # Step 3: Load ─────────────────────────────────────────────────────────
+    # Step 3: Load
     logger.info("Step 3/3: Load")
     load(cleaned_df, db_path=str(db_path))
     logger.info("Load complete – data written to %s", db_path)
@@ -110,7 +84,7 @@ def run_pipeline(
     return cleaned_df
 
 
-# ── CLI entry point ──────────────────────────────────────────────────────
+# ── CLI entry point 
 
 def main() -> None:
     """Entry point for ``etl-run`` console script and ``python -m analytics_etl``."""
