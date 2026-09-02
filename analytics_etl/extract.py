@@ -1,12 +1,4 @@
-"""Extract step – Fauxnance API client with caching and error handling.
-
-This module is the *only* part of the pipeline that touches the network or
-reads environment variables.  It hands raw API responses downstream,
-unchanged, so that the transform can be rewritten without burning API quota.
-"""
-
 from __future__ import annotations
-
 import hashlib
 import json
 import logging
@@ -14,7 +6,6 @@ import os
 import time
 from pathlib import Path
 from typing import Any
-
 import requests
 from dotenv import load_dotenv
 
@@ -22,7 +13,6 @@ from analytics_etl.exceptions import (
     AuthenticationError,
     BadRequestError,
     ExtractionError,
-    FauxnanceError,
     QuotaExhaustedError,
     SymbolNotFoundError,
 )
@@ -32,39 +22,18 @@ logger = logging.getLogger(__name__)
 BASE_URL = "https://y4t9nq2bqf.execute-api.eu-west-2.amazonaws.com/v1"
 CACHE_DIR = Path(".cache")
 
-# Retry settings for transient network errors
+# Retry settings for network errors
 MAX_RETRIES = 3
 INITIAL_BACKOFF_SECONDS = 1.0
 REQUEST_TIMEOUT_SECONDS = 30
-
-
-# ---------------------------------------------------------------------------
-# Fauxnance API Client
-# ---------------------------------------------------------------------------
-
 class FauxnanceClient:
-    """Low-level client for the Fauxnance REST API.
-
-    Reads the API key from the ``FAUXNANCE_API_KEY`` environment variable
-    (loaded via python-dotenv).  All HTTP traffic flows through
-    :meth:`_request`, which handles retries, back-off, and status-code
-    dispatch.
-
-    Parameters
-    ----------
-    cache_dir:
-        Directory for caching raw API responses.  Defaults to ``.cache/``
-        relative to the current working directory.
-    """
-
+    
     def __init__(self, cache_dir: Path = CACHE_DIR) -> None:
         load_dotenv()  # loads .env into os.environ if present
         self._api_key: str | None = os.environ.get("FAUXNANCE_API_KEY")
         self._cache_dir = Path(cache_dir)
         self._cache_dir.mkdir(parents=True, exist_ok=True)
         self._session = requests.Session()
-
-    # -- public helpers -----------------------------------------------------
 
     def health(self) -> dict[str, Any]:
         """``GET /health`` – no key required."""
@@ -80,29 +49,13 @@ class FauxnanceClient:
         start: str | None = None,
         end: str | None = None,
     ) -> dict[str, Any]:
-        """``GET /candles/{symbol}`` – returns daily OHLCV candles.
+        """``GET /candles/{symbol}`` – returns daily OHLCV candles."""
 
-        Parameters
-        ----------
-        symbol:
-            Ticker symbol (e.g. ``AAPL``, ``INFY.NS``, ``X:BTC-USD``).
-        start:
-            ISO-8601 start date (inclusive).  Optional.
-        end:
-            ISO-8601 end date (inclusive).  Optional.
-
-        Returns
-        -------
-        dict
-            The **raw** JSON response from the API, suitable for caching.
-        """
         # Check cache first
         cached = self._cache_read(symbol, start, end)
         if cached is not None:
             logger.info("Cache hit for %s [%s → %s]", symbol, start, end)
             return cached
-
-        # Build request
         params: dict[str, str] = {}
         if start:
             params["start"] = start
@@ -115,8 +68,6 @@ class FauxnanceClient:
         self._cache_write(symbol, start, end, data)
         logger.info("Fetched and cached %s [%s → %s]", symbol, start, end)
         return data
-
-    # -- HTTP layer ---------------------------------------------------------
 
     def _request(
         self,
@@ -177,7 +128,6 @@ class FauxnanceClient:
                         MAX_RETRIES, path, exc,
                     )
 
-        # Extract the symbol from the path for a better error message
         symbol = path.rsplit("/", 1)[-1] if "/" in path else path
         raise ExtractionError(symbol, last_exc)  # type: ignore[arg-type]
 
@@ -220,11 +170,10 @@ class FauxnanceClient:
             logger.error("Bad request (400) for %s: %s", path, detail)
             raise BadRequestError(detail)
 
-        # Unexpected status – treat as a generic error
         resp.raise_for_status()
-        return {}  # unreachable, keeps mypy happy
+        return {}  
 
-    # -- Cache layer --------------------------------------------------------
+    # cache layer 
 
     def _cache_key(
         self,
@@ -233,10 +182,9 @@ class FauxnanceClient:
         end: str | None,
     ) -> Path:
         """Build a filesystem-safe cache path for this request."""
-        # Symbols may contain characters unsafe for filenames (e.g. X:BTC-USD)
         safe_symbol = symbol.replace(":", "_").replace("/", "_")
         tag = f"{safe_symbol}_{start or 'none'}_{end or 'none'}"
-        # Use a short hash suffix to avoid collisions on very long tags
+        # using a short hash suffix here to avoid collisions on very long tags
         h = hashlib.md5(tag.encode()).hexdigest()[:8]
         return self._cache_dir / f"{safe_symbol}_{start or 'none'}_{end or 'none'}_{h}.json"
 
@@ -274,9 +222,7 @@ class FauxnanceClient:
             logger.warning("Could not write cache file %s: %s", path, exc)
 
 
-# ---------------------------------------------------------------------------
-# Extract function – the public callable that pipeline.py imports
-# ---------------------------------------------------------------------------
+# Extract function
 
 def extract(
     symbols: list[str],
@@ -284,31 +230,10 @@ def extract(
     end: str | None = None,
     cache_dir: Path = CACHE_DIR,
 ) -> dict[str, dict[str, Any]]:
-    """Pull raw candle data for every symbol in *symbols*.
-
-    Returns a mapping of ``symbol → raw_response``.  Symbols that fail with
-    a 404 or 400 are skipped (logged, not raised).  A 429 or 401 stops the
-    entire run immediately.
-
-    Parameters
-    ----------
-    symbols:
-        List of ticker symbols to extract.
-    start:
-        ISO-8601 start date (inclusive).
-    end:
-        ISO-8601 end date (inclusive).
-    cache_dir:
-        Directory for raw-response caching.
-
-    Returns
-    -------
-    dict[str, dict]
-        ``{symbol: raw_json_response, ...}``
-    """
+    
     client = FauxnanceClient(cache_dir=cache_dir)
 
-    # Pre-flight: check that the API is reachable
+    # check that the API is reachable
     try:
         health = client.health()
         logger.info("Fauxnance API is healthy: %s", health.get("data", {}).get("status"))
@@ -324,11 +249,11 @@ def extract(
             raw = client.candles(symbol, start=start, end=end)
             results[symbol] = raw
         except (SymbolNotFoundError, BadRequestError) as exc:
-            # Per-symbol error – skip and continue
+            # skip and continue
             logger.warning("Skipping %s: %s", symbol, exc)
             skipped.append(symbol)
         except (QuotaExhaustedError, AuthenticationError):
-            # Fatal – stop the whole run
+            # Fatal
             logger.error(
                 "Fatal API error – stopping extraction. "
                 "Extracted %d/%d symbols before failure.",
