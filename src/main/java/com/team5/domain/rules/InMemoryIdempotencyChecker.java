@@ -1,0 +1,32 @@
+package com.team5.domain.rules;
+
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
+
+/**
+ * In-memory implementation of {@link IdempotencyChecker}, backed by a set
+ * rather than a database unique constraint. This is the Sprint 5 stand-in;
+ * Sprint 6 replaces it with an implementation backed by the
+ * {@code orders.idempotency_key} unique constraint, without changing
+ * {@link OrderValidator} at all.
+ */
+public class InMemoryIdempotencyChecker implements IdempotencyChecker {
+
+    private final Set<String> seenKeys = ConcurrentHashMap.newKeySet();
+
+    @Override
+    public boolean isDuplicate(String idempotencyKey) {
+        if (idempotencyKey == null) {
+            throw new IllegalArgumentException("idempotencyKey must not be null.");
+        }
+        return seenKeys.contains(idempotencyKey);
+    }
+
+    @Override
+    public void record(String idempotencyKey) {
+        if (idempotencyKey == null) {
+            throw new IllegalArgumentException("idempotencyKey must not be null.");
+        }
+        seenKeys.add(idempotencyKey);
+    }
+}
