@@ -1,42 +1,18 @@
-"""
-Story 7: four business claims, sourced from the DuckDB store instead of raw JSON.
 
-Claims 1-3 compare three symbols that share a full year of history:
-  1. Cumulative return over the period       -> bar chart
-  2. Volatility (std dev of daily returns)   -> bar chart, one color per stock
-  3. Normalized price trend, all 3 together  -> line chart
-
-Tata Steel has a shorter history and is given its own separate claim instead
-of being forced into an unfair comparison:
-  4. Tata Steel  - volume spike, own window   -> bar chart
-
-Reads all data from the stock_prices table in analytics.duckdb (populated
-by the pipeline's load stage) and produces:
-  - charts/claim1_returns.html
-  - charts/claim2_volatility.html
-  - charts/claim3_trend.html
-  - charts/claim4_tatasteel_volume_spike.html
-  - claims.md
-"""
 from pathlib import Path
 
 import duckdb
 import pandas as pd
 import plotly.graph_objects as go
 
-# --- Point this at your actual database file ---
-# The pipeline's load() function creates this file wherever db_path is passed
-# in as a parameter when the ETL runs - by default, "analytics.duckdb" in the
-# folder the pipeline was run from. Copy that file next to this script, or
-# change the path below to point at it wherever it actually sits.
 
 DB_PATH = "analytics.duckdb"
 
 
-# --- The three symbols with a full year of shared history ---
+# three symbols with a full year of data
 SYMBOL_KEYS = ["INFY.NS", "RELIANCE.NS", "AAPL"]
 
-# --- The symbol with shorter history, claimed separately ---
+# this is the symbol with shorter history (claimed separately)
 TATASTEEL_SYMBOL = "TATASTEEL.BO"
 
 DISPLAY_NAMES = {
@@ -46,9 +22,6 @@ DISPLAY_NAMES = {
     "TATASTEEL.BO": "Tata Steel Limited (BSE)",
 }
 
-# Fixed color per company, used only in Claim 2 (see the earlier turns for
-# why only that chart is colored this way). Tata Steel (Claim 4) uses its
-# own green/orange scheme, unrelated to this palette.
 COLOR_MAP = {
     "AAPL": "green",
     "INFY.NS": "blue",
@@ -60,18 +33,14 @@ CHARTS_DIR.mkdir(exist_ok=True)
 
 
 def load_symbol_from_db(con, symbol):
-    """Query one symbol's rows out of stock_prices.
-
-    Applies the same quality gate as before: real trades only (not
-    synthetic), no nulls in the price fields, no high-below-low rows.
-    """
+    
     df = con.execute(
-        """
-        SELECT symbol, date, open, high, low, close, volume, synthetic
-        FROM stock_prices
-        WHERE symbol = ?
-        ORDER BY date
-        """,
+     """
+            SELECT symbol, date, open, high, low, close, volume, synthetic
+            FROM stock_prices
+            WHERE symbol = ?
+            ORDER BY date
+            """,    
         [symbol],
     ).fetchdf()
 
@@ -106,7 +75,6 @@ def volatility_pct(df):
 
 
 def volume_spike(df):
-    """The single biggest volume day versus the average of every other day."""
     vol = df.dropna(subset=["volume"])
     spike_idx = vol["volume"].idxmax()
     spike_date = vol.loc[spike_idx, "date"]
@@ -124,7 +92,7 @@ if __name__ == "__main__":
         df = load_symbol_from_db(con, key)
         loaded[key] = {"name": display_name(key), "df": df}
 
-    # Show each symbol's own range before trimming, so a mismatch is visible
+   
     period_starts = {k: v["df"]["date"].iloc[0] for k, v in loaded.items()}
     period_ends = {k: v["df"]["date"].iloc[-1] for k, v in loaded.items()}
 
@@ -176,7 +144,7 @@ if __name__ == "__main__":
     print(f"  Strongest uptrend: {best_info['name']} ({best_info['return_pct']:+.1f}%)")
     print(f"  Weakest performer: {worst_info['name']} ({worst_info['return_pct']:+.1f}%)")
 
-    # --- Chart 1: cumulative return bar chart ---
+    # Chart 1: cumulative return bar chart 
     names1 = [v["name"] for k, v in by_return]
     returns1 = [v["return_pct"] for k, v in by_return]
     colors1 = ["#1D9E75" if r >= 0 else "#D85A30" for r in returns1]
@@ -195,7 +163,7 @@ if __name__ == "__main__":
     )
     fig1.write_html(CHARTS_DIR / "claim1_returns.html", include_plotlyjs="inline")
 
-    # --- Chart 2: volatility bar chart, one color per stock ---
+    # Chart 2: volatility bar chart 
     names2 = [v["name"] for k, v in by_volatility]
     vols2 = [v["volatility_pct"] for k, v in by_volatility]
     colors2 = [COLOR_MAP[k] for k, v in by_volatility]
@@ -214,7 +182,7 @@ if __name__ == "__main__":
     )
     fig2.write_html(CHARTS_DIR / "claim2_volatility.html", include_plotlyjs="inline")
 
-    # --- Chart 3: normalized trend line chart, all 3 together ---
+    # Chart 3: normalized trend line chart
     fig3 = go.Figure()
     for k, v in loaded.items():
         fig3.add_trace(go.Scatter(
@@ -236,7 +204,7 @@ if __name__ == "__main__":
 
     print(f"\nCharts written to {CHARTS_DIR.resolve()}/")
 
-    # --- Claim 4: Tata Steel on its own terms (shorter history, own window) ---
+    # Claim 4: Tata Steel on its own terms
     tata_df = load_symbol_from_db(con, TATASTEEL_SYMBOL)
     tata_name = display_name(TATASTEEL_SYMBOL)
     tata_start = tata_df["date"].iloc[0]
