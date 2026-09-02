@@ -23,23 +23,9 @@ NUMERIC_PRICE_COLUMNS = [
     "adjclose",
 ]
 
-
+#transform a raw API response into a clean DataFrame
 def transform(raw_response: dict[str, Any]) -> pd.DataFrame:
-    """
-    Transform a raw Fauxnance CandlesResponse into a clean pandas DataFrame.
-
-    This function:
-    - performs no network calls
-    - reads no environment variables
-    - writes no files or databases
-
-    Invalid candle rows are dropped.
-    Missing volume is retained as a missing value.
-    """
-
-    # ---------------------------------------------------------
     # 1. Validate the expected response structure
-    # ---------------------------------------------------------
     if not isinstance(raw_response, dict):
         raise TypeError("raw_response must be a dictionary")
 
@@ -56,9 +42,7 @@ def transform(raw_response: dict[str, Any]) -> pd.DataFrame:
     if not isinstance(candles, list):
         raise ValueError("'candles' must be a list")
 
-    # ---------------------------------------------------------
-    # 2. Read metadata
-    # ---------------------------------------------------------
+    # Reading metadata
     symbol = data.get("symbol")
     currency = data.get("currency")
     interval = data.get("interval")
@@ -73,9 +57,7 @@ def transform(raw_response: dict[str, Any]) -> pd.DataFrame:
     if isinstance(interval, str):
         interval = interval.lower()
 
-    # ---------------------------------------------------------
-    # 3. Handle empty datasets
-    # ---------------------------------------------------------
+    # 2. Handle empty datasets by returning an empty DataFrame with required columns
     output_columns = [
         "symbol",
         "currency",
@@ -93,34 +75,24 @@ def transform(raw_response: dict[str, Any]) -> pd.DataFrame:
     if not candles:
         return pd.DataFrame(columns=output_columns)
 
-    # ---------------------------------------------------------
-    # 4. Convert raw candles into a DataFrame
-    # ---------------------------------------------------------
+    #  Convert raw candles into a DataFrame (List->df)
     df = pd.DataFrame(candles)
 
-    # Add metadata to every candle
+    # Add metadata to every candle to help describe it
     df["symbol"] = symbol
     df["currency"] = currency
     df["interval"] = interval
 
-    # ---------------------------------------------------------
-    # 5. Make sure required columns exist
-    # ---------------------------------------------------------
+    # 3. Ensure required columns exist
     for column in REQUIRED_FIELDS:
         if column not in df.columns:
             df[column] = pd.NA
 
-    # Volume is optional
+    # 4. Volume is optional
     if "volume" not in df.columns:
         df["volume"] = pd.NA
 
-    # ---------------------------------------------------------
-    # 6. Parse and standardise dates
-    #
-    # Supports:
-    # YYYY-MM-DD
-    # DD/MM/YYYY
-    # ---------------------------------------------------------
+    # 5. Parse and standardise dates
     def parse_date(value: Any) -> pd.Timestamp | pd.NaT:
         if pd.isna(value):
             return pd.NaT
@@ -140,7 +112,7 @@ def transform(raw_response: dict[str, Any]) -> pd.DataFrame:
         if not pd.isna(parsed):
             return parsed
 
-        # Resolve DD/MM/YYYY ambiguity using the dataset context
+        # # Fall back to DD/MM/YYYY format
         return pd.to_datetime(
             value,
             format="%d/%m/%Y",
@@ -149,11 +121,7 @@ def transform(raw_response: dict[str, Any]) -> pd.DataFrame:
 
     df["date"] = df["date"].apply(parse_date)
 
-    # ---------------------------------------------------------
-    # 7. Convert numeric fields
-    #
-    # Invalid values such as "n/a" become NaN
-    # ---------------------------------------------------------
+    # 6. Convert numeric fields - handle invalid values by converting to NaN
     for column in NUMERIC_PRICE_COLUMNS:
         df[column] = pd.to_numeric(
             df[column],
@@ -165,11 +133,7 @@ def transform(raw_response: dict[str, Any]) -> pd.DataFrame:
         errors="coerce",
     )
 
-    # ---------------------------------------------------------
-    # 8. Drop rows missing required values
-    #
-    # Missing volume is allowed.
-    # ---------------------------------------------------------
+    # 7. Drop rows missing required values (except volume)
     required_after_conversion = [
         "date",
         "open",
@@ -182,30 +146,24 @@ def transform(raw_response: dict[str, Any]) -> pd.DataFrame:
 
     df = df.dropna(subset=required_after_conversion)
 
-    # ---------------------------------------------------------
-    # 9. Remove duplicate trading days
-    #
-    # Keep the first valid occurrence for each symbol/date.
-    # ---------------------------------------------------------
+    # 8. Remove duplicate trading days and keep the first valid occurrence
     df = df.drop_duplicates(
         subset=["symbol", "date"],
         keep="first",
     )
 
-    # ---------------------------------------------------------
-    # 10. Validate ranges and financial consistency
-    # ---------------------------------------------------------
-
-    # Prices cannot be negative
+    # 9. Validate ranges and financial consistency
+    
+    #(i) Price cannot be negative
     price_is_valid = pd.Series(True, index=df.index)
 
     for column in NUMERIC_PRICE_COLUMNS:
         price_is_valid &= df[column] >= 0
 
-    # High must not be below low
+    #(ii) High must not be below low
     high_low_valid = df["high"] >= df["low"]
 
-    # Volume may be missing, but cannot be negative
+    #(iii) Volume may be missing, but cannot be negative
     volume_valid = df["volume"].isna() | (df["volume"] >= 0)
 
     df = df[
@@ -214,9 +172,7 @@ def transform(raw_response: dict[str, Any]) -> pd.DataFrame:
         & volume_valid
     ]
 
-    # ---------------------------------------------------------
-    # 11. Final column order and clean index
-    # ---------------------------------------------------------
+    # Sort and reset index
     df = df[output_columns].copy()
 
     df = df.sort_values(
