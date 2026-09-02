@@ -11,6 +11,7 @@ Thumbs.db
 # IDE
 .idea/
 .vscode/
+*.iml
 
 # Python
 __pycache__/
@@ -21,3 +22,6 @@ venv/
 .cache/
 analytics.duckdb
 charts/
+
+# Maven build output -- generated automatically by mvn compile/package, never commit
+target/

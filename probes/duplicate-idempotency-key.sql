@@ -1,4 +1,3 @@
--- 1. Insert the first valid order with an idempotency key
 INSERT INTO orders (
     order_id, 
     portfolio_id, 
@@ -19,8 +18,6 @@ INSERT INTO orders (
     'idem-key-123'
 );
 
--- 2. Attempt to insert a different order but with the exact same idempotency key
--- The harness expects this to FAIL with SQLSTATE 23505 (Unique Violation)
 INSERT INTO orders (
     order_id, 
     portfolio_id, 
