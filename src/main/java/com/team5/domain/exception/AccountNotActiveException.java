@@ -1,13 +1,8 @@
 package com.team5.domain.exception;
 
-public class AccountNotActiveException extends TradeDomainException {
+public class AccountNotActiveException extends DomainException {
 
-    private final Long accountId;
-
-    public AccountNotActiveException(Long accountId) {
-        super("Account " + accountId + " is not active and cannot perform this operation.");
-        this.accountId = accountId;
+    public AccountNotActiveException() {
+        super("ACC-403", "Account not active");
     }
-
-    public Long getAccountId() { return accountId; }
 }

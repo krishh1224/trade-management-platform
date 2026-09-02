@@ -1,13 +1,8 @@
 package com.team5.domain.exception;
 
-public class InstrumentNotFoundException extends TradeDomainException {
+public class InstrumentNotFoundException extends DomainException {
 
-    private final Long instrumentId;
-
-    public InstrumentNotFoundException(Long instrumentId) {
-        super("Instrument not found with id: " + instrumentId);
-        this.instrumentId = instrumentId;
+    public InstrumentNotFoundException() {
+        super("INS-404", "Instrument not found");
     }
-
-    public Long getInstrumentId() { return instrumentId; }
 }
