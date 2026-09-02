@@ -15,7 +15,7 @@ psql \
     -U "${POSTGRES_USER:-postgres}" \
     -d "${TARGET_DATABASE:-${POSTGRES_DB}}" \
     -v ON_ERROR_STOP=1 \
-    -f "${REPO_DIR}/Database/schema/schema.sql"
+    -f "${REPO_DIR}/database/schema/001_schema.sql"
 
 psql \
     -h "${POSTGRES_HOST:-localhost}" \
@@ -23,6 +23,6 @@ psql \
     -U "${POSTGRES_USER:-postgres}" \
     -d "${TARGET_DATABASE:-${POSTGRES_DB}}" \
     -v ON_ERROR_STOP=1 \
-    -f "${REPO_DIR}/Database/seed/001_seed.sql"
+    -f "${REPO_DIR}/database/seed/001_seed.sql"
 
 echo "Database setup complete."

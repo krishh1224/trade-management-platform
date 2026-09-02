@@ -17,3 +17,7 @@ __pycache__/
 *.pyc
 .venv/
 venv/
+
+.cache/
+analytics.duckdb
+charts/
