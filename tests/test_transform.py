@@ -21,22 +21,14 @@ def load_fixture(filename: str):
 
 def test_valid_reliance_fixture_transforms():
     raw = load_fixture(
-<<<<<<< Updated upstream
-        "RELIANCE.NS_2025-08-01_2026-08-26_956f592a.json"
-=======
         "C:/Users/Administrator/Desktop/chennai-capstone-SE5-team5/.cache/RELIANCE.NS_2025-08-01_2026-08-26_956f592a.json"
->>>>>>> Stashed changes
     )
 
     result = transform(raw)
 
     assert isinstance(result, pd.DataFrame)
 
-<<<<<<< Updated upstream
-    assert len(result) == 261
-=======
     assert len(result) ==261
->>>>>>> Stashed changes
 
     assert list(result.columns) == [
         "symbol",
@@ -65,11 +57,7 @@ def test_valid_reliance_fixture_transforms():
 
 def test_missing_close_value_is_removed():
     raw = load_fixture(
-<<<<<<< Updated upstream
-        "TATASTEEL.BO_2025-08-01_2026-08-26_e967c611.json"
-=======
         "C:/Users/Administrator/Desktop/chennai-capstone-SE5-team5/.cache/TATASTEEL.BO_2025-08-01_2026-08-26_e967c611.json"
->>>>>>> Stashed changes
     )
 
     result = transform(raw)
@@ -87,11 +75,7 @@ def test_missing_close_value_is_removed():
 
 def test_non_numeric_open_value_is_removed():
     raw = load_fixture(
-<<<<<<< Updated upstream
-        "TATASTEEL.BO_2025-08-01_2026-08-26_e967c611.json"
-=======
         "C:/Users/Administrator/Desktop/chennai-capstone-SE5-team5/.cache/TATASTEEL.BO_2025-08-01_2026-08-26_e967c611.json"
->>>>>>> Stashed changes
     )
 
     result = transform(raw)
@@ -109,11 +93,7 @@ def test_non_numeric_open_value_is_removed():
 
 def test_rejects_high_below_low():
     raw = load_fixture(
-<<<<<<< Updated upstream
-        "TATASTEEL.BO_2025-08-01_2026-08-26_e967c611.json"
-=======
         "C:/Users/Administrator/Desktop/chennai-capstone-SE5-team5/.cache/TATASTEEL.BO_2025-08-01_2026-08-26_e967c611.json"
->>>>>>> Stashed changes
     )
 
     result = transform(raw)
@@ -137,11 +117,7 @@ def test_rejects_high_below_low():
 
 def test_negative_volume_is_removed():
     raw = load_fixture(
-<<<<<<< Updated upstream
-        "TATASTEEL.BO_2025-08-01_2026-08-26_e967c611.json"
-=======
         "C:/Users/Administrator/Desktop/chennai-capstone-SE5-team5/.cache/TATASTEEL.BO_2025-08-01_2026-08-26_e967c611.json"
->>>>>>> Stashed changes
     )
 
     result = transform(raw)
@@ -190,11 +166,7 @@ def test_invalid_response_type_raises_error():
 # ---------------------------------------------------------
 def test_non_iso_date():
     raw = load_fixture(
-<<<<<<< Updated upstream
-        "TATASTEEL.BO_2025-08-01_2026-08-26_e967c611.json"
-=======
         "C:/Users/Administrator/Desktop/chennai-capstone-SE5-team5/.cache/TATASTEEL.BO_2025-08-01_2026-08-26_e967c611.json"
->>>>>>> Stashed changes
     )
 
     result = transform(raw)
