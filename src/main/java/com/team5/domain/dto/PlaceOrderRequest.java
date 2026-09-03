@@ -4,11 +4,12 @@ import com.team5.domain.enums.OrderSide;
 import java.math.BigDecimal;
 
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
 
 public class PlaceOrderRequest {
     @jakarta.validation.constraints.NotBlank private String accountKey;
     @NotBlank private String symbol;
-    private OrderSide side;
+    @jakarta.validation.constraints.NotNull private OrderSide side;
     private BigDecimal quantity;
     private BigDecimal price;
     private String idempotencyKey;
