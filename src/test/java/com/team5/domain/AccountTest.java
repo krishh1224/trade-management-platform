@@ -102,6 +102,21 @@ class AccountTest {
         assertFalse(account.isActive());
     }
 
+    @Test
+    void shouldNotDriftMoneyAfterRepeatedOperations() {
+        Account account = createAccount("1000.00");
+
+        for (int i = 0; i < 100; i++) {
+            account.debit(new BigDecimal("0.10"));
+            account.credit(new BigDecimal("0.10"));
+        }
+
+        assertEquals(
+                0,
+                new BigDecimal("1000.00").compareTo(account.getBalance())
+        );
+    }
+
     private Account createAccount(String balance) {
         return new Account(
                 1L,
