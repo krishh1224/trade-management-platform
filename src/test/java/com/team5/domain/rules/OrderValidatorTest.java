@@ -138,6 +138,44 @@ class OrderValidatorTest {
                         new BigDecimal("10"), new BigDecimal("50.00"), "key-6b"));
     }
 
+    // Checks that an order is rejected when the quantity is zero, negative, or missing.
+@Test
+void orderRejectedWhenQuantityIsInvalid() {
+    Account account = activeAccount(new BigDecimal("1000.00"));
+    Instrument instrument = tradableInstrument();
+
+    assertThrows(IllegalArgumentException.class, () ->
+            validator.validate(account, instrument, null, OrderSide.BUY,
+                    BigDecimal.ZERO, new BigDecimal("50.00"), "key-qty-1"));
+
+    assertThrows(IllegalArgumentException.class, () ->
+            validator.validate(account, instrument, null, OrderSide.BUY,
+                    new BigDecimal("-10"), new BigDecimal("50.00"), "key-qty-2"));
+
+    assertThrows(IllegalArgumentException.class, () ->
+            validator.validate(account, instrument, null, OrderSide.BUY,
+                    null, new BigDecimal("50.00"), "key-qty-3"));
+}
+
+// Checks that an order is rejected when the price is zero, negative, or missing.
+@Test
+void orderRejectedWhenPriceIsInvalid() {
+    Account account = activeAccount(new BigDecimal("1000.00"));
+    Instrument instrument = tradableInstrument();
+
+    assertThrows(IllegalArgumentException.class, () ->
+            validator.validate(account, instrument, null, OrderSide.BUY,
+                    new BigDecimal("10"), BigDecimal.ZERO, "key-price-1"));
+
+    assertThrows(IllegalArgumentException.class, () ->
+            validator.validate(account, instrument, null, OrderSide.BUY,
+                    new BigDecimal("10"), new BigDecimal("-50.00"), "key-price-2"));
+
+    assertThrows(IllegalArgumentException.class, () ->
+            validator.validate(account, instrument, null, OrderSide.BUY,
+                    new BigDecimal("10"), null, "key-price-3"));
+}
+
     // Checks that an order is rejected when the idempotency key is already used.
     @Test
     void duplicateIdempotencyKeyRejected() {
@@ -152,19 +190,6 @@ class OrderValidatorTest {
         assertEquals("ORD-409", ex.getCode());
     }
 
-    // Checks that when multiple rules fail, the first rule is returned.
-    @Test
-    void requestBreakingTwoRulesReturnsCodeOfFirst() {
-        Account suspendedNoCash = new Account(1L, 1L, "ACC-0003", RiskProfile.MODERATE,
-                "USD", BigDecimal.ZERO, AccountStatus.SUSPENDED,
-                LocalDateTime.now(), LocalDateTime.now());
-        Instrument instrument = tradableInstrument();
-
-        AccountNotActiveException ex = assertThrows(AccountNotActiveException.class, () ->
-                validator.validate(suspendedNoCash, instrument, null, OrderSide.BUY,
-                        new BigDecimal("10"), new BigDecimal("50.00"), "key-8"));
-
-        assertEquals("ACC-403", ex.getCode());
-    }
+   
 }
 

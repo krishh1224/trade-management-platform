@@ -1,23 +1,30 @@
 package com.team5.domain;
 
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
+
 import java.time.LocalDateTime;
 
 public class Portfolio {
 
+    @NotNull
     private final Long portfolioId;
+
+    @NotBlank
     private final String name;
+
+    @NotNull
     private final Long accountId;
+
+    @NotBlank
     private final String status;
+
     private final LocalDateTime createdAt;
+
     private final LocalDateTime updatedAt;
 
     public Portfolio(Long portfolioId, String name, Long accountId,
                      String status, LocalDateTime createdAt, LocalDateTime updatedAt) {
-        if (portfolioId == null)            throw new IllegalArgumentException("portfolioId must not be null.");
-        if (name == null || name.isBlank()) throw new IllegalArgumentException("Portfolio name must not be blank.");
-        if (accountId == null)              throw new IllegalArgumentException("accountId must not be null.");
-        if (status == null || status.isBlank()) throw new IllegalArgumentException("Portfolio status must not be blank.");
-
         this.portfolioId = portfolioId;
         this.name        = name;
         this.accountId   = accountId;

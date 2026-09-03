@@ -3,36 +3,51 @@ package com.team5.domain;
 import com.team5.domain.enums.OrderSide;
 import com.team5.domain.enums.OrderStatus;
 
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Positive;
+
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 public class Order {
 
+    @NotNull
     private final Long orderId;
+
+    @NotNull
     private final Long portfolioId;
+
+    @NotNull
     private final Long instrumentId;
+
+    @NotNull
+    @Positive
     private final BigDecimal quantity;
+
+    @NotNull
+    @Positive
     private final BigDecimal price;
+
+    @NotNull
     private OrderStatus status;
+
+    @NotNull
     private final OrderSide side;
+
+    @NotBlank
     private final String idempotencyKey;
+
     private final LocalDateTime createdAt;
+
     private final LocalDateTime updatedAt;
+
     private final LocalDateTime expiresAt;
 
     public Order(Long orderId, Long portfolioId, Long instrumentId,
                  BigDecimal quantity, BigDecimal price, OrderStatus status,
                  OrderSide side, String idempotencyKey,
                  LocalDateTime createdAt, LocalDateTime updatedAt, LocalDateTime expiresAt) {
-
-        if (orderId == null)                            throw new IllegalArgumentException("orderId must not be null.");
-        if (portfolioId == null)                        throw new IllegalArgumentException("portfolioId must not be null.");
-        if (instrumentId == null)                       throw new IllegalArgumentException("instrumentId must not be null.");
-        if (quantity == null || quantity.compareTo(BigDecimal.ZERO) <= 0) throw new IllegalArgumentException("quantity must be positive.");
-        if (price == null || price.compareTo(BigDecimal.ZERO) <= 0)       throw new IllegalArgumentException("price must be positive.");
-        if (status == null)                             throw new IllegalArgumentException("status must not be null.");
-        if (side == null)                               throw new IllegalArgumentException("side must not be null.");
-        if (idempotencyKey == null || idempotencyKey.isBlank()) throw new IllegalArgumentException("idempotencyKey must not be blank.");
 
         this.orderId        = orderId;
         this.portfolioId    = portfolioId;

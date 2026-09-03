@@ -2,23 +2,51 @@ package com.team5.domain;
 
 import com.team5.domain.enums.TransactionType;
 
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Positive;
+import jakarta.validation.constraints.PositiveOrZero;
+
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 public class Transaction {
 
+    @NotNull
     private final Long transactionId;
+    
+    @NotNull
     private final Long accountId;
+    
     private final Long orderId;
+    
     private final Long instrumentId;
+    
+    @NotNull
     private final TransactionType transactionType;
+    
     private final BigDecimal quantity;
+    
     private final BigDecimal price;
+    
+    @NotNull
+    @Positive
     private final BigDecimal amount;
+    
+    @NotBlank
     private final String currency;
+    
+    @NotNull
+    @PositiveOrZero
     private final BigDecimal balanceBefore;
+    
+    @NotNull
+    @PositiveOrZero
     private final BigDecimal balanceAfter;
+    
+    @NotBlank
     private final String idempotencyKey;
+    
     private final LocalDateTime createdAt;
 
     public Transaction(Long transactionId, Long accountId, Long orderId, Long instrumentId,
@@ -26,15 +54,6 @@ public class Transaction {
                        BigDecimal amount, String currency,
                        BigDecimal balanceBefore, BigDecimal balanceAfter,
                        String idempotencyKey, LocalDateTime createdAt) {
-
-        if (transactionId == null)          throw new IllegalArgumentException("transactionId must not be null.");
-        if (accountId == null)              throw new IllegalArgumentException("accountId must not be null.");
-        if (transactionType == null)        throw new IllegalArgumentException("transactionType must not be null.");
-        if (amount == null || amount.compareTo(BigDecimal.ZERO) <= 0) throw new IllegalArgumentException("amount must be positive.");
-        if (currency == null || currency.isBlank()) throw new IllegalArgumentException("currency must not be blank.");
-        if (balanceBefore == null || balanceBefore.compareTo(BigDecimal.ZERO) < 0) throw new IllegalArgumentException("balanceBefore must not be negative.");
-        if (balanceAfter == null || balanceAfter.compareTo(BigDecimal.ZERO) < 0)   throw new IllegalArgumentException("balanceAfter must not be negative.");
-        if (idempotencyKey == null || idempotencyKey.isBlank()) throw new IllegalArgumentException("idempotencyKey must not be blank.");
 
         this.transactionId   = transactionId;
         this.accountId       = accountId;
