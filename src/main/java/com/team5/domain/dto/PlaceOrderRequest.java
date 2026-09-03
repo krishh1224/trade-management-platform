@@ -5,11 +5,14 @@ import java.math.BigDecimal;
 
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Positive;
 
 public class PlaceOrderRequest {
     @jakarta.validation.constraints.NotBlank private String accountKey;
     @NotBlank private String symbol;
     @jakarta.validation.constraints.NotNull private OrderSide side;
+    @NotNull
+    @jakarta.validation.constraints.Positive
     private BigDecimal quantity;
     private BigDecimal price;
     private String idempotencyKey;
