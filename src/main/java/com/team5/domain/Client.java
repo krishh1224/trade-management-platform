@@ -1,5 +1,8 @@
 package com.team5.domain;
 
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
+
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 
@@ -7,12 +10,16 @@ public class Client {
 
     private final long id;
 
+    @NotBlank
     private final String name;
 
+    @NotBlank
     private final String email;
 
+    @NotBlank
     private final String phone;
 
+    @NotNull
     private final LocalDate dob;
 
     private final LocalDateTime createdAt;
@@ -21,10 +28,6 @@ public class Client {
 
     public Client(long id, String name, String email, String phone,
                   LocalDate dob, LocalDateTime createdAt, LocalDateTime updatedAt) {
-        if (name == null || name.isBlank())  throw new IllegalArgumentException("Client name must not be blank.");
-        if (email == null || email.isBlank()) throw new IllegalArgumentException("Client email must not be blank.");
-        if (phone == null || phone.isBlank()) throw new IllegalArgumentException("Client phone must not be blank.");
-        if (dob == null) throw new IllegalArgumentException("Client dob must not be null.");
         this.id = id;
         this.name = name;
         this.email = email;

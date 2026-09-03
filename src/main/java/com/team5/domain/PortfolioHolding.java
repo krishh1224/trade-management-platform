@@ -1,5 +1,9 @@
 package com.team5.domain;
 
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Positive;
+import jakarta.validation.constraints.PositiveOrZero;
+
 import java.math.BigDecimal;
 import java.math.MathContext;
 import java.math.RoundingMode;
@@ -7,10 +11,17 @@ import java.time.LocalDateTime;
 
 public class PortfolioHolding {
 
+    @NotNull
     private final Long portfolioHoldingId;
+    @NotNull
     private final Long portfolioId;
+    @NotNull
     private final Long instrumentId;
+    @NotNull
+    @PositiveOrZero
     private BigDecimal quantity;
+    @NotNull
+    @PositiveOrZero
     private BigDecimal averageCost;
     private final LocalDateTime createdAt;
     private final LocalDateTime updatedAt;
@@ -20,30 +31,20 @@ public class PortfolioHolding {
     public PortfolioHolding(Long portfolioHoldingId, Long portfolioId, Long instrumentId,
                             BigDecimal quantity, BigDecimal averageCost,
                             LocalDateTime createdAt, LocalDateTime updatedAt) {
-        if (portfolioHoldingId == null) throw new IllegalArgumentException("portfolioHoldingId must not be null.");
-        if (portfolioId == null)        throw new IllegalArgumentException("portfolioId must not be null.");
-        if (instrumentId == null)       throw new IllegalArgumentException("instrumentId must not be null.");
-        if (quantity == null || quantity.compareTo(BigDecimal.ZERO) < 0)     throw new IllegalArgumentException("quantity must not be negative.");
-        if (averageCost == null || averageCost.compareTo(BigDecimal.ZERO) < 0) throw new IllegalArgumentException("averageCost must not be negative.");
-
         this.portfolioHoldingId = portfolioHoldingId;
         this.portfolioId        = portfolioId;
         this.instrumentId       = instrumentId;
-        this.quantity           = quantity.stripTrailingZeros();
-        this.averageCost        = averageCost.stripTrailingZeros();
+        this.quantity           = quantity != null ? quantity.stripTrailingZeros() : null;
+        this.averageCost        = averageCost != null ? averageCost.stripTrailingZeros() : null;
         this.createdAt          = createdAt;
         this.updatedAt          = updatedAt;
     }
 
-    public boolean hasEnough(BigDecimal requestedQuantity) {
-        if (requestedQuantity == null) throw new IllegalArgumentException("requestedQuantity must not be null.");
+    public boolean hasEnough(@NotNull BigDecimal requestedQuantity) {
         return quantity.compareTo(requestedQuantity) >= 0;
     }
 
-    public void buy(BigDecimal units, BigDecimal price) {
-        validatePositive(units, "buy units");
-        validatePositive(price, "buy price");
-
+    public void buy(@NotNull @Positive BigDecimal units, @NotNull @Positive BigDecimal price) {
         BigDecimal oldValue  = quantity.multiply(averageCost, AVG_COST_MC);
         BigDecimal newValue  = units.multiply(price, AVG_COST_MC);
         BigDecimal newQty    = quantity.add(units);
@@ -52,8 +53,7 @@ public class PortfolioHolding {
         quantity    = newQty;
     }
 
-    public void sell(BigDecimal units) {
-        validatePositive(units, "sell units");
+    public void sell(@NotNull @Positive BigDecimal units) {
         if (!hasEnough(units)) {
             throw new IllegalStateException(
                 "Cannot sell " + units.toPlainString()
@@ -69,13 +69,6 @@ public class PortfolioHolding {
     public BigDecimal getAverageCost()  { return averageCost; }
     public LocalDateTime getCreatedAt() { return createdAt; }
     public LocalDateTime getUpdatedAt() { return updatedAt; }
-
-    private static void validatePositive(BigDecimal value, String label) {
-        if (value == null)
-            throw new IllegalArgumentException(label + " must not be null.");
-        if (value.compareTo(BigDecimal.ZERO) <= 0)
-            throw new IllegalArgumentException(label + " must be positive; got " + value.toPlainString());
-    }
 
     @Override
     public String toString() {

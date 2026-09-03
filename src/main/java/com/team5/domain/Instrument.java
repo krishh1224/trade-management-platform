@@ -2,18 +2,26 @@ package com.team5.domain;
 
 import com.team5.domain.enums.Exchange;
 
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
+
 public class Instrument {
 
     private final long instrumentId;
 
+    @NotBlank
     private final String ticker;
 
+    @NotBlank
     private final String name;
 
+    @NotBlank
     private final String assetClass;
 
+    @NotBlank
     private final String currency;
 
+    @NotNull
     private final Exchange exchange;
 
     private boolean tradable;
@@ -21,12 +29,6 @@ public class Instrument {
     public Instrument(long instrumentId, String ticker, String name,
                       String assetClass, String currency, Exchange exchange,
                       boolean tradable) {
-        if (ticker == null || ticker.isBlank())     throw new IllegalArgumentException("ticker must not be blank.");
-        if (name == null || name.isBlank())         throw new IllegalArgumentException("Instrument name must not be blank.");
-        if (assetClass == null || assetClass.isBlank()) throw new IllegalArgumentException("assetClass must not be blank.");
-        if (currency == null || currency.isBlank()) throw new IllegalArgumentException("currency must not be blank.");
-        if (exchange == null)                       throw new IllegalArgumentException("exchange must not be null.");
-
         this.instrumentId = instrumentId;
         this.ticker       = ticker;
         this.name         = name;
