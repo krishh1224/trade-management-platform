@@ -27,4 +27,11 @@ public class PlaceOrderRequestValidationTest {
         Set<ConstraintViolation<PlaceOrderRequest>> violations = validator.validate(req);
         assertTrue(violations.isEmpty(), "Valid request should have no violations");
     }
+
+    @Test
+    public void nullAccountKey_isRejected() {
+        PlaceOrderRequest req = new PlaceOrderRequest(null, "AAPL", OrderSide.BUY, new BigDecimal("10.5"), new BigDecimal("150.25"), "idemp-key-1");
+        Set<ConstraintViolation<PlaceOrderRequest>> violations = validator.validate(req);
+        assertFalse(violations.isEmpty(), "Null account key should be rejected");
+    }
 }
