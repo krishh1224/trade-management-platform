@@ -41,4 +41,11 @@ public class PlaceOrderRequestValidationTest {
         Set<ConstraintViolation<PlaceOrderRequest>> violations = validator.validate(req);
         assertFalse(violations.isEmpty(), "Null symbol should be rejected");
     }
+
+    @Test
+    public void nullSide_isRejected() {
+        PlaceOrderRequest req = new PlaceOrderRequest("ACC123", "AAPL", null, new BigDecimal("10.5"), new BigDecimal("150.25"), "idemp-key-1");
+        Set<ConstraintViolation<PlaceOrderRequest>> violations = validator.validate(req);
+        assertFalse(violations.isEmpty(), "Null side should be rejected");
+    }
 }
