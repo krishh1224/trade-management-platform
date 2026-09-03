@@ -7,7 +7,7 @@ import jakarta.validation.constraints.NotBlank;
 
 public class PlaceOrderRequest {
     @jakarta.validation.constraints.NotBlank private String accountKey;
-    private String symbol;
+    @NotBlank private String symbol;
     private OrderSide side;
     private BigDecimal quantity;
     private BigDecimal price;
