@@ -17,7 +17,7 @@ public class PlaceOrderRequest {
     @NotNull
     @Positive
     private BigDecimal price;
-    private String idempotencyKey;
+    @NotBlank private String idempotencyKey;
 
     public PlaceOrderRequest(String accountKey, String symbol, OrderSide side, BigDecimal quantity, BigDecimal price, String idempotencyKey) {
         this.accountKey = accountKey;
