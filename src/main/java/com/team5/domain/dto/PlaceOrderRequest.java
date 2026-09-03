@@ -14,6 +14,8 @@ public class PlaceOrderRequest {
     @NotNull
     @jakarta.validation.constraints.Positive
     private BigDecimal quantity;
+    @NotNull
+    @Positive
     private BigDecimal price;
     private String idempotencyKey;
 
