@@ -1,13 +1,25 @@
 package com.team5.domain;
 
 import com.team5.domain.enums.TransactionType;
+import jakarta.validation.ConstraintViolation;
+import jakarta.validation.Validation;
+import jakarta.validation.Validator;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
 import java.math.BigDecimal;
+import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.*;
 
 class TransactionTest {
+
+    private static Validator validator;
+
+    @BeforeAll
+    static void setUpValidator() {
+        validator = Validation.buildDefaultValidatorFactory().getValidator();
+    }
 
     @Test
     void shouldIdentifyDepositAsCashTransaction() {
@@ -47,9 +59,15 @@ class TransactionTest {
 
     @Test
     void shouldRejectNullTransactionType() {
-        assertThrows(
-                IllegalArgumentException.class,
-                () -> createTransaction(null)
+        Transaction transaction =
+                createTransaction(null);
+
+        Set<ConstraintViolation<Transaction>> violations =
+                validator.validate(transaction);
+
+        assertTrue(
+                violations.stream()
+                        .anyMatch(v -> v.getPropertyPath().toString().equals("transactionType"))
         );
     }
 

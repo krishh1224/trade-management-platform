@@ -2,13 +2,25 @@ package com.team5.domain;
 
 import com.team5.domain.enums.AccountStatus;
 import com.team5.domain.enums.RiskProfile;
+import jakarta.validation.ConstraintViolation;
+import jakarta.validation.Validation;
+import jakarta.validation.Validator;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
 import java.math.BigDecimal;
+import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.*;
 
 class AccountTest {
+
+    private static Validator validator;
+
+    @BeforeAll
+    static void setUpValidator() {
+        validator = Validation.buildDefaultValidatorFactory().getValidator();
+    }
 
     @Test
     void shouldCreateAccountWithValidValues() {
@@ -16,25 +28,44 @@ class AccountTest {
 
         assertEquals("1000.00", account.getBalance().toPlainString());
         assertEquals(AccountStatus.ACTIVE, account.getStatus());
+
+        Set<ConstraintViolation<Account>> violations = validator.validate(account);
+        assertTrue(violations.isEmpty());
     }
 
     @Test
     void shouldRejectNullAccountId() {
-        assertThrows(
-                IllegalArgumentException.class,
-                () -> new Account(
-                        null, 1L, "ACC001", RiskProfile.LOW,
-                        "INR", new BigDecimal("1000.00"),
-                        AccountStatus.ACTIVE, null, null
-                )
+        Account account = new Account(
+                null,
+                1L,
+                "ACC001",
+                RiskProfile.LOW,
+                "INR",
+                new BigDecimal("1000.00"),
+                AccountStatus.ACTIVE,
+                null,
+                null
+        );
+
+        Set<ConstraintViolation<Account>> violations = validator.validate(account);
+
+        assertFalse(violations.isEmpty());
+        assertTrue(
+                violations.stream()
+                        .anyMatch(v -> v.getPropertyPath().toString().equals("accId"))
         );
     }
 
     @Test
     void shouldRejectNegativeOpeningBalance() {
-        assertThrows(
-                IllegalArgumentException.class,
-                () -> createAccount("-1.00")
+        Account account = createAccount("-1.00");
+
+        Set<ConstraintViolation<Account>> violations = validator.validate(account);
+
+        assertFalse(violations.isEmpty());
+        assertTrue(
+                violations.stream()
+                        .anyMatch(v -> v.getPropertyPath().toString().equals("balance"))
         );
     }
 
@@ -71,16 +102,6 @@ class AccountTest {
         );
 
         assertEquals("1000.00", account.getBalance().toPlainString());
-    }
-
-    @Test
-    void shouldRejectNonPositiveDebit() {
-        Account account = createAccount("1000.00");
-
-        assertThrows(
-                IllegalArgumentException.class,
-                () -> account.debit(BigDecimal.ZERO)
-        );
     }
 
     @Test

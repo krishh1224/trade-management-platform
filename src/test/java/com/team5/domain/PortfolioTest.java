@@ -1,10 +1,23 @@
 package com.team5.domain;
 
+import jakarta.validation.ConstraintViolation;
+import jakarta.validation.Validation;
+import jakarta.validation.Validator;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
+
+import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.*;
 
 class PortfolioTest {
+
+    private static Validator validator;
+
+    @BeforeAll
+    static void setUpValidator() {
+        validator = Validation.buildDefaultValidatorFactory().getValidator();
+    }
 
     @Test
     void shouldCreatePortfolioWithValidValues() {
@@ -13,20 +26,27 @@ class PortfolioTest {
         assertEquals(1L, portfolio.getPortfolioId());
         assertEquals("My Portfolio", portfolio.getName());
         assertTrue(portfolio.isActive());
+
+        assertTrue(validator.validate(portfolio).isEmpty());
     }
 
     @Test
     void shouldRejectBlankPortfolioName() {
-        assertThrows(
-                IllegalArgumentException.class,
-                () -> new Portfolio(
-                        1L,
-                        " ",
-                        1L,
-                        "ACTIVE",
-                        null,
-                        null
-                )
+        Portfolio portfolio = new Portfolio(
+                1L,
+                " ",
+                1L,
+                "ACTIVE",
+                null,
+                null
+        );
+
+        Set<ConstraintViolation<Portfolio>> violations =
+                validator.validate(portfolio);
+
+        assertTrue(
+                violations.stream()
+                        .anyMatch(v -> v.getPropertyPath().toString().equals("name"))
         );
     }
 

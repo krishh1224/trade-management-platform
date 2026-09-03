@@ -1,16 +1,28 @@
 package com.team5.domain;
 
+import jakarta.validation.ConstraintViolation;
+import jakarta.validation.Validation;
+import jakarta.validation.Validator;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
 import java.math.BigDecimal;
+import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.*;
 
 class PortfolioHoldingTest {
 
+    private static Validator validator;
+
+    @BeforeAll
+    static void setUpValidator() {
+        validator = Validation.buildDefaultValidatorFactory().getValidator();
+    }
+
     @Test
     void shouldCreateHoldingWithValidValues() {
-    PortfolioHolding holding = createHolding("100", "50");
+        PortfolioHolding holding = createHolding("100", "50");
 
         assertEquals(
                 0,
@@ -21,13 +33,20 @@ class PortfolioHoldingTest {
                 0,
                 new BigDecimal("50").compareTo(holding.getAverageCost())
         );
+
+        assertTrue(validator.validate(holding).isEmpty());
     }
 
     @Test
     void shouldRejectNegativeQuantity() {
-        assertThrows(
-                IllegalArgumentException.class,
-                () -> createHolding("-1", "50")
+        PortfolioHolding holding = createHolding("-1", "50");
+
+        Set<ConstraintViolation<PortfolioHolding>> violations =
+                validator.validate(holding);
+
+        assertTrue(
+                violations.stream()
+                        .anyMatch(v -> v.getPropertyPath().toString().equals("quantity"))
         );
     }
 
@@ -55,8 +74,8 @@ class PortfolioHoldingTest {
         );
 
         assertEquals(
-                new BigDecimal("150"),
-                holding.getQuantity()
+                0,
+                new BigDecimal("150").compareTo(holding.getQuantity())
         );
     }
 
@@ -70,8 +89,8 @@ class PortfolioHoldingTest {
         );
 
         assertEquals(
-                new BigDecimal("60"),
-                holding.getAverageCost()
+                0,
+                new BigDecimal("60").compareTo(holding.getAverageCost())
         );
     }
 
@@ -82,8 +101,8 @@ class PortfolioHoldingTest {
         holding.sell(new BigDecimal("40"));
 
         assertEquals(
-                new BigDecimal("60"),
-                holding.getQuantity()
+                0,
+                new BigDecimal("60").compareTo(holding.getQuantity())
         );
     }
 
