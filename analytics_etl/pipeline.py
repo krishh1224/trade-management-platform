@@ -45,15 +45,15 @@ def run_pipeline(
     )
 
     # Step 1: Extract
-    logger.info("Step 1/3: Extract")
+    logger.info("Step 1: Extract")
     raw_data = extract(symbols, start=start, end=end)
     logger.info(
-        "Extraction complete – got data for %d symbol(s): %s",
+        "Extraction complete – got data for %d symbols: %s",
         len(raw_data), ", ".join(raw_data.keys()),
     )
 
     # Step 2: Transform 
-    logger.info("Step 2/3: Transform")
+    logger.info("Step 2: Transform")
     
     import pandas as pd
     
@@ -77,7 +77,7 @@ def run_pipeline(
     )
 
     # Step 3: Load
-    logger.info("Step 3/3: Load")
+    logger.info("Step 3: Load")
     load(cleaned_df, db_path=str(db_path))
     logger.info("Load complete – data written to %s", db_path)
 
