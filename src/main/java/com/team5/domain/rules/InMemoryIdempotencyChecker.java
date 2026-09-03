@@ -1,14 +1,11 @@
+
 package com.team5.domain.rules;
 
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * In-memory implementation of {@link IdempotencyChecker}, backed by a set
- * rather than a database unique constraint. This is the Sprint 5 stand-in;
- * Sprint 6 replaces it with an implementation backed by the
- * {@code orders.idempotency_key} unique constraint, without changing
- * {@link OrderValidator} at all.
+ * Keeps track of idempotency keys that have already been used.
  */
 public class InMemoryIdempotencyChecker implements IdempotencyChecker {
 
@@ -30,3 +27,4 @@ public class InMemoryIdempotencyChecker implements IdempotencyChecker {
         seenKeys.add(idempotencyKey);
     }
 }
+

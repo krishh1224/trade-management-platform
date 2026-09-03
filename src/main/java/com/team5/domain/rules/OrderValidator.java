@@ -1,3 +1,4 @@
+
 package com.team5.domain.rules;
 
 import com.team5.domain.Account;
@@ -14,24 +15,7 @@ import com.team5.domain.exception.InsufficientHoldingsException;
 import java.math.BigDecimal;
 
 /**
- * Enforces business rules 1-8 for a prospective order, in the stated order,
- * with first-failure-wins semantics.
- *
- * This class lives in the domain, not a controller, precisely so the Trade
- * Executor (a later component) can call the same logic directly instead of
- * re-implementing it. Rules re-implemented in two places drift; the first
- * drift accepts an order the executor then refuses. There is exactly one
- * copy of this logic.
- *
- * Two rules from the ticket carry no code this sprint and are deliberately
- * NOT implemented here:
- *   - cash and position must move together, or neither moves (atomicity is
- *     an execution-layer / transaction-boundary concern, not a validation
- *     concern)
- *   - every order is recorded, including a rejected one (recording is an
- *     execution-layer side effect; validation must stay free of side
- *     effects other than the idempotency check itself)
- * Both are left for whichever ticket owns order execution/persistence.
+ * Validates an order against all the required business rules.
  */
 public class OrderValidator {
 
@@ -45,28 +29,7 @@ public class OrderValidator {
     }
 
     /**
-     * Validates a prospective order. Throws on the first rule that fails;
-     * returns normally (void) if the order passes all eight checks.
-     * Nothing is mutated - not the account, not the holding, not the
-     * idempotency checker - on either success or failure. Deciding whether
-     * to record the idempotency key, debit the account, and adjust the
-     * holding is the caller's job, once, atomically, after validation
-     * passes.
-     *
-     * @param account        the account placing the order; null means "no
-     *                       such account" (rule 1)
-     * @param instrument     the instrument being traded; null means "no
-     *                       such instrument" (rule 3)
-     * @param holding        the account's current holding in this
-     *                       instrument; null is treated as "holds zero" and
-     *                       only matters for a SELL (rule 7)
-     * @param side           BUY or SELL
-     * @param quantity       requested quantity; re-checked here even though
-     *                       a DTO validator may already have checked it,
-     *                       because this method must also be safe for a
-     *                       caller that never ran a validator
-     * @param price          requested price; re-checked for the same reason
-     * @param idempotencyKey the client-supplied idempotency key
+     * Checks the order rules in order and throws an exception if any rule fails.
      */
     public void validate(Account account,
                           Instrument instrument,
@@ -83,32 +46,32 @@ public class OrderValidator {
             throw new IllegalArgumentException("idempotencyKey must not be blank.");
         }
 
-        // Rule 1 - the account must exist.
+        // Check that the account exists.
         if (account == null) {
             throw new AccountNotFoundException();
         }
 
-        // Rule 2 - the account must be active.
+        // Check that the account is active.
         if (!account.isActive()) {
             throw new AccountNotActiveException();
         }
 
-        // Rule 3 - the instrument must exist and be tradable.
+        // Check that the instrument exists and can be traded.
         if (instrument == null || !instrument.isTradable()) {
             throw new InstrumentNotFoundException();
         }
 
-        // Rule 4 - quantity must be a valid, positive amount.
+        // Check that the quantity is positive.
         if (quantity == null || quantity.compareTo(BigDecimal.ZERO) <= 0) {
             throw new IllegalArgumentException("quantity must be positive.");
         }
 
-        // Rule 5 - price must be a valid, positive amount.
+        // Check that the price is positive.
         if (price == null || price.compareTo(BigDecimal.ZERO) <= 0) {
             throw new IllegalArgumentException("price must be positive.");
         }
 
-        // Rule 6 - a BUY must be affordable.
+        // Check if the account has enough money for a BUY.
         if (side == OrderSide.BUY) {
             BigDecimal cost = price.multiply(quantity);
             if (!account.canAfford(cost)) {
@@ -116,7 +79,7 @@ public class OrderValidator {
             }
         }
 
-        // Rule 7 - a SELL must not exceed the held quantity.
+        // Check if the account has enough holdings for a SELL.
         if (side == OrderSide.SELL) {
             boolean holdsEnough = holding != null && holding.hasEnough(quantity);
             if (!holdsEnough) {
@@ -124,9 +87,10 @@ public class OrderValidator {
             }
         }
 
-        // Rule 8 - the idempotency key must not be a duplicate.
+        // Check that the idempotency key has not already been used.
         if (idempotencyChecker.isDuplicate(idempotencyKey)) {
             throw new DuplicateOrderException();
         }
     }
 }
+

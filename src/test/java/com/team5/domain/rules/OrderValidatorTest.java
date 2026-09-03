@@ -1,3 +1,4 @@
+
 package com.team5.domain.rules;
 
 import com.team5.domain.Account;
@@ -50,10 +51,7 @@ class OrderValidatorTest {
                 LocalDateTime.now(), LocalDateTime.now());
     }
 
-    // 1. buy succeeds and updates cash and position
-    // (the validator itself does not mutate state - it only confirms the
-    // order is allowed to proceed; the actual debit/credit happens in the
-    // execution step. Here we assert validate() does not throw.)
+    // Checks that a valid BUY order passes all the rules.
     @Test
     void buySucceedsWhenAllRulesPass() {
         Account account = activeAccount(new BigDecimal("1000.00"));
@@ -61,12 +59,9 @@ class OrderValidatorTest {
 
         validator.validate(account, instrument, null, OrderSide.BUY,
                 new BigDecimal("10"), new BigDecimal("50.00"), "key-buy-1");
-
-        // no exception = rules passed; a real caller would now debit
-        // account and credit the holding as a single atomic step.
     }
 
-    // 2. buy rejected on insufficient funds
+    // Checks that a BUY is rejected when the account does not have enough money.
     @Test
     void buyRejectedOnInsufficientFunds() {
         Account account = activeAccount(new BigDecimal("100.00"));
@@ -79,7 +74,7 @@ class OrderValidatorTest {
         assertEquals("ORD-400", ex.getCode());
     }
 
-    // 3. sell rejected on insufficient holdings
+    // Checks that a SELL is rejected when the account does not have enough holdings.
     @Test
     void sellRejectedOnInsufficientHoldings() {
         Account account = activeAccount(new BigDecimal("1000.00"));
@@ -93,7 +88,7 @@ class OrderValidatorTest {
         assertEquals("ORD-409", ex.getCode());
     }
 
-    // 4. order rejected on an account that does not exist
+    // Checks that an order is rejected when the account does not exist.
     @Test
     void orderRejectedWhenAccountDoesNotExist() {
         Instrument instrument = tradableInstrument();
@@ -105,7 +100,7 @@ class OrderValidatorTest {
         assertEquals("ACC-404", ex.getCode());
     }
 
-    // 5. order rejected on an inactive account
+    // Checks that an order is rejected when the account is inactive.
     @Test
     void orderRejectedWhenAccountInactive() {
         Account account = new Account(1L, 1L, "ACC-0002", RiskProfile.MODERATE,
@@ -120,7 +115,7 @@ class OrderValidatorTest {
         assertEquals("ACC-403", ex.getCode());
     }
 
-    // 6. order rejected on an unknown or non-tradable instrument
+    // Checks that an order is rejected when the instrument does not exist.
     @Test
     void orderRejectedWhenInstrumentUnknown() {
         Account account = activeAccount(new BigDecimal("1000.00"));
@@ -131,6 +126,7 @@ class OrderValidatorTest {
         assertEquals("INS-404", ex.getCode());
     }
 
+    // Checks that an order is rejected when the instrument cannot be traded.
     @Test
     void orderRejectedWhenInstrumentNotTradable() {
         Account account = activeAccount(new BigDecimal("1000.00"));
@@ -142,7 +138,7 @@ class OrderValidatorTest {
                         new BigDecimal("10"), new BigDecimal("50.00"), "key-6b"));
     }
 
-    // 7. duplicate idempotency key rejected
+    // Checks that an order is rejected when the idempotency key is already used.
     @Test
     void duplicateIdempotencyKeyRejected() {
         Account account = activeAccount(new BigDecimal("1000.00"));
@@ -156,9 +152,7 @@ class OrderValidatorTest {
         assertEquals("ORD-409", ex.getCode());
     }
 
-    // 8. a request breaking two rules returns the code of the first
-    // (a suspended account holding no cash gets ACC-403, not ORD-400,
-    // because active-status (rule 2) precedes affordability (rule 6))
+    // Checks that when multiple rules fail, the first rule is returned.
     @Test
     void requestBreakingTwoRulesReturnsCodeOfFirst() {
         Account suspendedNoCash = new Account(1L, 1L, "ACC-0003", RiskProfile.MODERATE,
@@ -173,3 +167,4 @@ class OrderValidatorTest {
         assertEquals("ACC-403", ex.getCode());
     }
 }
+
