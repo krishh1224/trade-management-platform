@@ -3,8 +3,10 @@ package com.team5.domain.dto;
 import com.team5.domain.enums.OrderSide;
 import java.math.BigDecimal;
 
+import jakarta.validation.constraints.NotBlank;
+
 public class PlaceOrderRequest {
-    private String accountKey;
+    @jakarta.validation.constraints.NotBlank private String accountKey;
     private String symbol;
     private OrderSide side;
     private BigDecimal quantity;
