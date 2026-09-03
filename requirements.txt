@@ -1,0 +1,9 @@
+# Main dependencies
+requests>=2.31
+pandas>=2.0
+duckdb>=0.9
+plotly>=5.18
+python-dotenv>=1.0
+
+# Dev dependencies (for testing)
+pytest>=7.4

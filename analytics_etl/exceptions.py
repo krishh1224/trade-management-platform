@@ -47,4 +47,23 @@ class ExtractionError(FauxnanceError):
         super().__init__(
             f"Failed to extract data for '{symbol}' after retries: {cause}"
         )
+        
+class ServerError(Exception):
+    """
+    Raised when the Fauxnance API returns
+    a 5xx server-side failure.
+    """
+
+    def __init__(
+        self,
+        status_code: int,
+        message: str = "",
+    ) -> None:
+
+        self.status_code = status_code
+        self.message = message
+
+        super().__init__(
+            f"Server error {status_code}: {message}"
+        )
 

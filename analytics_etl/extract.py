@@ -10,11 +10,12 @@ import requests
 from dotenv import load_dotenv
 
 from analytics_etl.exceptions import (
-    AuthenticationError,
+    AuthenticationError, 
     BadRequestError,
     ExtractionError,
     QuotaExhaustedError,
     SymbolNotFoundError,
+    ServerError,
 )
 
 logger = logging.getLogger(__name__)
@@ -157,6 +158,27 @@ class FauxnanceClient:
                 detail = resp.text
             logger.error("Bad request (400) for %s: %s", path, detail)
             raise BadRequestError(detail)
+        
+        if 500 <= status < 600:
+            detail = ""
+            try:
+                detail = resp.json().get(
+                    "message",
+                    resp.text
+                )
+            except ValueError:
+                detail = resp.text
+            logger.error(
+                "Server error (%s) for %s: %s",
+                status,
+                path,
+                detail,
+            )
+
+            raise ServerError(
+                status_code=status,
+                message=detail,
+            )
 
         resp.raise_for_status()
         return {}  
