@@ -48,4 +48,32 @@ public class PlaceOrderRequestValidationTest {
         Set<ConstraintViolation<PlaceOrderRequest>> violations = validator.validate(req);
         assertFalse(violations.isEmpty(), "Null side should be rejected");
     }
+
+    @Test
+    public void nullQuantity_isRejected() {
+        PlaceOrderRequest req = new PlaceOrderRequest("ACC123", "AAPL", OrderSide.BUY, null, new BigDecimal("150.25"), "idemp-key-1");
+        Set<ConstraintViolation<PlaceOrderRequest>> violations = validator.validate(req);
+        assertFalse(violations.isEmpty(), "Null quantity should be rejected");
+    }
+
+    @Test
+    public void zeroQuantity_isRejected() {
+        PlaceOrderRequest req = new PlaceOrderRequest("ACC123", "AAPL", OrderSide.BUY, BigDecimal.ZERO, new BigDecimal("150.25"), "idemp-key-1");
+        Set<ConstraintViolation<PlaceOrderRequest>> violations = validator.validate(req);
+        assertFalse(violations.isEmpty(), "Zero quantity should be rejected");
+    }
+
+    @Test
+    public void negativeQuantity_isRejected() {
+        PlaceOrderRequest req = new PlaceOrderRequest("ACC123", "AAPL", OrderSide.BUY, new BigDecimal("-0.01"), new BigDecimal("150.25"), "idemp-key-1");
+        Set<ConstraintViolation<PlaceOrderRequest>> violations = validator.validate(req);
+        assertFalse(violations.isEmpty(), "Negative quantity should be rejected");
+    }
+
+    @Test
+    public void slightlyPositiveQuantity_isAccepted() {
+        PlaceOrderRequest req = new PlaceOrderRequest("ACC123", "AAPL", OrderSide.BUY, new BigDecimal("0.01"), new BigDecimal("150.25"), "idemp-key-1");
+        Set<ConstraintViolation<PlaceOrderRequest>> violations = validator.validate(req);
+        assertTrue(violations.isEmpty(), "Slightly positive quantity should be accepted");
+    }
 }
