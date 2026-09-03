@@ -8,16 +8,20 @@ import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Positive;
 
 public class PlaceOrderRequest {
-    @jakarta.validation.constraints.NotBlank private String accountKey;
-    @NotBlank private String symbol;
-    @jakarta.validation.constraints.NotNull private OrderSide side;
+    @NotBlank 
+    private String accountKey;
+    @NotBlank
+     private String symbol;
     @NotNull
-    @jakarta.validation.constraints.Positive
+     private OrderSide side;
+    @NotNull
+    @Positive
     private BigDecimal quantity;
     @NotNull
     @Positive
     private BigDecimal price;
-    @NotBlank private String idempotencyKey;
+    @NotBlank 
+    private String idempotencyKey;
 
     public PlaceOrderRequest(String accountKey, String symbol, OrderSide side, BigDecimal quantity, BigDecimal price, String idempotencyKey) {
         this.accountKey = accountKey;
