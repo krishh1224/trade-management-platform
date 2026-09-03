@@ -23,7 +23,16 @@ NUMERIC_PRICE_COLUMNS = [
     "adjclose",
 ]
 
-#transform a raw API response into a clean DataFrame
+OUTPUT_COLUMNS = [
+    "symbol",
+    "currency",
+    "interval",
+    *REQUIRED_FIELDS,
+    "volume",
+]
+
+
+# Transform a raw API response into a clean DataFrame
 def transform(raw_response: dict[str, Any]) -> pd.DataFrame:
     # 1. Validate the expected response structure
     if not isinstance(raw_response, dict):
@@ -58,24 +67,10 @@ def transform(raw_response: dict[str, Any]) -> pd.DataFrame:
         interval = interval.lower()
 
     # 2. Handle empty datasets by returning an empty DataFrame with required columns
-    output_columns = [
-        "symbol",
-        "currency",
-        "interval",
-        "date",
-        "open",
-        "high",
-        "low",
-        "close",
-        "adjclose",
-        "volume",
-        "synthetic",
-    ]
-
     if not candles:
-        return pd.DataFrame(columns=output_columns)
+        return pd.DataFrame(columns=OUTPUT_COLUMNS)
 
-    #  Convert raw candles into a DataFrame (List->df)
+    # Convert raw candles into a DataFrame (List -> DataFrame)
     df = pd.DataFrame(candles)
 
     # Add metadata to every candle to help describe it
@@ -112,7 +107,7 @@ def transform(raw_response: dict[str, Any]) -> pd.DataFrame:
         if not pd.isna(parsed):
             return parsed
 
-        # # Fall back to DD/MM/YYYY format
+        # Fall back to DD/MM/YYYY format
         return pd.to_datetime(
             value,
             format="%d/%m/%Y",
@@ -134,17 +129,7 @@ def transform(raw_response: dict[str, Any]) -> pd.DataFrame:
     )
 
     # 7. Drop rows missing required values (except volume)
-    required_after_conversion = [
-        "date",
-        "open",
-        "high",
-        "low",
-        "close",
-        "adjclose",
-        "synthetic",
-    ]
-
-    df = df.dropna(subset=required_after_conversion)
+    df = df.dropna(subset=REQUIRED_FIELDS)
 
     # 8. Remove duplicate trading days and keep the first valid occurrence
     df = df.drop_duplicates(
@@ -153,17 +138,17 @@ def transform(raw_response: dict[str, Any]) -> pd.DataFrame:
     )
 
     # 9. Validate ranges and financial consistency
-    
-    #(i) Price cannot be negative
+
+    # (i) Price cannot be negative
     price_is_valid = pd.Series(True, index=df.index)
 
     for column in NUMERIC_PRICE_COLUMNS:
         price_is_valid &= df[column] >= 0
 
-    #(ii) High must not be below low
+    # (ii) High must not be below low
     high_low_valid = df["high"] >= df["low"]
 
-    #(iii) Volume may be missing, but cannot be negative
+    # (iii) Volume may be missing, but cannot be negative
     volume_valid = df["volume"].isna() | (df["volume"] >= 0)
 
     df = df[
@@ -173,7 +158,7 @@ def transform(raw_response: dict[str, Any]) -> pd.DataFrame:
     ]
 
     # Sort and reset index
-    df = df[output_columns].copy()
+    df = df[OUTPUT_COLUMNS].copy()
 
     df = df.sort_values(
         by=["symbol", "date"],
