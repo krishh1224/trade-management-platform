@@ -104,4 +104,11 @@ public class PlaceOrderRequestValidationTest {
         Set<ConstraintViolation<PlaceOrderRequest>> violations = validator.validate(req);
         assertTrue(violations.isEmpty(), "Slightly positive price should be accepted");
     }
+
+    @Test
+    public void nullIdempotencyKey_isRejected() {
+        PlaceOrderRequest req = new PlaceOrderRequest("ACC123", "AAPL", OrderSide.BUY, new BigDecimal("10.5"), new BigDecimal("150.25"), null);
+        Set<ConstraintViolation<PlaceOrderRequest>> violations = validator.validate(req);
+        assertFalse(violations.isEmpty(), "Null idempotency key should be rejected");
+    }
 }
