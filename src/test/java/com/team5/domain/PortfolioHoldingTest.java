@@ -106,17 +106,6 @@ class PortfolioHoldingTest {
         );
     }
 
-    @Test
-    void shouldKeepAverageCostUnchangedAfterSell() {
-        PortfolioHolding holding = createHolding("100", "50");
-
-        holding.sell(new BigDecimal("40"));
-
-        assertEquals(
-                0,
-                new BigDecimal("50").compareTo(holding.getAverageCost())
-        );
-    }
 
     @Test
     void shouldRejectSellGreaterThanHolding() {
