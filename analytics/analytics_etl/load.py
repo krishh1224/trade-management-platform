@@ -1,18 +1,9 @@
 from pathlib import Path
-
 import duckdb
 import pandas as pd
 
-
-# DATABASE_PATH = (
-#     Path(__file__).resolve().parent.parent / "database" / "trade_data.duckdb"
-# )
-
-
 def load(clean_data: pd.DataFrame, db_path: str | None = None) -> None:
-
     store_to_duckdb(clean_data, db_path)
-
 
 def store_to_duckdb(clean_data: pd.DataFrame, db_path: str | None = None) -> None:
     """Create the DuckDB table if needed and upsert validated rows."""
@@ -39,12 +30,9 @@ def store_to_duckdb(clean_data: pd.DataFrame, db_path: str | None = None) -> Non
             )
         """)
 
-        # Pandas DataFrame becomes available to DuckDB as a temporary view.
         con.register("clean_data", clean_data)
-
-        # Upsert:
-        # - insert new (symbol, interval, date) rows
-        # - update an existing row with the same key
+        
+        # update an existing row with the same key
         con.execute("""
             INSERT INTO stock_prices
             SELECT

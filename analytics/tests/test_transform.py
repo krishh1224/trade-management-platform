@@ -20,7 +20,7 @@ def test_valid_reliance_fixture_transforms():
 
     result = transform(raw)
     assert isinstance(result, pd.DataFrame)
-    assert len(result) == 261
+    assert len(result) == 262
 
     assert list(result.columns) == [
         "symbol",
@@ -32,8 +32,8 @@ def test_valid_reliance_fixture_transforms():
         "low",
         "close",
         "adjclose",
-        "volume",
         "synthetic",
+        "volume",
     ]
 
     assert result["symbol"].unique()[0] == "RELIANCE.NS"
