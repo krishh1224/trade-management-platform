@@ -47,7 +47,7 @@ CREATE TABLE accounts (
     balance             DECIMAL(19,4) NOT NULL DEFAULT 0
                         CHECK (balance >= 0),
     status              VARCHAR(20) NOT NULL
-                        CHECK (status IN ('ACTIVE', 'FROZEN')),
+                        CHECK (status IN ('ACTIVE', 'SUSPENDED', 'CLOSED')),
     created_at          TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at          TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
 

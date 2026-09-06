@@ -230,5 +230,5 @@ This creates the schema and loads the seed data.
 - `apply.sh` uses `ON_ERROR_STOP=1`, so SQL errors stop the setup process.
 - If the schema changes after V1 has already been applied to an existing database, create a new migration such as `V2_*.sql` instead of silently changing V1.
 - The current risk profiles are `LOW`, `MODERATE`, and `ADVENTUROUS`.
-- The current account statuses are `ACTIVE` and `FROZEN`.
+- The current account statuses are `ACTIVE`, `SUSPENDED`, and `CLOSED`.
 - Orders represent buy/sell requests, while transactions represent completed financial events and cash movements.
