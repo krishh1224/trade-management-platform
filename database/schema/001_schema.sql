@@ -44,10 +44,11 @@ CREATE TABLE accounts (
     risk_profile        VARCHAR(20) NOT NULL
                         CHECK (risk_profile IN ('LOW', 'MODERATE', 'ADVENTUROUS')),
     base_currency       VARCHAR(3) NOT NULL,
-    balance             DECIMAL(19,4) NOT NULL DEFAULT 0
+    balance             DECIMAL(19,2) NOT NULL DEFAULT 0
                         CHECK (balance >= 0),
     status              VARCHAR(20) NOT NULL
                         CHECK (status IN ('ACTIVE', 'SUSPENDED', 'CLOSED')),
+    version             BIGINT NOT NULL DEFAULT 0,
     created_at          TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at          TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
@@ -87,9 +88,9 @@ CREATE TABLE portfolio_holdings (
     portfolio_holding_id BIGINT PRIMARY KEY,
     portfolio_id         BIGINT NOT NULL,
     instrument_id        BIGINT NOT NULL,
-    quantity             DECIMAL(19,6) NOT NULL
+    quantity             BIGINT NOT NULL
                         CHECK (quantity > 0),
-    avg_cost             DECIMAL(19,6) NOT NULL
+    avg_cost             DECIMAL(19,4) NOT NULL
                         CHECK (avg_cost >= 0),
     created_at           TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at           TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -111,9 +112,9 @@ CREATE TABLE orders (
     order_id            BIGINT PRIMARY KEY,
     portfolio_id        BIGINT NOT NULL,
     instrument_id       BIGINT NOT NULL,
-    quantity            DECIMAL(19,6) NOT NULL
+    quantity            BIGINT NOT NULL
                         CHECK (quantity > 0),
-    price               DECIMAL(19,6) NOT NULL
+    price               DECIMAL(19,4) NOT NULL
                         CHECK (price > 0),
     status              VARCHAR(30) NOT NULL,
     side                VARCHAR(10) NOT NULL
@@ -149,8 +150,8 @@ CREATE TABLE transactions (
                             )
                         ),
 
-    quantity            DECIMAL(19,6),
-    price               DECIMAL(19,6),
+    quantity            BIGINT,
+    price               DECIMAL(19,4),
 
     amount              DECIMAL(19,4) NOT NULL
                         CHECK (amount > 0),
