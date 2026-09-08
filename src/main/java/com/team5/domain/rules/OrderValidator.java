@@ -35,7 +35,7 @@ public class OrderValidator {
                           Instrument instrument,
                           PortfolioHolding holding,
                           OrderSide side,
-                          BigDecimal quantity,
+                          int quantity,
                           BigDecimal price,
                           String idempotencyKey) {
 

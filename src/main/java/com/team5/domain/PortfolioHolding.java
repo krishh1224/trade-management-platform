@@ -18,8 +18,8 @@ public class PortfolioHolding {
     @NotNull
     private final Long instrumentId;
     @NotNull
-    @PositiveOrZero
-    private BigDecimal quantity;
+    @Positive
+    private int quantity;
     @NotNull
     @PositiveOrZero
     private BigDecimal averageCost;
@@ -29,19 +29,19 @@ public class PortfolioHolding {
     private static final MathContext AVG_COST_MC = new MathContext(20, RoundingMode.HALF_UP);
 
     public PortfolioHolding(Long portfolioHoldingId, Long portfolioId, Long instrumentId,
-                            BigDecimal quantity, BigDecimal averageCost,
+                            int quantity, BigDecimal averageCost,
                             LocalDateTime createdAt, LocalDateTime updatedAt) {
         this.portfolioHoldingId = portfolioHoldingId;
         this.portfolioId        = portfolioId;
         this.instrumentId       = instrumentId;
-        this.quantity           = quantity != null ? quantity.stripTrailingZeros() : null;
+        this.quantity           = quantity;
         this.averageCost        = averageCost != null ? averageCost.stripTrailingZeros() : null;
         this.createdAt          = createdAt;
         this.updatedAt          = updatedAt;
     }
 
-    public boolean hasEnough(@NotNull BigDecimal requestedQuantity) {
-        return quantity.compareTo(requestedQuantity) >= 0;
+    public boolean hasEnough(@NotNull int requestedQuantity) {
+        return quantity >= requestedQuantity;
     }
 
     public void buy(@NotNull @Positive BigDecimal units, @NotNull @Positive BigDecimal price) {

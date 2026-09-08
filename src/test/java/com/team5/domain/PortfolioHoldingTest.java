@@ -54,14 +54,14 @@ class PortfolioHoldingTest {
     void shouldReturnTrueWhenHoldingHasEnoughQuantity() {
         PortfolioHolding holding = createHolding("100", "50");
 
-        assertTrue(holding.hasEnough(new BigDecimal("100")));
+        assertTrue(holding.hasEnough(100);
     }
 
     @Test
     void shouldReturnFalseWhenHoldingDoesNotHaveEnoughQuantity() {
         PortfolioHolding holding = createHolding("100", "50");
 
-        assertFalse(holding.hasEnough(new BigDecimal("101")));
+        assertFalse(holding.hasEnough(101);
     }
 
     @Test

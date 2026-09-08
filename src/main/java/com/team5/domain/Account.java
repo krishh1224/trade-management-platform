@@ -3,10 +3,7 @@ package com.team5.domain;
 import com.team5.domain.enums.AccountStatus;
 import com.team5.domain.enums.RiskProfile;
 
-import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.NotNull;
-import jakarta.validation.constraints.Positive;
-import jakarta.validation.constraints.PositiveOrZero;
+import jakarta.validation.constraints.*;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -21,6 +18,7 @@ public class Account {
     private final Long clientId;
     
     @NotBlank
+    @Size(min = 10, max = 10)
     private final String accountNumber;
     
     @NotNull
@@ -30,7 +28,7 @@ public class Account {
     private final String baseCurrency;
     
     @NotNull
-    @PositiveOrZero
+    @Positive
     private BigDecimal balance;
     
     @NotNull
