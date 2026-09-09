@@ -1,0 +1,31 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "sprint-04-analytics-etl"
+version = "0.1.0"
+description = "Sprint 4 – Analytics ETL pipeline over Fauxnance market data"
+requires-python = ">=3.10"
+dependencies = [
+    "requests>=2.31",
+    "pandas>=2.0",
+    "duckdb>=0.9",
+    "plotly>=5.18",
+    "python-dotenv>=1.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.4",
+]
+
+[project.scripts]
+etl-run = "analytics_etl.pipeline:main"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["analytics_etl*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
