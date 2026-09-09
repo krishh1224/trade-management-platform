@@ -45,7 +45,7 @@ class OrderValidatorTest {
                 "EQUITY", "USD", Exchange.NSE, true);
     }
 
-    private PortfolioHolding holdingOf(BigDecimal quantity) {
+    private PortfolioHolding holdingOf(int quantity) {
         return new PortfolioHolding(1L, 1L, 1L,
                 quantity, new BigDecimal("10.00"),
                 LocalDateTime.now(), LocalDateTime.now());
@@ -58,7 +58,7 @@ class OrderValidatorTest {
         Instrument instrument = tradableInstrument();
 
         validator.validate(account, instrument, null, OrderSide.BUY,
-                new BigDecimal("10"), new BigDecimal("50.00"), "key-buy-1");
+                10, new BigDecimal("50.00"), "key-buy-1");
     }
 
     // Checks that a BUY is rejected when the account does not have enough money.
@@ -69,7 +69,7 @@ class OrderValidatorTest {
 
         InsufficientFundsException ex = assertThrows(InsufficientFundsException.class, () ->
                 validator.validate(account, instrument, null, OrderSide.BUY,
-                        new BigDecimal("10"), new BigDecimal("50.00"), "key-buy-2"));
+                        10, new BigDecimal("50.00"), "key-buy-2"));
 
         assertEquals("ORD-400", ex.getCode());
     }
@@ -79,11 +79,11 @@ class OrderValidatorTest {
     void sellRejectedOnInsufficientHoldings() {
         Account account = activeAccount(new BigDecimal("1000.00"));
         Instrument instrument = tradableInstrument();
-        PortfolioHolding holding = holdingOf(new BigDecimal("5"));
+        PortfolioHolding holding = holdingOf(5);
 
         InsufficientHoldingsException ex = assertThrows(InsufficientHoldingsException.class, () ->
                 validator.validate(account, instrument, holding, OrderSide.SELL,
-                        new BigDecimal("10"), new BigDecimal("50.00"), "key-sell-1"));
+                        10, new BigDecimal("50.00"), "key-sell-1"));
 
         assertEquals("ORD-409", ex.getCode());
     }
@@ -95,7 +95,7 @@ class OrderValidatorTest {
 
         AccountNotFoundException ex = assertThrows(AccountNotFoundException.class, () ->
                 validator.validate(null, instrument, null, OrderSide.BUY,
-                        new BigDecimal("10"), new BigDecimal("50.00"), "key-4"));
+                        10, new BigDecimal("50.00"), "key-4"));
 
         assertEquals("ACC-404", ex.getCode());
     }
@@ -110,7 +110,7 @@ class OrderValidatorTest {
 
         AccountNotActiveException ex = assertThrows(AccountNotActiveException.class, () ->
                 validator.validate(account, instrument, null, OrderSide.BUY,
-                        new BigDecimal("10"), new BigDecimal("50.00"), "key-5"));
+                        10, new BigDecimal("50.00"), "key-5"));
 
         assertEquals("ACC-403", ex.getCode());
     }
@@ -122,7 +122,7 @@ class OrderValidatorTest {
 
         InstrumentNotFoundException ex = assertThrows(InstrumentNotFoundException.class, () ->
                 validator.validate(account, null, null, OrderSide.BUY,
-                        new BigDecimal("10"), new BigDecimal("50.00"), "key-6a"));
+                        10, new BigDecimal("50.00"), "key-6a"));
         assertEquals("INS-404", ex.getCode());
     }
 
@@ -135,7 +135,7 @@ class OrderValidatorTest {
 
         assertThrows(InstrumentNotFoundException.class, () ->
                 validator.validate(account, delisted, null, OrderSide.BUY,
-                        new BigDecimal("10"), new BigDecimal("50.00"), "key-6b"));
+                        10, new BigDecimal("50.00"), "key-6b"));
     }
 
     // Checks that an order is rejected when the quantity is zero, negative, or missing.
@@ -146,15 +146,11 @@ void orderRejectedWhenQuantityIsInvalid() {
 
     assertThrows(IllegalArgumentException.class, () ->
             validator.validate(account, instrument, null, OrderSide.BUY,
-                    BigDecimal.ZERO, new BigDecimal("50.00"), "key-qty-1"));
+                    0, new BigDecimal("50.00"), "key-qty-1"));
 
     assertThrows(IllegalArgumentException.class, () ->
             validator.validate(account, instrument, null, OrderSide.BUY,
-                    new BigDecimal("-10"), new BigDecimal("50.00"), "key-qty-2"));
-
-    assertThrows(IllegalArgumentException.class, () ->
-            validator.validate(account, instrument, null, OrderSide.BUY,
-                    null, new BigDecimal("50.00"), "key-qty-3"));
+                    -10, new BigDecimal("50.00"), "key-qty-2"));
 }
 
 // Checks that an order is rejected when the price is zero, negative, or missing.
@@ -165,15 +161,15 @@ void orderRejectedWhenPriceIsInvalid() {
 
     assertThrows(IllegalArgumentException.class, () ->
             validator.validate(account, instrument, null, OrderSide.BUY,
-                    new BigDecimal("10"), BigDecimal.ZERO, "key-price-1"));
+                    10, BigDecimal.ZERO, "key-price-1"));
 
     assertThrows(IllegalArgumentException.class, () ->
             validator.validate(account, instrument, null, OrderSide.BUY,
-                    new BigDecimal("10"), new BigDecimal("-50.00"), "key-price-2"));
+                    10, new BigDecimal("-50.00"), "key-price-2"));
 
     assertThrows(IllegalArgumentException.class, () ->
             validator.validate(account, instrument, null, OrderSide.BUY,
-                    new BigDecimal("10"), null, "key-price-3"));
+                    10, null, "key-price-3"));
 }
 
     // Checks that an order is rejected when the idempotency key is already used.
@@ -185,7 +181,7 @@ void orderRejectedWhenPriceIsInvalid() {
 
         DuplicateOrderException ex = assertThrows(DuplicateOrderException.class, () ->
                 validator.validate(account, instrument, null, OrderSide.BUY,
-                        new BigDecimal("10"), new BigDecimal("50.00"), "key-7"));
+                        10, new BigDecimal("50.00"), "key-7"));
 
         assertEquals("ORD-409", ex.getCode());
     }

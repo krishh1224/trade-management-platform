@@ -25,7 +25,7 @@ public class Transaction {
     @NotNull
     private final TransactionType transactionType;
     
-    private final BigDecimal quantity;
+    private final int quantity;
     
     private final BigDecimal price;
     
@@ -50,7 +50,7 @@ public class Transaction {
     private final LocalDateTime createdAt;
 
     public Transaction(Long transactionId, Long accountId, Long orderId, Long instrumentId,
-                       TransactionType transactionType, BigDecimal quantity, BigDecimal price,
+                       TransactionType transactionType, int quantity, BigDecimal price,
                        BigDecimal amount, String currency,
                        BigDecimal balanceBefore, BigDecimal balanceAfter,
                        String idempotencyKey, LocalDateTime createdAt) {
@@ -85,7 +85,7 @@ public class Transaction {
     public Long getOrderId()               { return orderId; }
     public Long getInstrumentId()          { return instrumentId; }
     public TransactionType getTransactionType() { return transactionType; }
-    public BigDecimal getQuantity()        { return quantity; }
+    public int getQuantity()               { return quantity; }
     public BigDecimal getPrice()           { return price; }
     public BigDecimal getAmount()          { return amount; }
     public String getCurrency()            { return currency; }

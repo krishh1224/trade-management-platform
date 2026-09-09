@@ -38,7 +38,7 @@ class AccountTest {
         Account account = new Account(
                 null,
                 1L,
-                "ACC001",
+                "ACC0000001",
                 RiskProfile.LOW,
                 "INR",
                 new BigDecimal("1000.00"),
@@ -142,7 +142,7 @@ class AccountTest {
         return new Account(
                 1L,
                 1L,
-                "ACC001",
+                "ACC0000001",
                 RiskProfile.LOW,
                 "INR",
                 new BigDecimal(balance),

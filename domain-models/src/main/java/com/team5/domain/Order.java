@@ -23,7 +23,7 @@ public class Order {
 
     @NotNull
     @Positive
-    private final BigDecimal quantity;
+    private final int quantity;
 
     @NotNull
     @Positive
@@ -45,7 +45,7 @@ public class Order {
     private final LocalDateTime expiresAt;
 
     public Order(Long orderId, Long portfolioId, Long instrumentId,
-                 BigDecimal quantity, BigDecimal price, OrderStatus status,
+                 int quantity, BigDecimal price, OrderStatus status,
                  OrderSide side, String idempotencyKey,
                  LocalDateTime createdAt, LocalDateTime updatedAt, LocalDateTime expiresAt) {
 
@@ -82,7 +82,7 @@ public class Order {
     public Long getOrderId()          { return orderId; }
     public Long getPortfolioId()      { return portfolioId; }
     public Long getInstrumentId()     { return instrumentId; }
-    public BigDecimal getQuantity()   { return quantity; }
+    public int getQuantity()   { return quantity; }
     public BigDecimal getPrice()      { return price; }
     public OrderStatus getStatus()    { return status; }
     public OrderSide getSide()        { return side; }

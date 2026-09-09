@@ -35,7 +35,7 @@ public class OrderValidator {
                           Instrument instrument,
                           PortfolioHolding holding,
                           OrderSide side,
-                          BigDecimal quantity,
+                          int quantity,
                           BigDecimal price,
                           String idempotencyKey) {
 
@@ -62,7 +62,7 @@ public class OrderValidator {
         }
 
         // Check that the quantity is positive.
-        if (quantity == null || quantity.compareTo(BigDecimal.ZERO) <= 0) {
+        if (quantity <= 0) {
             throw new IllegalArgumentException("quantity must be positive.");
         }
 
@@ -73,7 +73,7 @@ public class OrderValidator {
 
         // Check if the account has enough money for a BUY.
         if (side == OrderSide.BUY) {
-            BigDecimal cost = price.multiply(quantity);
+            BigDecimal cost = price.multiply(BigDecimal.valueOf(quantity));
             if (!account.canAfford(cost)) {
                 throw new InsufficientFundsException();
             }
