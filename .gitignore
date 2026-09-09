@@ -1,23 +1,33 @@
 # Environment / secrets
 .env
 
-# PostgreSQL / local database files
-*.log
-
-# OS files
-.DS_Store
-Thumbs.db
-
-# IDE
-.idea/
-.vscode/
+# Cache directory (raw API responses)
+.cache/
 
 # Python
 __pycache__/
-*.pyc
+*.py[cod]
+*.egg-info/
+dist/
+build/
+*.egg
+
+#charts
+/charts/
+
+# Virtual environment
 .venv/
 venv/
 
-.cache/
-analytics.duckdb
-charts/
+# DuckDB analytical store
+*.duckdb
+*.duckdb.wal
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+Thumbs.db
+.DS_Store
+
