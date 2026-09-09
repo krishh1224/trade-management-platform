@@ -78,7 +78,7 @@ class TransactionTest {
                 1L,
                 1L,
                 type,
-                new BigDecimal("10"),
+                10,
                 new BigDecimal("100"),
                 new BigDecimal("1000"),
                 "INR",

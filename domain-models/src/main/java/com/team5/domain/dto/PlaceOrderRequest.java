@@ -14,16 +14,15 @@ public class PlaceOrderRequest {
      private String symbol;
     @NotNull
      private OrderSide side;
-    @NotNull
     @Positive
-    private BigDecimal quantity;
+    private int quantity;
     @NotNull
     @Positive
     private BigDecimal price;
     @NotBlank 
     private String idempotencyKey;
 
-    public PlaceOrderRequest(String accountKey, String symbol, OrderSide side, BigDecimal quantity, BigDecimal price, String idempotencyKey) {
+    public PlaceOrderRequest(String accountKey, String symbol, OrderSide side, int quantity, BigDecimal price, String idempotencyKey) {
         this.accountKey = accountKey;
         this.symbol = symbol;
         this.side = side;
@@ -35,7 +34,7 @@ public class PlaceOrderRequest {
     public String getAccountKey() { return accountKey; }
     public String getSymbol() { return symbol; }
     public OrderSide getSide() { return side; }
-    public BigDecimal getQuantity() { return quantity; }
+    public int getQuantity() { return quantity; }
     public BigDecimal getPrice() { return price; }
     public String getIdempotencyKey() { return idempotencyKey; }
 }

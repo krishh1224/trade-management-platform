@@ -18,8 +18,8 @@ public class PortfolioHolding {
     @NotNull
     private final Long instrumentId;
     @NotNull
-    @PositiveOrZero
-    private BigDecimal quantity;
+    @Positive
+    private int quantity;
     @NotNull
     @PositiveOrZero
     private BigDecimal averageCost;
@@ -29,43 +29,43 @@ public class PortfolioHolding {
     private static final MathContext AVG_COST_MC = new MathContext(20, RoundingMode.HALF_UP);
 
     public PortfolioHolding(Long portfolioHoldingId, Long portfolioId, Long instrumentId,
-                            BigDecimal quantity, BigDecimal averageCost,
+                            int quantity, BigDecimal averageCost,
                             LocalDateTime createdAt, LocalDateTime updatedAt) {
         this.portfolioHoldingId = portfolioHoldingId;
         this.portfolioId        = portfolioId;
         this.instrumentId       = instrumentId;
-        this.quantity           = quantity != null ? quantity.stripTrailingZeros() : null;
+        this.quantity           = quantity;
         this.averageCost        = averageCost != null ? averageCost.stripTrailingZeros() : null;
         this.createdAt          = createdAt;
         this.updatedAt          = updatedAt;
     }
 
-    public boolean hasEnough(@NotNull BigDecimal requestedQuantity) {
-        return quantity.compareTo(requestedQuantity) >= 0;
+    public boolean hasEnough(@NotNull int requestedQuantity) {
+        return quantity>=requestedQuantity;
     }
 
-    public void buy(@NotNull @Positive BigDecimal units, @NotNull @Positive BigDecimal price) {
-        BigDecimal oldValue  = quantity.multiply(averageCost, AVG_COST_MC);
-        BigDecimal newValue  = units.multiply(price, AVG_COST_MC);
-        BigDecimal newQty    = quantity.add(units);
+    public void buy(@Positive int units, @NotNull @Positive BigDecimal price) {
+        BigDecimal oldValue  = BigDecimal.valueOf(quantity).multiply(averageCost, AVG_COST_MC);
+        BigDecimal newValue  = BigDecimal.valueOf(units).multiply(price, AVG_COST_MC);
+        int newQty    = quantity + units;
 
-        averageCost = oldValue.add(newValue).divide(newQty, AVG_COST_MC);
+        averageCost = oldValue.add(newValue).divide(BigDecimal.valueOf(newQty), AVG_COST_MC);
         quantity    = newQty;
     }
 
-    public void sell(@NotNull @Positive BigDecimal units) {
+    public void sell(@Positive int units) {
         if (!hasEnough(units)) {
             throw new IllegalStateException(
-                "Cannot sell " + units.toPlainString()
-                + " units: holding is only " + quantity.toPlainString() + " units.");
+                "Cannot sell " + units
+                + " units: holding is only " + quantity + " units.");
         }
-        quantity = quantity.subtract(units);
+        quantity = quantity - units;
     }
 
     public Long getPortfolioHoldingId() { return portfolioHoldingId; }
     public Long getPortfolioId()        { return portfolioId; }
     public Long getInstrumentId()       { return instrumentId; }
-    public BigDecimal getQuantity()     { return quantity; }
+    public int getQuantity()     { return quantity; }
     public BigDecimal getAverageCost()  { return averageCost; }
     public LocalDateTime getCreatedAt() { return createdAt; }
     public LocalDateTime getUpdatedAt() { return updatedAt; }

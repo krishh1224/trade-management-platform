@@ -24,10 +24,7 @@ class PortfolioHoldingTest {
     void shouldCreateHoldingWithValidValues() {
         PortfolioHolding holding = createHolding("100", "50");
 
-        assertEquals(
-                0,
-                new BigDecimal("100").compareTo(holding.getQuantity())
-        );
+        assertEquals(100, holding.getQuantity());
 
         assertEquals(
                 0,
@@ -54,14 +51,14 @@ class PortfolioHoldingTest {
     void shouldReturnTrueWhenHoldingHasEnoughQuantity() {
         PortfolioHolding holding = createHolding("100", "50");
 
-        assertTrue(holding.hasEnough(new BigDecimal("100")));
+        assertTrue(holding.hasEnough(100));
     }
 
     @Test
     void shouldReturnFalseWhenHoldingDoesNotHaveEnoughQuantity() {
         PortfolioHolding holding = createHolding("100", "50");
 
-        assertFalse(holding.hasEnough(new BigDecimal("101")));
+        assertFalse(holding.hasEnough(101));
     }
 
     @Test
@@ -69,14 +66,11 @@ class PortfolioHoldingTest {
         PortfolioHolding holding = createHolding("100", "50");
 
         holding.buy(
-                new BigDecimal("50"),
+                50,
                 new BigDecimal("60")
         );
 
-        assertEquals(
-                0,
-                new BigDecimal("150").compareTo(holding.getQuantity())
-        );
+        assertEquals(150, holding.getQuantity());
     }
 
     @Test
@@ -84,7 +78,7 @@ class PortfolioHoldingTest {
         PortfolioHolding holding = createHolding("100", "50");
 
         holding.buy(
-                new BigDecimal("100"),
+                100,
                 new BigDecimal("70")
         );
 
@@ -98,12 +92,9 @@ class PortfolioHoldingTest {
     void shouldDecreaseQuantityAfterSell() {
         PortfolioHolding holding = createHolding("100", "50");
 
-        holding.sell(new BigDecimal("40"));
+        holding.sell(40);
 
-        assertEquals(
-                0,
-                new BigDecimal("60").compareTo(holding.getQuantity())
-        );
+        assertEquals(60, holding.getQuantity());
     }
 
 
@@ -113,7 +104,7 @@ class PortfolioHoldingTest {
 
         assertThrows(
                 IllegalStateException.class,
-                () -> holding.sell(new BigDecimal("101"))
+                () -> holding.sell(101)
         );
     }
 
@@ -125,7 +116,7 @@ class PortfolioHoldingTest {
                 1L,
                 1L,
                 1L,
-                new BigDecimal(quantity),
+                Integer.parseInt(quantity),
                 new BigDecimal(averageCost),
                 null,
                 null
