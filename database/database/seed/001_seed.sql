@@ -1,9 +1,9 @@
 INSERT INTO clients (id, name, email, phone, dob) VALUES
-(1, 'Aarav Sharma', 'aarav.sharma@example.com', '9876500001', '1995-04-12'),
-(2, 'Diya Patel', 'diya.patel@example.com', '9876500002', '1992-08-25'),
-(3, 'Rohan Mehta', 'rohan.mehta@example.com', '9876500003', '1988-01-17'),
+(1, 'Sreyansh Baid', 'sreyansh.baid@example.com', '9876500001', '1995-04-12'),
+(2, 'Riya Rangwani', 'riya.rangwani@example.com', '9876500002', '1992-08-25'),
+(3, 'Krishna Gupta', 'krishna.gupta@example.com', '9876500003', '1988-01-17'),
 (4, 'Ananya Singh', 'ananya.singh@example.com', '9876500004', '1997-11-03'),
-(5, 'Kabir Shah', 'kabir.shah@example.com', '9876500005', '1990-06-21'),
+(5, 'Sameer Patil', 'sameer.patil@example.com', '9876500005', '1990-06-21'),
 (6, 'Meera Iyer', 'meera.iyer@example.com', '9876500006', '1994-09-14');
 
 INSERT INTO accounts
