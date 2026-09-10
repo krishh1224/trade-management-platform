@@ -13,6 +13,8 @@ import com.team5.auth.JwtTokenVerifier;
 import com.team5.domain.enums.AccountStatus;
 import com.team5.domain.enums.OrderSide;
 import com.team5.domain.enums.OrderStatus;
+import com.team5.domain.exception.AccountNotActiveException;
+import com.team5.domain.exception.AccountNotFoundException;
 import com.team5.dto.response.AccountResponse;
 import com.team5.dto.response.BalanceResponse;
 import com.team5.dto.response.OrderHistoryEntry;
@@ -143,5 +145,27 @@ class AccountControllerTest {
             .requestAttr(AUTHENTICATED_ACCOUNT_ID, 101L))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$").isArray());
+    }
+
+    @Test
+    void getAccount_shouldReturn404ForUnknownAccount() throws Exception {
+        when(accountService.getAccount(999L)).thenThrow(new AccountNotFoundException());
+
+        mockMvc.perform(get("/api/v1/accounts/{id}", 999L)
+            .requestAttr(AUTHENTICATED_ACCOUNT_ID, 999L))
+            .andExpect(status().isNotFound())
+            .andExpect(jsonPath("$.errorCode").value("ACC-404"))
+            .andExpect(jsonPath("$.message").value("Account not found"));
+    }
+
+    @Test
+    void getBalance_shouldReturn403WhenAccountIsInactive() throws Exception {
+        when(accountService.getBalance(101L)).thenThrow(new AccountNotActiveException());
+
+        mockMvc.perform(get("/api/v1/accounts/{id}/balance", 101L)
+            .requestAttr(AUTHENTICATED_ACCOUNT_ID, 101L))
+            .andExpect(status().isForbidden())
+            .andExpect(jsonPath("$.errorCode").value("ACC-403"))
+            .andExpect(jsonPath("$.message").value("Account not active"));
     }
 }
