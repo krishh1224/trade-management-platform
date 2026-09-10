@@ -1,8 +1,11 @@
 package com.team5.controller;
 
+import com.team5.auth.AccountAccessAuthorizer;
+import com.team5.auth.RequestAuthContext;
 import com.team5.dto.request.PlaceOrderRequest;
 import com.team5.dto.response.OrderResponse;
 import com.team5.service.OrderService;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import java.util.UUID;
 import org.springframework.http.ResponseEntity;
@@ -20,13 +23,19 @@ import org.springframework.web.bind.annotation.RestController;
 public class OrderController {
 
     private final OrderService orderService;
+    private final AccountAccessAuthorizer accountAccessAuthorizer;
 
-    public OrderController(OrderService orderService) {
+    public OrderController(OrderService orderService, AccountAccessAuthorizer accountAccessAuthorizer) {
         this.orderService = orderService;
+        this.accountAccessAuthorizer = accountAccessAuthorizer;
     }
 
     @PostMapping
-    public ResponseEntity<OrderResponse> placeOrder(@Valid @RequestBody PlaceOrderRequest request) {
+    public ResponseEntity<OrderResponse> placeOrder(@Valid @RequestBody PlaceOrderRequest request, HttpServletRequest httpRequest) {
+        accountAccessAuthorizer.assertAuthorised(
+            RequestAuthContext.requireAuthenticatedAccountId(httpRequest),
+            request.getAccountId()
+        );
         return ResponseEntity.ok(orderService.placeOrder(request));
     }
 

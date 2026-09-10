@@ -8,6 +8,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.team5.controller.AccountController;
+import com.team5.auth.AccountAccessAuthorizer;
+import com.team5.auth.JwtTokenVerifier;
 import com.team5.domain.enums.AccountStatus;
 import com.team5.domain.enums.OrderSide;
 import com.team5.domain.enums.OrderStatus;
@@ -21,18 +23,28 @@ import java.time.OffsetDateTime;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.test.web.servlet.MockMvc;
 
 @WebMvcTest(AccountController.class)
+@AutoConfigureMockMvc(addFilters = false)
 class AccountControllerTest {
+
+    private static final String AUTHENTICATED_ACCOUNT_ID = "authenticatedAccountId";
 
     @Autowired
     private MockMvc mockMvc;
 
     @MockBean
     private AccountService accountService;
+
+    @MockBean
+    private AccountAccessAuthorizer accountAccessAuthorizer;
+
+    @MockBean
+    private JwtTokenVerifier jwtTokenVerifier;
 
     @Test
     void getAccount_shouldReturnAccountResponse() throws Exception {
@@ -46,7 +58,8 @@ class AccountControllerTest {
             OffsetDateTime.parse("2026-09-09T14:00:00Z")
         ));
 
-        mockMvc.perform(get("/api/v1/accounts/{id}", 101L))
+        mockMvc.perform(get("/api/v1/accounts/{id}", 101L)
+            .requestAttr(AUTHENTICATED_ACCOUNT_ID, 101L))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.id").value(101))
             .andExpect(jsonPath("$.accountId").value("ACC-000101"))
@@ -66,7 +79,8 @@ class AccountControllerTest {
             OffsetDateTime.parse("2026-09-09T14:00:00Z")
         ));
 
-        mockMvc.perform(get("/api/v1/accounts/{id}/balance", 101L))
+        mockMvc.perform(get("/api/v1/accounts/{id}/balance", 101L)
+            .requestAttr(AUTHENTICATED_ACCOUNT_ID, 101L))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.accountId").value(101))
             .andExpect(jsonPath("$.cashBalance").value(95000.0))
@@ -80,7 +94,8 @@ class AccountControllerTest {
             new PositionResponse(101L, "INFY.NS", 100, BigDecimal.valueOf(1450.00))
         ));
 
-        mockMvc.perform(get("/api/v1/accounts/{id}/positions", 101L))
+        mockMvc.perform(get("/api/v1/accounts/{id}/positions", 101L)
+            .requestAttr(AUTHENTICATED_ACCOUNT_ID, 101L))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$[0].accountId").value(101))
             .andExpect(jsonPath("$[0].symbol").value("INFY.NS"))
@@ -111,6 +126,7 @@ class AccountControllerTest {
         ));
 
         mockMvc.perform(get("/api/v1/accounts/{id}/orders", 101L)
+            .requestAttr(AUTHENTICATED_ACCOUNT_ID, 101L)
                 .queryParam("status", "FILLED")
                 .queryParam("from", "2026-09-01T00:00:00Z")
                 .queryParam("to", "2026-09-30T23:59:59Z"))
@@ -123,7 +139,8 @@ class AccountControllerTest {
     void getOrders_shouldWorkWithoutQueryParameters() throws Exception {
         when(accountService.getOrders(eq(101L), isNull(), isNull(), isNull())).thenReturn(List.of());
 
-        mockMvc.perform(get("/api/v1/accounts/{id}/orders", 101L))
+        mockMvc.perform(get("/api/v1/accounts/{id}/orders", 101L)
+            .requestAttr(AUTHENTICATED_ACCOUNT_ID, 101L))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$").isArray());
     }

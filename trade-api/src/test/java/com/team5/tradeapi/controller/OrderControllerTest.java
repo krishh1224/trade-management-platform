@@ -9,6 +9,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.team5.controller.OrderController;
+import com.team5.auth.AccountAccessAuthorizer;
+import com.team5.auth.JwtTokenVerifier;
 import com.team5.domain.enums.OrderSide;
 import com.team5.domain.enums.OrderStatus;
 import com.team5.dto.response.OrderResponse;
@@ -17,19 +19,29 @@ import java.math.BigDecimal;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 
 @WebMvcTest(OrderController.class)
+@AutoConfigureMockMvc(addFilters = false)
 class OrderControllerTest {
+
+    private static final String AUTHENTICATED_ACCOUNT_ID = "authenticatedAccountId";
 
     @Autowired
     private MockMvc mockMvc;
 
     @MockBean
     private OrderService orderService;
+
+    @MockBean
+    private AccountAccessAuthorizer accountAccessAuthorizer;
+
+    @MockBean
+    private JwtTokenVerifier jwtTokenVerifier;
 
     @Test
     void placeOrder_shouldReturnOrderResponse() throws Exception {
@@ -56,6 +68,7 @@ class OrderControllerTest {
 
         mockMvc.perform(post("/api/v1/orders")
                 .contentType(MediaType.APPLICATION_JSON)
+            .requestAttr(AUTHENTICATED_ACCOUNT_ID, 101L)
                 .content(body))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.orderId").value("ORD-6f2b1c2a-6a1e-4a4f-9c0d-2f7a1b3c4d5e"))
@@ -82,6 +95,7 @@ class OrderControllerTest {
 
         mockMvc.perform(post("/api/v1/orders")
                 .contentType(MediaType.APPLICATION_JSON)
+            .requestAttr(AUTHENTICATED_ACCOUNT_ID, 101L)
                 .content(body))
             .andExpect(status().isUnprocessableEntity())
             .andExpect(jsonPath("$.errorCode").value("VAL-422"))
@@ -101,7 +115,8 @@ class OrderControllerTest {
             BigDecimal.valueOf(1500.00)
         ));
 
-        mockMvc.perform(delete("/api/v1/orders/{id}", id))
+        mockMvc.perform(delete("/api/v1/orders/{id}", id)
+            .requestAttr(AUTHENTICATED_ACCOUNT_ID, 101L))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.orderId").value("ORD-6f2b1c2a-6a1e-4a4f-9c0d-2f7a1b3c4d5e"))
             .andExpect(jsonPath("$.status").value("CANCELLED"));
