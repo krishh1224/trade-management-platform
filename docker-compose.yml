@@ -1,0 +1,75 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: postgres
+    profiles: ["platform"]
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-trade_management}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./database/database/migration/V1_schema.sql:/docker-entrypoint-initdb.d/01_schema.sql:ro
+      - ./database/database/seed/001_seed.sql:/docker-entrypoint-initdb.d/02_seed.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-trade_management}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 15s
+    networks:
+      - trading-net
+
+  auth-stub:
+    build:
+      context: ./services/jwt-token-server
+      dockerfile: Dockerfile
+    container_name: auth-stub
+    profiles: ["platform"]
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:3001/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 5s
+    networks:
+      - trading-net
+
+  trade-api:
+    build:
+      context: .
+      dockerfile: ./trade-api/Dockerfile
+    container_name: trade-api
+    profiles: ["platform"]
+    ports:
+      - "8081:8081"
+    environment:
+      SPRING_PROFILES_ACTIVE: platform
+      POSTGRES_HOST: postgres
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:-trade_management}
+      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:-postgres}
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      JWT_SECRET: ${JWT_SECRET:-trade-api-shared-secret}
+      AUTH_STUB_HOST: auth-stub
+      AUTH_STUB_BASE_URL: http://auth-stub:3001
+      SERVER_PORT: 8081
+    depends_on:
+      postgres:
+        condition: service_healthy
+      auth-stub:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8081/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    networks:
+      - trading-net
+
+networks:
+  trading-net:
+    name: trading-net
+
+volumes:
+  pgdata:
