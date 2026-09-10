@@ -1,4 +1,4 @@
-package com.team5.domain.dto;
+package com.team5.dto;
 
 import com.team5.domain.enums.OrderSide;
 import java.math.BigDecimal;

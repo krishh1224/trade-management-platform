@@ -1,6 +1,7 @@
 package com.team5.domain.dto;
 
 import com.team5.domain.enums.OrderSide;
+import com.team5.dto.PlaceOrderRequest;
 import jakarta.validation.ConstraintViolation;
 import jakarta.validation.Validation;
 import jakarta.validation.Validator;

@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+  PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+  "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.team5.mapper.OrderCommandMapper">
+
+  <insert id="insertOrder">
+    INSERT INTO orders (
+      order_id,
+      portfolio_id,
+      instrument_id,
+      side,
+      quantity,
+      price,
+      status,
+      idempotency_key,
+      created_at,
+      updated_at
+    ) VALUES (
+      (('x' || substr(md5(#{orderId}), 1, 16))::bit(64)::bigint &amp; 9223372036854775807),
+      (SELECT p.portfolio_id FROM portfolio p WHERE p.account_id = #{accountId}),
+      (SELECT i.instrument_id FROM instruments i WHERE i.ticker = #{symbol}),
+      #{side},
+      #{quantity},
+      #{price},
+      #{status},
+      #{idempotencyKey},
+      #{createdOn},
+      #{updatedOn}
+    )
+  </insert>
+
+  <update id="updateOrderStatus">
+    UPDATE orders
+    SET
+      status = #{status},
+      updated_at = #{updatedOn}
+    WHERE order_id = (('x' || substr(md5(#{orderId}), 1, 16))::bit(64)::bigint &amp; 9223372036854775807)
+  </update>
+
+  <select id="findOrderByOrderId" resultType="com.team5.dto.response.OrderResponse">
+    SELECT
+      #{orderId} AS orderId,
+      o.status AS status,
+      CASE
+        WHEN o.status = 'CANCELLED' THEN 'Order cancelled'
+        ELSE 'Order accepted'
+      END AS message,
+      i.ticker AS symbol,
+      o.side AS side,
+      CAST(o.quantity AS INTEGER) AS quantity,
+      o.price AS price
+    FROM orders o
+    INNER JOIN instruments i ON i.instrument_id = o.instrument_id
+    WHERE o.order_id = (('x' || substr(md5(#{orderId}), 1, 16))::bit(64)::bigint &amp; 9223372036854775807)
+  </select>
+
+</mapper>

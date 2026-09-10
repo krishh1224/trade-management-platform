@@ -1,0 +1,8 @@
+spring:
+  datasource:
+    url: jdbc:postgresql://localhost:5432/trade_management
+    username: postgres
+    password: n3u3d4!
+
+mybatis:
+  mapper-locations: classpath:mapper/*.xml
