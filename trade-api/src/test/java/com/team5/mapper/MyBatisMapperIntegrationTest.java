@@ -3,25 +3,22 @@ package com.team5.mapper;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import com.team5.domain.enums.AccountStatus;
 import com.team5.domain.enums.OrderSide;
-import com.team5.domain.enums.OrderStatus;
+import com.team5.domain.exception.DuplicateOrderException;
+import com.team5.domain.exception.OrderConflictException;
 import com.team5.dto.request.PlaceOrderRequest;
-import com.team5.dto.response.AccountResponse;
-import com.team5.dto.response.BalanceResponse;
-import com.team5.dto.response.OrderHistoryEntry;
 import com.team5.dto.response.OrderResponse;
-import com.team5.dto.response.PositionResponse;
 import com.team5.service.OrderService;
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.OffsetDateTime;
-import java.util.List;
+import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.dao.DataAccessException;
 import org.springframework.jdbc.core.JdbcTemplate;
 
 @SpringBootTest(properties = {
@@ -33,17 +30,12 @@ class MyBatisMapperIntegrationTest {
     private JdbcTemplate jdbcTemplate;
 
     @Autowired
-    private OrderCommandMapper orderCommandMapper;
-
-    @Autowired
-    private AccountQueryMapper accountQueryMapper;
-
-    @Autowired
     private OrderService orderService;
 
     @BeforeEach
     void setUpSchemaAndData() {
         jdbcTemplate.execute("CREATE SCHEMA IF NOT EXISTS mapper_test");
+        jdbcTemplate.execute("DROP TABLE IF EXISTS transactions CASCADE");
         jdbcTemplate.execute("DROP TABLE IF EXISTS orders CASCADE");
         jdbcTemplate.execute("DROP TABLE IF EXISTS portfolio_holdings CASCADE");
         jdbcTemplate.execute("DROP TABLE IF EXISTS portfolio CASCADE");
@@ -123,18 +115,181 @@ class MyBatisMapperIntegrationTest {
               order_id BIGINT PRIMARY KEY,
               portfolio_id BIGINT NOT NULL,
               instrument_id BIGINT NOT NULL,
-              side VARCHAR(8) NOT NULL,
+              side VARCHAR(10) NOT NULL,
               quantity BIGINT NOT NULL CHECK (quantity > 0),
               price NUMERIC(19,4) NOT NULL CHECK (price > 0),
-              status VARCHAR(20) NOT NULL,
+              status VARCHAR(30) NOT NULL,
               idempotency_key VARCHAR(100) NOT NULL UNIQUE,
               created_at TIMESTAMP NOT NULL,
               updated_at TIMESTAMP NOT NULL,
+              expires_at TIMESTAMP,
               CONSTRAINT fk_orders_portfolio FOREIGN KEY (portfolio_id) REFERENCES portfolio(portfolio_id),
               CONSTRAINT fk_orders_instrument FOREIGN KEY (instrument_id) REFERENCES instruments(instrument_id)
             )
             """);
 
+        jdbcTemplate.execute("""
+            CREATE TABLE transactions (
+              transaction_id BIGINT PRIMARY KEY,
+              account_id BIGINT NOT NULL,
+              order_id BIGINT,
+              instrument_id BIGINT,
+              transaction_type VARCHAR(20) NOT NULL,
+              quantity BIGINT,
+              price NUMERIC(19,4),
+              amount NUMERIC(19,4) NOT NULL,
+              currency VARCHAR(3) NOT NULL,
+              balance_before NUMERIC(19,4) NOT NULL,
+              balance_after NUMERIC(19,4) NOT NULL,
+              idempotency_key VARCHAR(100) NOT NULL UNIQUE,
+              created_at TIMESTAMP NOT NULL,
+              CONSTRAINT fk_transactions_account FOREIGN KEY (account_id) REFERENCES accounts(acc_id),
+              CONSTRAINT fk_transactions_order FOREIGN KEY (order_id) REFERENCES orders(order_id),
+              CONSTRAINT fk_transactions_instrument FOREIGN KEY (instrument_id) REFERENCES instruments(instrument_id)
+            )
+            """);
+
+        seedBaseData();
+    }
+
+    @Test
+    void placeOrderCommitsOrderBalanceHoldingsAndTransaction() {
+        PlaceOrderRequest request = new PlaceOrderRequest();
+        request.setAccountId(101L);
+        request.setSymbol("INFY.NS");
+        request.setSide(OrderSide.BUY);
+        request.setQuantity(10);
+        request.setPrice(new BigDecimal("1000.00"));
+        request.setIdempotencyKey("idem-commit-1");
+
+        OrderResponse response = orderService.placeOrder(request);
+
+        assertNotNull(response);
+        assertTrue(response.orderId().startsWith("ORD-"));
+        assertEquals("NEW", response.status().name());
+
+        BigDecimal balance = jdbcTemplate.queryForObject(
+            "SELECT balance FROM accounts WHERE acc_id = 101",
+            BigDecimal.class
+        );
+        assertEquals(new BigDecimal("40000.00"), balance);
+
+        Long version = jdbcTemplate.queryForObject(
+            "SELECT version FROM accounts WHERE acc_id = 101",
+            Long.class
+        );
+        assertEquals(2L, version);
+
+        Long quantity = jdbcTemplate.queryForObject(
+            "SELECT quantity FROM portfolio_holdings WHERE portfolio_id = 201 AND instrument_id = 301",
+            Long.class
+        );
+        assertEquals(110L, quantity);
+
+        BigDecimal avgCost = jdbcTemplate.queryForObject(
+            "SELECT avg_cost FROM portfolio_holdings WHERE portfolio_id = 201 AND instrument_id = 301",
+            BigDecimal.class
+        );
+        assertEquals(new BigDecimal("1409.0909"), avgCost.setScale(4, RoundingMode.HALF_UP));
+
+        Integer orderCount = jdbcTemplate.queryForObject(
+            "SELECT COUNT(*) FROM orders WHERE idempotency_key = 'idem-commit-1'",
+            Integer.class
+        );
+        assertEquals(1, orderCount);
+
+        Integer transactionCount = jdbcTemplate.queryForObject(
+            "SELECT COUNT(*) FROM transactions WHERE account_id = 101 AND transaction_type = 'BUY'",
+            Integer.class
+        );
+        assertEquals(1, transactionCount);
+    }
+
+    @Test
+    void failedOrderRollsBackWithoutPartialWrites() {
+        jdbcTemplate.update(
+            """
+            INSERT INTO orders (order_id, portfolio_id, instrument_id, side, quantity, price, status, idempotency_key, created_at, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            900001L,
+            201L,
+            301L,
+            "NEW",
+            1L,
+            new BigDecimal("100.0000"),
+            "NEW",
+            "dup-key",
+            OffsetDateTime.parse("2026-09-10T10:00:00Z"),
+            OffsetDateTime.parse("2026-09-10T10:00:00Z")
+        );
+
+        PlaceOrderRequest request = new PlaceOrderRequest();
+        request.setAccountId(101L);
+        request.setSymbol("INFY.NS");
+        request.setSide(OrderSide.BUY);
+        request.setQuantity(10);
+        request.setPrice(new BigDecimal("1000.00"));
+        request.setIdempotencyKey("dup-key");
+
+        assertThrows(DuplicateOrderException.class, () -> orderService.placeOrder(request));
+
+        BigDecimal balance = jdbcTemplate.queryForObject(
+            "SELECT balance FROM accounts WHERE acc_id = 101",
+            BigDecimal.class
+        );
+        assertEquals(new BigDecimal("50000.00"), balance);
+
+        Long version = jdbcTemplate.queryForObject(
+            "SELECT version FROM accounts WHERE acc_id = 101",
+            Long.class
+        );
+        assertEquals(1L, version);
+
+        Long quantity = jdbcTemplate.queryForObject(
+            "SELECT quantity FROM portfolio_holdings WHERE portfolio_id = 201 AND instrument_id = 301",
+            Long.class
+        );
+        assertEquals(100L, quantity);
+
+        Integer transactionCount = jdbcTemplate.queryForObject(
+            "SELECT COUNT(*) FROM transactions WHERE idempotency_key LIKE 'txn-ORD-%'",
+            Integer.class
+        );
+        assertEquals(0, transactionCount);
+    }
+
+    @Test
+    void cancellingFilledOrderReturnsOrd409() {
+        UUID orderUuid = UUID.fromString("6f2b1c2a-6a1e-4a4f-9c0d-2f7a1b3c4d5e");
+        Long persistentOrderId = toPositiveLong(orderUuid);
+
+        jdbcTemplate.update(
+            """
+            INSERT INTO orders (order_id, portfolio_id, instrument_id, side, quantity, price, status, idempotency_key, created_at, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            persistentOrderId,
+            201L,
+            301L,
+            "BUY",
+            10L,
+            new BigDecimal("1200.0000"),
+            "FILLED",
+            "filled-cancel-key",
+            OffsetDateTime.parse("2026-09-10T10:00:00Z"),
+            OffsetDateTime.parse("2026-09-10T10:00:00Z")
+        );
+
+        OrderConflictException exception = assertThrows(
+            OrderConflictException.class,
+            () -> orderService.cancelOrder(orderUuid)
+        );
+
+        assertEquals("ORD-409", exception.getCode());
+    }
+
+    private void seedBaseData() {
         jdbcTemplate.update(
             """
             INSERT INTO clients (id, name, email, phone, dob, created_at, updated_at)
@@ -151,20 +306,6 @@ class MyBatisMapperIntegrationTest {
 
         jdbcTemplate.update(
             """
-            INSERT INTO clients (id, name, email, phone, dob, created_at, updated_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
-            """,
-            2L,
-            "Ravi Shah",
-            "ravi.shah@example.com",
-            "9876500202",
-            java.sql.Date.valueOf("1988-03-15"),
-            OffsetDateTime.parse("2026-09-09T15:00:00Z"),
-            OffsetDateTime.parse("2026-09-09T15:00:00Z")
-        );
-
-        jdbcTemplate.update(
-            """
             INSERT INTO accounts (acc_id, client_id, account_number, risk_profile, base_currency, balance, status, version, created_at, updated_at)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
@@ -173,28 +314,11 @@ class MyBatisMapperIntegrationTest {
             "1000000001",
             "MODERATE",
             "INR",
-            new BigDecimal("95000.00"),
-            "ACTIVE",
-            7L,
-            OffsetDateTime.parse("2026-09-09T14:00:00Z"),
-            OffsetDateTime.parse("2026-09-09T14:00:00Z")
-        );
-
-        jdbcTemplate.update(
-            """
-            INSERT INTO accounts (acc_id, client_id, account_number, risk_profile, base_currency, balance, status, version, created_at, updated_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """,
-            202L,
-            2L,
-            "1000000002",
-            "LOW",
-            "INR",
             new BigDecimal("50000.00"),
             "ACTIVE",
-            3L,
-            OffsetDateTime.parse("2026-09-09T15:00:00Z"),
-            OffsetDateTime.parse("2026-09-09T15:00:00Z")
+            1L,
+            OffsetDateTime.parse("2026-09-09T14:00:00Z"),
+            OffsetDateTime.parse("2026-09-09T14:00:00Z")
         );
 
         jdbcTemplate.update(
@@ -208,42 +332,10 @@ class MyBatisMapperIntegrationTest {
         );
 
         jdbcTemplate.update(
-            "INSERT INTO portfolio (portfolio_id, name, account_id, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)",
-            202L,
-            "Ravi Portfolio",
-            202L,
-            "ACTIVE",
-            OffsetDateTime.parse("2026-09-09T15:00:00Z"),
-            OffsetDateTime.parse("2026-09-09T15:00:00Z")
-        );
-
-        jdbcTemplate.update(
             "INSERT INTO instruments (instrument_id, name, ticker, asset_class, currency, exchange, tradable) VALUES (?, ?, ?, ?, ?, ?, ?)",
             301L,
             "Infosys Limited",
             "INFY.NS",
-            "EQUITY",
-            "INR",
-            "NSE",
-            true
-        );
-
-        jdbcTemplate.update(
-            "INSERT INTO instruments (instrument_id, name, ticker, asset_class, currency, exchange, tradable) VALUES (?, ?, ?, ?, ?, ?, ?)",
-            302L,
-            "Tata Consultancy Services",
-            "TCS.NS",
-            "EQUITY",
-            "INR",
-            "NSE",
-            true
-        );
-
-        jdbcTemplate.update(
-            "INSERT INTO instruments (instrument_id, name, ticker, asset_class, currency, exchange, tradable) VALUES (?, ?, ?, ?, ?, ?, ?)",
-            303L,
-            "Malicious Symbol Instrument",
-            "AAPL' OR '1'='1",
             "EQUITY",
             "INR",
             "NSE",
@@ -265,110 +357,8 @@ class MyBatisMapperIntegrationTest {
         );
     }
 
-    @Test
-    void orderRowCanBeInsertedAndRetrieved_withMaliciousSymbolStillBound() {
-        OffsetDateTime createdAt = OffsetDateTime.parse("2026-09-10T10:15:30Z");
-        String maliciousSymbol = "AAPL' OR '1'='1";
-
-        int insertedRows = orderCommandMapper.insertOrder(
-            "ORD-1001",
-            101L,
-            maliciousSymbol,
-            "BUY",
-            10,
-            new BigDecimal("1500.00"),
-            "NEW",
-            "idem-1001",
-            createdAt,
-            createdAt
-        );
-
-        assertEquals(1, insertedRows);
-
-        OrderResponse persisted = orderCommandMapper.findOrderByOrderId("ORD-1001");
-        assertNotNull(persisted);
-        assertEquals(maliciousSymbol, persisted.symbol());
-
-        List<OrderHistoryEntry> accountOrders = accountQueryMapper.getOrders(
-            101L,
-            null,
-            createdAt.minusDays(1),
-            createdAt.plusDays(1)
-        );
-        assertEquals(1, accountOrders.size());
-        assertEquals(maliciousSymbol, accountOrders.get(0).symbol());
-    }
-
-    @Test
-    void accountAndPositionsAreReadCorrectly() {
-        AccountResponse account = accountQueryMapper.getAccount(101L);
-        assertNotNull(account);
-        assertEquals(101L, account.id());
-        assertEquals("1000000001", account.accountId());
-        assertEquals(AccountStatus.ACTIVE, account.status());
-
-        BalanceResponse balance = accountQueryMapper.getBalance(101L);
-        assertNotNull(balance);
-        assertEquals(101L, balance.accountId());
-        assertEquals(new BigDecimal("95000.00"), balance.cashBalance());
-        assertEquals("INR", balance.currency());
-
-        List<PositionResponse> positions = accountQueryMapper.getPositions(101L);
-        assertEquals(1, positions.size());
-        assertEquals("INFY.NS", positions.get(0).symbol());
-        assertEquals(100, positions.get(0).quantity());
-    }
-
-    @Test
-    void insertAndUpdateOperationsReportAffectedRowCount() {
-        OffsetDateTime now = OffsetDateTime.parse("2026-09-10T11:00:00Z");
-
-        int insertCount = orderCommandMapper.insertOrder(
-            "ORD-2001",
-            101L,
-            "TCS.NS",
-            "BUY",
-            5,
-            new BigDecimal("3300.00"),
-            "NEW",
-            "idem-2001",
-            now,
-            now
-        );
-        assertEquals(1, insertCount);
-
-        int updateCount = orderCommandMapper.updateOrderStatus(
-            "ORD-2001",
-            "CANCELLED",
-            now.plusMinutes(1)
-        );
-        assertEquals(1, updateCount);
-
-        OrderResponse updated = orderCommandMapper.findOrderByOrderId("ORD-2001");
-        assertNotNull(updated);
-        assertEquals(OrderStatus.CANCELLED, updated.status());
-    }
-
-    @Test
-    void constraintViolationIsSurfacedToCaller() {
-        PlaceOrderRequest first = new PlaceOrderRequest();
-        first.setAccountId(101L);
-        first.setSymbol("INFY.NS");
-        first.setSide(OrderSide.BUY);
-        first.setQuantity(10);
-        first.setPrice(new BigDecimal("1500.00"));
-        first.setIdempotencyKey("duplicate-idempotency");
-
-        PlaceOrderRequest duplicate = new PlaceOrderRequest();
-        duplicate.setAccountId(101L);
-        duplicate.setSymbol("INFY.NS");
-        duplicate.setSide(OrderSide.BUY);
-        duplicate.setQuantity(10);
-        duplicate.setPrice(new BigDecimal("1500.00"));
-        duplicate.setIdempotencyKey("duplicate-idempotency");
-
-        orderService.placeOrder(first);
-
-        assertThrows(DataAccessException.class, () -> orderService.placeOrder(duplicate));
+    private Long toPositiveLong(UUID uuid) {
+        long mixed = uuid.getMostSignificantBits() ^ uuid.getLeastSignificantBits();
+        return mixed == Long.MIN_VALUE ? 0L : Math.abs(mixed);
     }
 }

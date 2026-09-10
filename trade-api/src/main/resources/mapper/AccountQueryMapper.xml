@@ -70,4 +70,25 @@
     ORDER BY o.created_at DESC
   </select>
 
+  <select id="findAccountForOrder" resultType="map">
+    SELECT
+      acc_id,
+      balance,
+      base_currency,
+      status,
+      version
+    FROM accounts
+    WHERE acc_id = #{accountId}
+  </select>
+
+  <update id="updateBalanceWithVersion">
+    UPDATE accounts
+    SET
+      balance = #{newBalance},
+      version = version + 1,
+      updated_at = #{updatedAt}
+    WHERE acc_id = #{accountId}
+      AND version = #{expectedVersion}
+  </update>
+
 </mapper>

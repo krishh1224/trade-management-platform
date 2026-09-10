@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+  PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+  "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.team5.mapper.HoldingMapper">
+
+  <select id="findHolding" resultType="map">
+    SELECT
+      portfolio_holding_id,
+      portfolio_id,
+      instrument_id,
+      quantity,
+      avg_cost
+    FROM portfolio_holdings
+    WHERE portfolio_id = #{portfolioId}
+      AND instrument_id = #{instrumentId}
+  </select>
+
+  <update id="updateHolding">
+    UPDATE portfolio_holdings
+    SET
+      quantity = #{quantity},
+      avg_cost = #{avgCost},
+      updated_at = #{updatedAt}
+    WHERE portfolio_holding_id = #{portfolioHoldingId}
+  </update>
+
+  <insert id="insertHolding">
+    INSERT INTO portfolio_holdings (
+      portfolio_holding_id,
+      portfolio_id,
+      instrument_id,
+      quantity,
+      avg_cost,
+      created_at,
+      updated_at
+    ) VALUES (
+      #{portfolioHoldingId},
+      #{portfolioId},
+      #{instrumentId},
+      #{quantity},
+      #{avgCost},
+      #{createdAt},
+      #{updatedAt}
+    )
+  </insert>
+
+  <delete id="deleteHolding">
+    DELETE FROM portfolio_holdings
+    WHERE portfolio_holding_id = #{portfolioHoldingId}
+  </delete>
+
+</mapper>
