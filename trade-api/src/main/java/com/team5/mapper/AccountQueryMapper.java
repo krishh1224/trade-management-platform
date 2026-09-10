@@ -13,7 +13,10 @@ import org.apache.ibatis.annotations.Param;
 
 @Mapper
 public interface AccountQueryMapper {
-
+    // @Param("accountId") - MyBatis param name (that sql query will use in xml file)
+    //  #{accountId} - above is mapped to this in xml file
+    // Long accountId - Java variable that will be passed to the query
+    //a.acc_id - Database column
     AccountResponse getAccount(@Param("accountId") Long accountId);
 
     BalanceResponse getBalance(@Param("accountId") Long accountId);
