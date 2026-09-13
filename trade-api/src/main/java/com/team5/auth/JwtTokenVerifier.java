@@ -2,6 +2,7 @@ package com.team5.auth;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.team5.exception.UnauthorisedException;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.Base64;

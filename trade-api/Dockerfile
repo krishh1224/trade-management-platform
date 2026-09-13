@@ -4,17 +4,12 @@ FROM maven:3.9.9-eclipse-temurin-17 AS build
 WORKDIR /workspace
 
 # Resolve dependencies first for better build cache reuse.
-COPY domain-models/pom.xml /workspace/domain-models/pom.xml
 COPY trade-api/pom.xml /workspace/trade-api/pom.xml
-RUN mvn -f /workspace/domain-models/pom.xml -DskipTests dependency:go-offline
 RUN mvn -f /workspace/trade-api/pom.xml -DskipTests dependency:go-offline
 
 # Copy source only after dependency resolution layers.
-COPY domain-models /workspace/domain-models
 COPY trade-api /workspace/trade-api
 
-# Build both projects inside the image build.
-RUN mvn -f /workspace/domain-models/pom.xml -DskipTests install
 RUN mvn -f /workspace/trade-api/pom.xml -DskipTests package
 
 FROM eclipse-temurin:17-jre-alpine AS runtime

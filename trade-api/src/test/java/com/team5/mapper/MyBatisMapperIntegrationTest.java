@@ -6,8 +6,8 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.team5.domain.enums.OrderSide;
-import com.team5.domain.exception.DuplicateOrderException;
-import com.team5.domain.exception.OrderConflictException;
+import com.team5.exception.DuplicateOrderException;
+import com.team5.exception.OrderConflictException;
 import com.team5.dto.request.PlaceOrderRequest;
 import com.team5.dto.response.OrderResponse;
 import com.team5.service.OrderService;

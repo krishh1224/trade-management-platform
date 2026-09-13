@@ -2,6 +2,7 @@ package com.team5.auth;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.team5.dto.response.ErrorResponse;
+import com.team5.exception.UnauthorisedException;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;

@@ -6,7 +6,7 @@ import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import com.team5.domain.enums.OrderSide;
-import com.team5.domain.exception.OrderConflictException;
+import com.team5.exception.OrderConflictException;
 import com.team5.dto.request.PlaceOrderRequest;
 import com.team5.mapper.AccountQueryMapper;
 import com.team5.mapper.HoldingMapper;

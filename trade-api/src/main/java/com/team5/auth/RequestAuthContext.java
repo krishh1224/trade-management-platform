@@ -1,5 +1,6 @@
 package com.team5.auth;
 
+import com.team5.exception.UnauthorisedException;
 import jakarta.servlet.http.HttpServletRequest;
 
 public final class RequestAuthContext {

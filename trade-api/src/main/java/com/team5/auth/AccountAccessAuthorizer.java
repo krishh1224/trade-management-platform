@@ -1,6 +1,6 @@
 package com.team5.auth;
 
-import com.team5.domain.exception.AccountNotActiveException;
+import com.team5.exception.AccountNotActiveException;
 import org.springframework.stereotype.Component;
 
 @Component

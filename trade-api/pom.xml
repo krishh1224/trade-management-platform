@@ -15,7 +15,7 @@
 	</parent>
 
 	<groupId>com.team5</groupId>
-	<artifactId>domain-models</artifactId>
+	<artifactId>trade-api</artifactId>
 	<version>1.0.0-SNAPSHOT</version>
 	<packaging>jar</packaging>
 
