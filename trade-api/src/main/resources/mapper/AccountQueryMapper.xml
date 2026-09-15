@@ -1,0 +1,94 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+  PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+  "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.team5.mapper.AccountQueryMapper">
+
+  <select id="getAccount" resultType="com.team5.dto.response.AccountResponse">
+    SELECT
+      a.acc_id AS id,
+      a.account_number AS accountId,
+      c.name AS holderName,
+      a.balance AS cashBalance,
+      a.status AS status,
+      a.version AS version,
+      a.updated_at AS lastUpdated
+    FROM accounts a
+    INNER JOIN clients c ON c.id = a.client_id
+    WHERE a.acc_id = #{accountId}
+  </select>
+
+  <select id="getBalance" resultType="com.team5.dto.response.BalanceResponse">
+    SELECT
+      a.acc_id AS accountId,
+      a.balance AS cashBalance,
+      a.base_currency AS currency,
+      a.updated_at AS asOf
+    FROM accounts a
+    WHERE a.acc_id = #{accountId}
+  </select>
+
+  <select id="getPositions" resultType="com.team5.dto.response.PositionResponse">
+    SELECT
+      p.account_id AS accountId,
+      i.ticker AS symbol,
+      CAST(ph.quantity AS INTEGER) AS quantity,
+      ph.avg_cost AS averageCost
+    FROM portfolio_holdings ph
+    INNER JOIN portfolio p ON p.portfolio_id = ph.portfolio_id
+    INNER JOIN instruments i ON i.instrument_id = ph.instrument_id
+    WHERE p.account_id = #{accountId}
+    ORDER BY i.ticker ASC
+  </select>
+
+  <select id="getOrders" resultType="com.team5.dto.response.OrderHistoryEntry">
+    SELECT
+      o.order_id::TEXT AS orderId,
+      p.account_id AS accountId,
+      i.ticker AS symbol,
+      o.side AS side,
+      CAST(o.quantity AS INTEGER) AS quantity,
+      o.price AS price,
+      CASE WHEN o.status = 'FILLED' THEN o.price ELSE NULL END AS executedPrice,
+      o.status AS status,
+      o.idempotency_key AS idempotencyKey,
+      o.created_at AS createdOn
+    FROM orders o
+    INNER JOIN portfolio p ON p.portfolio_id = o.portfolio_id
+    INNER JOIN instruments i ON i.instrument_id = o.instrument_id
+    WHERE p.account_id = #{accountId}
+    <if test="status != null">
+      AND o.status = #{status}
+    </if>
+    <if test="from != null">
+      AND o.created_at &gt;= #{from}
+    </if>
+    <if test="to != null">
+      AND o.created_at &lt;= #{to}
+    </if>
+    <!-- Allowlist: ordering is fixed to created_at DESC only; no user-provided sort column/direction is accepted. -->
+    ORDER BY o.created_at DESC
+  </select>
+
+  <select id="findAccountForOrder" resultType="map">
+    SELECT
+      acc_id,
+      balance,
+      base_currency,
+      status,
+      version
+    FROM accounts
+    WHERE acc_id = #{accountId}
+  </select>
+
+  <update id="updateBalanceWithVersion">
+    UPDATE accounts
+    SET
+      balance = #{newBalance},
+      version = version + 1,
+      updated_at = #{updatedAt}
+    WHERE acc_id = #{accountId}
+      AND version = #{expectedVersion}
+  </update>
+
+</mapper>
