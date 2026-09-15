@@ -45,6 +45,13 @@
     )
   </insert>
 
+  <select id="findAccountIdByOrderId" resultType="long">
+    SELECT p.account_id
+    FROM orders o
+    INNER JOIN portfolio p ON p.portfolio_id = o.portfolio_id
+    WHERE o.order_id = #{orderId}
+  </select>
+
   <update id="updateOrderStatusConditionally">
     UPDATE orders
     SET
@@ -52,6 +59,11 @@
       updated_at = #{updatedAt}
     WHERE order_id = #{orderId}
       AND status = #{expectedCurrentStatus}
+      AND portfolio_id IN (
+        SELECT portfolio_id
+        FROM portfolio
+        WHERE account_id = #{accountId}
+      )
   </update>
 
   <select id="findOrderById" resultType="com.team5.dto.response.OrderResponse">

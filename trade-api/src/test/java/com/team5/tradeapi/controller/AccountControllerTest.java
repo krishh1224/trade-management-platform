@@ -3,13 +3,14 @@ package com.team5.tradeapi.controller;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.when;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.team5.controller.AccountController;
-import com.team5.auth.AccountAccessAuthorizer;
-import com.team5.auth.JwtTokenVerifier;
+import com.team5.auth.AuthWebMvcConfig;
+import com.team5.auth.SecurityConfig;
 import com.team5.domain.enums.AccountStatus;
 import com.team5.domain.enums.OrderSide;
 import com.team5.domain.enums.OrderStatus;
@@ -25,16 +26,15 @@ import java.time.OffsetDateTime;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
+import org.springframework.context.annotation.Import;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.JwtRequestPostProcessor;
 import org.springframework.test.web.servlet.MockMvc;
 
 @WebMvcTest(AccountController.class)
-@AutoConfigureMockMvc(addFilters = false)
+@Import({SecurityConfig.class, AuthWebMvcConfig.class})
 class AccountControllerTest {
-
-    private static final String AUTHENTICATED_ACCOUNT_ID = "authenticatedAccountId";
 
     @Autowired
     private MockMvc mockMvc;
@@ -42,15 +42,9 @@ class AccountControllerTest {
     @MockBean
     private AccountService accountService;
 
-    @MockBean
-    private AccountAccessAuthorizer accountAccessAuthorizer;
-
-    @MockBean
-    private JwtTokenVerifier jwtTokenVerifier;
-
     @Test
     void getAccount_shouldReturnAccountResponse() throws Exception {
-        when(accountService.getAccount(101L)).thenReturn(new AccountResponse(
+        when(accountService.getAccount(101L, 101L)).thenReturn(new AccountResponse(
             101L,
             "ACC-000101",
             "Priya Menon",
@@ -61,7 +55,7 @@ class AccountControllerTest {
         ));
 
         mockMvc.perform(get("/api/v1/accounts/{id}", 101L)
-            .requestAttr(AUTHENTICATED_ACCOUNT_ID, 101L))
+            .with(authenticatedAs(101L)))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.id").value(101))
             .andExpect(jsonPath("$.accountId").value("ACC-000101"))
@@ -74,7 +68,7 @@ class AccountControllerTest {
 
     @Test
     void getBalance_shouldReturnBalanceResponse() throws Exception {
-        when(accountService.getBalance(101L)).thenReturn(new BalanceResponse(
+        when(accountService.getBalance(101L, 101L)).thenReturn(new BalanceResponse(
             101L,
             BigDecimal.valueOf(95000.00),
             "INR",
@@ -82,7 +76,7 @@ class AccountControllerTest {
         ));
 
         mockMvc.perform(get("/api/v1/accounts/{id}/balance", 101L)
-            .requestAttr(AUTHENTICATED_ACCOUNT_ID, 101L))
+            .with(authenticatedAs(101L)))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.accountId").value(101))
             .andExpect(jsonPath("$.cashBalance").value(95000.0))
@@ -92,12 +86,12 @@ class AccountControllerTest {
 
     @Test
     void getPositions_shouldReturnPositionArray() throws Exception {
-        when(accountService.getPositions(101L)).thenReturn(List.of(
+        when(accountService.getPositions(101L, 101L)).thenReturn(List.of(
             new PositionResponse(101L, "INFY.NS", 100, BigDecimal.valueOf(1450.00))
         ));
 
         mockMvc.perform(get("/api/v1/accounts/{id}/positions", 101L)
-            .requestAttr(AUTHENTICATED_ACCOUNT_ID, 101L))
+            .with(authenticatedAs(101L)))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$[0].accountId").value(101))
             .andExpect(jsonPath("$[0].symbol").value("INFY.NS"))
@@ -108,6 +102,7 @@ class AccountControllerTest {
     @Test
     void getOrders_shouldAcceptOptionalQueryParameters() throws Exception {
         when(accountService.getOrders(
+            eq(101L),
             eq(101L),
             eq(OrderStatus.FILLED),
             eq(OffsetDateTime.parse("2026-09-01T00:00:00Z")),
@@ -128,7 +123,7 @@ class AccountControllerTest {
         ));
 
         mockMvc.perform(get("/api/v1/accounts/{id}/orders", 101L)
-            .requestAttr(AUTHENTICATED_ACCOUNT_ID, 101L)
+            .with(authenticatedAs(101L))
                 .queryParam("status", "FILLED")
                 .queryParam("from", "2026-09-01T00:00:00Z")
                 .queryParam("to", "2026-09-30T23:59:59Z"))
@@ -139,20 +134,20 @@ class AccountControllerTest {
 
     @Test
     void getOrders_shouldWorkWithoutQueryParameters() throws Exception {
-        when(accountService.getOrders(eq(101L), isNull(), isNull(), isNull())).thenReturn(List.of());
+        when(accountService.getOrders(eq(101L), eq(101L), isNull(), isNull(), isNull())).thenReturn(List.of());
 
         mockMvc.perform(get("/api/v1/accounts/{id}/orders", 101L)
-            .requestAttr(AUTHENTICATED_ACCOUNT_ID, 101L))
+            .with(authenticatedAs(101L)))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$").isArray());
     }
 
     @Test
     void getAccount_shouldReturn404ForUnknownAccount() throws Exception {
-        when(accountService.getAccount(999L)).thenThrow(new AccountNotFoundException());
+        when(accountService.getAccount(999L, 999L)).thenThrow(new AccountNotFoundException());
 
         mockMvc.perform(get("/api/v1/accounts/{id}", 999L)
-            .requestAttr(AUTHENTICATED_ACCOUNT_ID, 999L))
+            .with(authenticatedAs(999L)))
             .andExpect(status().isNotFound())
             .andExpect(jsonPath("$.errorCode").value("ACC-404"))
             .andExpect(jsonPath("$.message").value("Account not found"));
@@ -160,12 +155,16 @@ class AccountControllerTest {
 
     @Test
     void getBalance_shouldReturn403WhenAccountIsInactive() throws Exception {
-        when(accountService.getBalance(101L)).thenThrow(new AccountNotActiveException());
+        when(accountService.getBalance(101L, 101L)).thenThrow(new AccountNotActiveException());
 
         mockMvc.perform(get("/api/v1/accounts/{id}/balance", 101L)
-            .requestAttr(AUTHENTICATED_ACCOUNT_ID, 101L))
+            .with(authenticatedAs(101L)))
             .andExpect(status().isForbidden())
             .andExpect(jsonPath("$.errorCode").value("ACC-403"))
             .andExpect(jsonPath("$.message").value("Account not active"));
+    }
+
+    private static JwtRequestPostProcessor authenticatedAs(long accountId) {
+        return jwt().jwt(token -> token.claim("accountId", accountId));
     }
 }

@@ -6,8 +6,10 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.team5.domain.enums.OrderSide;
+import com.team5.exception.AccountAccessDeniedException;
 import com.team5.exception.DuplicateOrderException;
 import com.team5.exception.OrderConflictException;
+import com.team5.exception.OrderNotFoundException;
 import com.team5.dto.request.PlaceOrderRequest;
 import com.team5.dto.response.OrderResponse;
 import com.team5.service.OrderService;
@@ -162,7 +164,7 @@ class MyBatisMapperIntegrationTest {
         request.setPrice(new BigDecimal("1000.00"));
         request.setIdempotencyKey("idem-commit-1");
 
-        OrderResponse response = orderService.placeOrder(request);
+        OrderResponse response = orderService.placeOrder(101L, request);
 
         assertNotNull(response);
         assertTrue(response.orderId().startsWith("ORD-"));
@@ -232,7 +234,7 @@ class MyBatisMapperIntegrationTest {
         request.setPrice(new BigDecimal("1000.00"));
         request.setIdempotencyKey("dup-key");
 
-        assertThrows(DuplicateOrderException.class, () -> orderService.placeOrder(request));
+        assertThrows(DuplicateOrderException.class, () -> orderService.placeOrder(101L, request));
 
         BigDecimal balance = jdbcTemplate.queryForObject(
             "SELECT balance FROM accounts WHERE acc_id = 101",
@@ -283,10 +285,61 @@ class MyBatisMapperIntegrationTest {
 
         OrderConflictException exception = assertThrows(
             OrderConflictException.class,
-            () -> orderService.cancelOrder(orderUuid)
+            () -> orderService.cancelOrder(101L, orderUuid)
         );
 
         assertEquals("ORD-409", exception.getCode());
+    }
+
+    @Test
+    void cancellingAnotherAccountsOrderIsRejectedAndLeavesOrderUntouched() {
+        UUID orderUuid = UUID.fromString("0d6a3f5e-1b2c-4d3e-8f90-a1b2c3d4e5f6");
+        Long persistentOrderId = toPositiveLong(orderUuid);
+        insertOrder(persistentOrderId, "NEW", "other-account-cancel-key");
+
+        assertThrows(AccountAccessDeniedException.class, () -> orderService.cancelOrder(999L, orderUuid));
+
+        String status = jdbcTemplate.queryForObject(
+            "SELECT status FROM orders WHERE order_id = ?", String.class, persistentOrderId);
+        assertEquals("NEW", status);
+    }
+
+    @Test
+    void cancellingUnknownOrderReturnsNotFound() {
+        assertThrows(
+            OrderNotFoundException.class,
+            () -> orderService.cancelOrder(101L, UUID.fromString("11111111-2222-3333-4444-555555555555"))
+        );
+    }
+
+    @Test
+    void cancellingOwnNewOrderMarksItCancelled() {
+        UUID orderUuid = UUID.fromString("7a8b9c0d-1e2f-4a3b-8c4d-5e6f7a8b9c0d");
+        Long persistentOrderId = toPositiveLong(orderUuid);
+        insertOrder(persistentOrderId, "NEW", "own-cancel-key");
+
+        OrderResponse response = orderService.cancelOrder(101L, orderUuid);
+
+        assertEquals("CANCELLED", response.status().name());
+    }
+
+    private void insertOrder(Long orderId, String status, String idempotencyKey) {
+        jdbcTemplate.update(
+            """
+            INSERT INTO orders (order_id, portfolio_id, instrument_id, side, quantity, price, status, idempotency_key, created_at, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            orderId,
+            201L,
+            301L,
+            "BUY",
+            10L,
+            new BigDecimal("1200.0000"),
+            status,
+            idempotencyKey,
+            OffsetDateTime.parse("2026-09-10T10:00:00Z"),
+            OffsetDateTime.parse("2026-09-10T10:00:00Z")
+        );
     }
 
     private void seedBaseData() {

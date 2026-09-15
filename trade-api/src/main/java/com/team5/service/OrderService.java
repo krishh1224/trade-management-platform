@@ -6,7 +6,7 @@ import java.util.UUID;
 
 public interface OrderService {
 
-    OrderResponse placeOrder(PlaceOrderRequest request);
+    OrderResponse placeOrder(long authenticatedAccountId, PlaceOrderRequest request);
 
-    OrderResponse cancelOrder(UUID orderId);
+    OrderResponse cancelOrder(long authenticatedAccountId, UUID orderId);
 }

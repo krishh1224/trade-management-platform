@@ -13,24 +13,24 @@ cd services/jwt-token-server
 npm start
 ```
 
-Server starts on `http://localhost:3001` by default.
+Server starts on `http://localhost:8082` by default.
 
 ## Generate a token (GET)
 
 ```powershell
-curl "http://localhost:3001/token?accountId=1&expOffsetSec=600&secret=trade-api-shared-secret&headerAlg=HS256&signAlg=HS256"
+curl "http://localhost:8082/token?accountId=1&expOffsetSec=600&secret=local-dev-only-trade-api-jwt-secret-not-for-production-use-000001&headerAlg=HS256&signAlg=HS256"
 ```
 
 ## Generate a token (POST)
 
 ```powershell
-curl -Method POST "http://localhost:3001/token" -ContentType "application/json" -Body '{"accountId":1,"expOffsetSec":600,"secret":"trade-api-shared-secret","headerAlg":"HS256","signAlg":"HS256"}'
+curl -Method POST "http://localhost:8082/token" -ContentType "application/json" -Body '{"accountId":1,"expOffsetSec":600,"secret":"local-dev-only-trade-api-jwt-secret-not-for-production-use-000001","headerAlg":"HS256","signAlg":"HS256"}'
 ```
 
 ## Use token against trade-api
 
 ```powershell
-$tokenResponse = Invoke-RestMethod "http://localhost:3001/token?accountId=1&expOffsetSec=600&secret=trade-api-shared-secret&headerAlg=HS256&signAlg=HS256"
+$tokenResponse = Invoke-RestMethod "http://localhost:8082/token?accountId=1&expOffsetSec=600&secret=local-dev-only-trade-api-jwt-secret-not-for-production-use-000001&headerAlg=HS256&signAlg=HS256"
 $token = $tokenResponse.token
 Invoke-RestMethod "http://localhost:8081/api/v1/accounts/1" -Headers @{ Authorization = "Bearer $token" }
 ```

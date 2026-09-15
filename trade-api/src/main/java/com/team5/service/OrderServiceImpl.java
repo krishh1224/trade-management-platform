@@ -1,11 +1,13 @@
 package com.team5.service;
 
+import com.team5.auth.AccountAccessAuthorizer;
 import com.team5.exception.AccountNotActiveException;
 import com.team5.exception.AccountNotFoundException;
 import com.team5.exception.InstrumentNotFoundException;
 import com.team5.exception.InsufficientFundsException;
 import com.team5.exception.InsufficientHoldingsException;
 import com.team5.exception.OrderConflictException;
+import com.team5.exception.OrderNotFoundException;
 import com.team5.exception.DuplicateOrderException;
 import com.team5.dto.request.PlaceOrderRequest;
 import com.team5.dto.response.OrderResponse;
@@ -32,22 +34,27 @@ public class OrderServiceImpl implements OrderService {
     private final OrderMapper orderMapper;
     private final HoldingMapper holdingMapper;
     private final TransactionMapper transactionMapper;
+    private final AccountAccessAuthorizer accountAccessAuthorizer;
 
     public OrderServiceImpl(
         AccountQueryMapper accountQueryMapper,
         OrderMapper orderMapper,
         HoldingMapper holdingMapper,
-        TransactionMapper transactionMapper
+        TransactionMapper transactionMapper,
+        AccountAccessAuthorizer accountAccessAuthorizer
     ) {
         this.accountQueryMapper = accountQueryMapper;
         this.orderMapper = orderMapper;
         this.holdingMapper = holdingMapper;
         this.transactionMapper = transactionMapper;
+        this.accountAccessAuthorizer = accountAccessAuthorizer;
     }
 
     @Override
     @Transactional
-    public OrderResponse placeOrder(PlaceOrderRequest request) {
+    public OrderResponse placeOrder(long authenticatedAccountId, PlaceOrderRequest request) {
+        accountAccessAuthorizer.assertAuthorised(authenticatedAccountId, request.getAccountId());
+
         Map<String, Object> account = accountQueryMapper.findAccountForOrder(request.getAccountId());
         if (account == null) {
             throw new AccountNotFoundException();
@@ -139,12 +146,20 @@ public class OrderServiceImpl implements OrderService {
 
     @Override
     @Transactional
-    public OrderResponse cancelOrder(UUID orderId) {
+    public OrderResponse cancelOrder(long authenticatedAccountId, UUID orderId) {
         String externalOrderId = "ORD-" + orderId;
         Long persistentOrderId = toPositiveLong(orderId);
 
+        Long ownerAccountId = orderMapper.findAccountIdByOrderId(persistentOrderId);
+        if (ownerAccountId == null) {
+            throw new OrderNotFoundException();
+        }
+        accountAccessAuthorizer.assertAuthorised(authenticatedAccountId, ownerAccountId);
+
+        // Ownership is repeated in the UPDATE so the transition can never touch another account's order.
         int updatedRows = orderMapper.updateOrderStatusConditionally(
             persistentOrderId,
+            authenticatedAccountId,
             NEW_STATUS,
             CANCELLED_STATUS,
             OffsetDateTime.now()

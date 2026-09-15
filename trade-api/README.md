@@ -41,7 +41,7 @@ Built on top of the domain layer:
 *   **`com.team5.controller`**: REST controllers for account and order endpoints.
 *   **`com.team5.service`**: Application services orchestrating domain logic and persistence.
 *   **`com.team5.mapper`**: MyBatis mappers (XML in `src/main/resources/mapper`).
-*   **`com.team5.auth`**: JWT verification and per-account access authorisation.
+*   **`com.team5.auth`**: Spring Security configuration. Every route except `GET /health` requires a valid HMAC-signed JWT (Spring Security OAuth2 resource server). Controllers receive the caller's account via `@AuthenticatedAccountId`, and the services enforce that it matches the account being read or traded. Set `JWT_SECRET` (at least 32 bytes); the `local` profile has a dev-only default, the `platform` profile does not.
 *   **`com.team5.dto`**: Request and response payloads for the API.
 *   **`com.team5.exception`**: All `DomainException` subclasses (each carrying an error code such as `ACC-404`) and `ApiExceptionHandler`, which maps those codes to HTTP responses.
 
@@ -49,6 +49,7 @@ Built on top of the domain layer:
 
 *   **Java 17**: The core programming language.
 *   **Spring Boot 3.5**: Web layer, configuration, and dependency injection.
+*   **Spring Security (OAuth2 Resource Server)**: JWT bearer-token authentication.
 *   **MyBatis + PostgreSQL**: Persistence.
 *   **Maven**: Dependency management and build tool.
 *   **Jakarta Validation (JSR 380)**: Used for declarative validation on domain entities and request DTOs.

@@ -27,8 +27,11 @@ public interface OrderMapper {
         @Param("updatedAt") OffsetDateTime updatedAt
     );
 
+    Long findAccountIdByOrderId(@Param("orderId") Long orderId);
+
     int updateOrderStatusConditionally(
         @Param("orderId") Long orderId,
+        @Param("accountId") Long accountId,
         @Param("expectedCurrentStatus") String expectedCurrentStatus,
         @Param("newStatus") String newStatus,
         @Param("updatedAt") OffsetDateTime updatedAt

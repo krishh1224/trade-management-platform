@@ -8,17 +8,22 @@ This stub documents the JWT contract used by trade-api for local infrastructure 
   - `typ`: `JWT`
   - `alg`: `HS256` (default, configurable in trade-api)
 - Required payload claims:
-  - `accountId` (number): numeric account key that must match addressed account
-  - `exp` (number): expiration time as Unix epoch seconds
+  - `accountId` (number): positive whole-number account key that must match addressed account; decimals and strings are rejected
+  - `exp` (number): expiration time as Unix epoch seconds; tokens without it are rejected
 
 ## Signing
 
 - Shared signing secret:
-  - Use environment variable `AUTH_JWT_SHARED_SECRET`
-  - If not provided, trade-api falls back to `trade-api-shared-secret`
+  - Use environment variable `JWT_SECRET`
+  - Must be at least 32 bytes for `HS256` (48 for `HS384`, 64 for `HS512`); trade-api refuses to start otherwise
+  - The `platform` profile (docker-compose) has no default and refuses to start without it
+  - The `local` profile falls back to a dev-only secret, `local-dev-only-trade-api-jwt-secret-not-for-production-use-000001`, which the JWT token server also uses by default
 - Expected algorithm:
   - Use environment variable `AUTH_JWT_ALGORITHM`
-  - Default is `HS256`
+  - Default is `HS256`; tokens signed with any other algorithm are rejected
+- Clock skew:
+  - Use environment variable `AUTH_JWT_CLOCK_SKEW` (for example `30s`)
+  - Default is `0s`, so a token is rejected as soon as `exp` has passed
 
 ## Demo Users
 

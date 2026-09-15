@@ -26,8 +26,10 @@ services:
       dockerfile: Dockerfile
     container_name: auth-stub
     profiles: ["platform"]
+    environment:
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET must be set to a secret of at least 32 bytes}
     healthcheck:
-      test: ["CMD", "wget", "-qO-", "http://localhost:3001/health"]
+      test: ["CMD", "wget", "-qO-", "http://localhost:8082/health"]
       interval: 10s
       timeout: 5s
       retries: 10
@@ -49,9 +51,9 @@ services:
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:-trade_management}
       SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:-postgres}
       SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
-      JWT_SECRET: ${JWT_SECRET:-trade-api-shared-secret}
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET must be set to a secret of at least 32 bytes}
       AUTH_STUB_HOST: auth-stub
-      AUTH_STUB_BASE_URL: http://auth-stub:3001
+      AUTH_STUB_BASE_URL: http://auth-stub:8082
       SERVER_PORT: 8081
     depends_on:
       postgres:

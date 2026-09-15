@@ -1,5 +1,6 @@
 package com.team5.service;
 
+import com.team5.auth.AccountAccessAuthorizer;
 import com.team5.domain.enums.OrderStatus;
 import com.team5.exception.AccountNotActiveException;
 import com.team5.exception.AccountNotFoundException;
@@ -17,37 +18,46 @@ import org.springframework.stereotype.Service;
 public class AccountServiceImpl implements AccountService {
 
     private final AccountQueryMapper accountQueryMapper;
+    private final AccountAccessAuthorizer accountAccessAuthorizer;
 
-    public AccountServiceImpl(AccountQueryMapper accountQueryMapper) {
+    public AccountServiceImpl(AccountQueryMapper accountQueryMapper, AccountAccessAuthorizer accountAccessAuthorizer) {
         this.accountQueryMapper = accountQueryMapper;
+        this.accountAccessAuthorizer = accountAccessAuthorizer;
     }
 
     @Override
-    public AccountResponse getAccount(Long accountId) {
-        assertAccountIsReadable(accountId);
+    public AccountResponse getAccount(long authenticatedAccountId, Long accountId) {
+        assertAccountIsReadable(authenticatedAccountId, accountId);
         return accountQueryMapper.getAccount(accountId);
     }
 
     @Override
-    public BalanceResponse getBalance(Long accountId) {
-        assertAccountIsReadable(accountId);
+    public BalanceResponse getBalance(long authenticatedAccountId, Long accountId) {
+        assertAccountIsReadable(authenticatedAccountId, accountId);
         return accountQueryMapper.getBalance(accountId);
     }
 
     @Override
-    public List<PositionResponse> getPositions(Long accountId) {
-        assertAccountIsReadable(accountId);
+    public List<PositionResponse> getPositions(long authenticatedAccountId, Long accountId) {
+        assertAccountIsReadable(authenticatedAccountId, accountId);
         return accountQueryMapper.getPositions(accountId);
     }
 
     @Override
-    public List<OrderHistoryEntry> getOrders(Long accountId, OrderStatus status, OffsetDateTime from, OffsetDateTime to) {
-        assertAccountIsReadable(accountId);
+    public List<OrderHistoryEntry> getOrders(
+        long authenticatedAccountId,
+        Long accountId,
+        OrderStatus status,
+        OffsetDateTime from,
+        OffsetDateTime to
+    ) {
+        assertAccountIsReadable(authenticatedAccountId, accountId);
         String statusName = status == null ? null : status.name();
         return accountQueryMapper.getOrders(accountId, statusName, from, to);
     }
 
-    private void assertAccountIsReadable(Long accountId) {
+    private void assertAccountIsReadable(long authenticatedAccountId, Long accountId) {
+        accountAccessAuthorizer.assertAuthorised(authenticatedAccountId, accountId);
         Map<String, Object> account = accountQueryMapper.findAccountForOrder(accountId);
         if (account == null) {
             throw new AccountNotFoundException();

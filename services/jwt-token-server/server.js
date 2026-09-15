@@ -1,7 +1,9 @@
 const http = require("http");
 const crypto = require("crypto");
 
-const PORT = Number(process.env.PORT || 3001);
+const PORT = Number(process.env.PORT || 8082);
+// Must match trade-api's local-profile default; override with JWT_SECRET for any shared environment.
+const DEFAULT_SECRET = process.env.JWT_SECRET || "local-dev-only-trade-api-jwt-secret-not-for-production-use-000001";
 
 function base64UrlEncodeWordArray(buffer) {
   return Buffer.from(buffer)
@@ -53,7 +55,7 @@ function hmacForAlgorithm(signAlg, signingInput, secret) {
 }
 
 function generateToken(input) {
-  const secret = String(input.secret || "trade-api-shared-secret");
+  const secret = String(input.secret || DEFAULT_SECRET);
   const accountId = Number(input.accountId);
   const expOffsetSec = Number(input.expOffsetSec ?? 600);
   const headerAlg = String(input.headerAlg || "HS256");

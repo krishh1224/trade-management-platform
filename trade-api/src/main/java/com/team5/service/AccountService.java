@@ -10,11 +10,17 @@ import java.util.List;
 
 public interface AccountService {
 
-    AccountResponse getAccount(Long accountId);
+    AccountResponse getAccount(long authenticatedAccountId, Long accountId);
 
-    BalanceResponse getBalance(Long accountId);
+    BalanceResponse getBalance(long authenticatedAccountId, Long accountId);
 
-    List<PositionResponse> getPositions(Long accountId);
+    List<PositionResponse> getPositions(long authenticatedAccountId, Long accountId);
 
-    List<OrderHistoryEntry> getOrders(Long accountId, OrderStatus status, OffsetDateTime from, OffsetDateTime to);
+    List<OrderHistoryEntry> getOrders(
+        long authenticatedAccountId,
+        Long accountId,
+        OrderStatus status,
+        OffsetDateTime from,
+        OffsetDateTime to
+    );
 }
