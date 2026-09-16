@@ -13,6 +13,7 @@ dependencies = [
     "duckdb>=0.9",
     "plotly>=5.18",
     "python-dotenv>=1.0",
+    "psycopg[binary]>=3.2",
 ]
 
 [project.optional-dependencies]
@@ -22,10 +23,11 @@ dev = [
 
 [project.scripts]
 etl-run = "analytics_etl.pipeline:main"
+trade-etl-run = "trade_etl.pipeline:main"
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["analytics_etl*"]
+include = ["analytics_etl*", "trade_etl*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
