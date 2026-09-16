@@ -85,7 +85,7 @@ class OrderEventPublisherTest {
             0,
             14,
             0,
-            0,
+            0L,
             0,
             0
         );
