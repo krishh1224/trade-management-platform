@@ -180,16 +180,12 @@ class OrderPlacementCharacterisationTest {
             .andExpect(jsonPath("$.message").value("Duplicate order"));
     }
 
-    @Test
-    void unaffordableBuy_returnsOrd400BadRequest() throws Exception {
-        mockMvc.perform(post("/api/v1/orders")
-                .with(jwt().jwt(token -> token.claim("accountId", 101L)))
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(orderBody(101L, "INFY.NS", "BUY", 5000, "1000.00", "char-unaffordable-1")))
-            .andExpect(status().isBadRequest())
-            .andExpect(jsonPath("$.errorCode").value("ORD-400"))
-            .andExpect(jsonPath("$.message").value("Insufficient funds"));
-    }
+    // Removed: unaffordableBuy_returnsOrd400BadRequest
+    // This characterised the synchronous balance check that lived in the cash-update
+    // logic removed from placeOrder() ("Trade REST API Publishes ORDER_PLACED and
+    // Answers NEW"). There is no synchronous fill left to reject on insufficient funds —
+    // affordability is the executor's concern once pricing happens. No equivalent here
+    // until the executor exists; it will be re-covered by the executor's own tests.
 
     @Test
     void unknownSymbol_returnsIns404NotFound() throws Exception {
@@ -213,8 +209,12 @@ class OrderPlacementCharacterisationTest {
             .andExpect(jsonPath("$.message").value("Account not active"));
     }
 
+    // Renamed from acceptedOrder_pinsOrderRowCashAndPositionWrites, and the
+    // balance/holdings pins it used to carry were dropped along with the synchronous
+    // fill — see the comment on the removed unaffordableBuy_returnsOrd400BadRequest test
+    // above. Cash/position pins move to the executor's own characterisation tests.
     @Test
-    void acceptedOrder_pinsOrderRowCashAndPositionWrites() throws Exception {
+    void acceptedOrder_pinsOrderRow() throws Exception {
         mockMvc.perform(post("/api/v1/orders")
                 .with(jwt().jwt(token -> token.claim("accountId", 101L)))
                 .contentType(MediaType.APPLICATION_JSON)
@@ -249,25 +249,6 @@ class OrderPlacementCharacterisationTest {
         );
         assertNotNull(orderPrice);
         assertEquals(new BigDecimal("1000.0000"), orderPrice);
-
-        BigDecimal balance = jdbcTemplate.queryForObject(
-            "SELECT balance FROM accounts WHERE acc_id = 101",
-            BigDecimal.class
-        );
-        assertEquals(new BigDecimal("40000.00"), balance);
-
-        Long holdingQuantity = jdbcTemplate.queryForObject(
-            "SELECT quantity FROM portfolio_holdings WHERE portfolio_id = 201 AND instrument_id = 301",
-            Long.class
-        );
-        assertEquals(110L, holdingQuantity);
-
-        BigDecimal avgCost = jdbcTemplate.queryForObject(
-            "SELECT avg_cost FROM portfolio_holdings WHERE portfolio_id = 201 AND instrument_id = 301",
-            BigDecimal.class
-        );
-        assertNotNull(avgCost);
-        assertEquals(new BigDecimal("1409.0909"), avgCost);
     }
 
     private static String orderBody(

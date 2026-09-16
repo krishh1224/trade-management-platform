@@ -2,6 +2,8 @@ package com.team5.tradeapi.controller;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.inOrder;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
@@ -18,6 +20,7 @@ import com.team5.domain.enums.OrderStatus;
 import com.team5.dto.response.OrderResponse;
 import com.team5.exception.AccountAccessDeniedException;
 import com.team5.exception.OrderNotFoundException;
+import com.team5.kafka.OrderEventPublisher;
 import com.team5.service.OrderService;
 import java.math.BigDecimal;
 import java.util.UUID;
@@ -39,6 +42,9 @@ class OrderControllerTest {
 
     @MockBean
     private OrderService orderService;
+
+    @MockBean
+    private OrderEventPublisher orderEventPublisher;
 
     @Test
     void placeOrder_shouldReturnOrderResponse() throws Exception {
@@ -97,6 +103,77 @@ class OrderControllerTest {
             .andExpect(status().isUnprocessableEntity())
             .andExpect(jsonPath("$.errorCode").value("VAL-422"))
             .andExpect(jsonPath("$.message").value("Invalid input"));
+
+        // an order that fails validation publishes nothing
+        verifyNoInteractions(orderService, orderEventPublisher);
+    }
+
+    @Test
+    void placeOrder_publishesOrderPlacedForAcceptedOrder() throws Exception {
+        when(orderService.placeOrder(eq(101L), any())).thenReturn(new OrderResponse(
+            "ORD-6f2b1c2a-6a1e-4a4f-9c0d-2f7a1b3c4d5e",
+            OrderStatus.NEW,
+            "Order accepted",
+            "INFY.NS",
+            OrderSide.BUY,
+            10,
+            BigDecimal.valueOf(1500.00)
+        ));
+
+        String body = """
+            {
+              "accountId": 101,
+              "symbol": "INFY.NS",
+              "side": "BUY",
+              "quantity": 10,
+              "price": 1500.00,
+              "idempotencyKey": "order-123456"
+            }
+            """;
+
+        mockMvc.perform(post("/api/v1/orders")
+                .contentType(MediaType.APPLICATION_JSON)
+            .with(authenticatedAs(101L))
+                .content(body))
+            .andExpect(status().isOk());
+
+        verify(orderEventPublisher).publishOrderPlaced(any(), any(), any());
+    }
+
+    @Test
+    void placeOrder_publishesOnlyAfterServiceCallReturns() throws Exception {
+        when(orderService.placeOrder(eq(101L), any())).thenReturn(new OrderResponse(
+            "ORD-6f2b1c2a-6a1e-4a4f-9c0d-2f7a1b3c4d5e",
+            OrderStatus.NEW,
+            "Order accepted",
+            "INFY.NS",
+            OrderSide.BUY,
+            10,
+            BigDecimal.valueOf(1500.00)
+        ));
+
+        String body = """
+            {
+              "accountId": 101,
+              "symbol": "INFY.NS",
+              "side": "BUY",
+              "quantity": 10,
+              "price": 1500.00,
+              "idempotencyKey": "order-123456"
+            }
+            """;
+
+        mockMvc.perform(post("/api/v1/orders")
+                .contentType(MediaType.APPLICATION_JSON)
+            .with(authenticatedAs(101L))
+                .content(body))
+            .andExpect(status().isOk());
+
+        // published after the transaction commits — i.e. after the service call returns —
+        // never before it, so a failed/rolled-back placeOrder() cannot yield a publish
+        var callOrder = inOrder(orderService, orderEventPublisher);
+        callOrder.verify(orderService).placeOrder(eq(101L), any());
+        callOrder.verify(orderEventPublisher).publishOrderPlaced(any(), any(), any());
     }
 
     @Test

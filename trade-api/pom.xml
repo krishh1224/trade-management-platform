@@ -102,6 +102,22 @@
 			<version>3.1.0</version>
 		</dependency>
 
+		<!-- Spring Kafka support for producing and consuming Kafka messages -->
+		<dependency>
+			<groupId>org.springframework.kafka</groupId>
+    		<artifactId>spring-kafka</artifactId>
+		</dependency>
+
+		<!-- Kafka testing utilities for unit and integration tests -->
+		<dependency>
+			<groupId>org.springframework.kafka</groupId>
+    		<artifactId>spring-kafka-test</artifactId>
+    		<scope>test</scope>
+		</dependency>
+
+
+		
+
 	</dependencies>
 
 	<build>
