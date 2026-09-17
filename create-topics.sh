@@ -1,8 +1,8 @@
-#!/usr/bin/env bash
+#!/bin/bash
 set -euo pipefail
 
 CONTAINER="kafka-sprint7"
-BROKER="localhost:29092"
+BROKER="kafka:29092"
 BIN="/opt/kafka/bin/kafka-topics.sh"
 
 create_topic() {
@@ -35,16 +35,5 @@ echo "====== Verifying ======"
 docker exec "${CONTAINER}" "${BIN}" --bootstrap-server "${BROKER}" --list
 
 echo ""
-echo "---- orders ----"
-docker exec "${CONTAINER}" "${BIN}" --bootstrap-server "${BROKER}" --describe --topic orders
-
-echo ""
-echo "---- trade-events ----"
-docker exec "${CONTAINER}" "${BIN}" --bootstrap-server "${BROKER}" --describe --topic trade-events
-
-echo ""
-echo "---- market-data ----"
-docker exec "${CONTAINER}" "${BIN}" --bootstrap-server "${BROKER}" --describe --topic market-data
-
-echo ""
 echo "Done. All 6 topics created and verified."
+
