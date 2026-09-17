@@ -148,9 +148,6 @@ public class KafkaDLTIntegrationTest {
         }
     }
 
-    /**
-     * Step 3: Consume from DLT topic and verify messages with headers
-     */
     private static void consumeFromDLT() {
         System.out.println("Step 3: Consuming from orders.DLT topic...\n");
         
