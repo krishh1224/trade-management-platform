@@ -6,6 +6,8 @@ import org.apache.ibatis.annotations.Select;
 import org.apache.ibatis.annotations.Update;
 import org.apache.ibatis.annotations.Insert;
 
+import java.util.List;
+
 /**
  * MyBatis mapper for Portfolio Holding persistence.
  * Handles reading and updating positions (quantities) for settlement.
@@ -54,4 +56,18 @@ public interface PortfolioHoldingMapper {
             "CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)")
     int insertHolding(Long portfolioHoldingId, Long portfolioId, Long instrumentId,
                       Long quantity, java.math.BigDecimal avgCost);
+
+    /**
+     * Get all distinct tickers from portfolio holdings.
+     * Used by market-data poller to determine which symbols to fetch quotes for.
+     * Returns distinct instrument tickers that someone currently holds.
+     *
+     * @return list of ticker symbols (e.g., "INFY.NS", "RELIANCE.NS")
+     */
+    @Select("SELECT DISTINCT i.ticker " +
+            "FROM portfolio_holdings ph " +
+            "JOIN instruments i ON ph.instrument_id = i.instrument_id " +
+            "WHERE ph.quantity > 0 " +
+            "ORDER BY i.ticker")
+    List<String> findAllHeldSymbols();
 }
