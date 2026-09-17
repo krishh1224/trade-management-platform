@@ -14,7 +14,7 @@ public interface PortfolioMapper {
      * Load a portfolio by its ID.
      */
     @Select("SELECT portfolio_id, name, account_id, status, created_at, updated_at " +
-            "FROM portfolios WHERE portfolio_id = #{portfolioId}")
+            "FROM portfolio WHERE portfolio_id = #{portfolioId}")
     PortfolioRecord findById(Long portfolioId);
 }
 

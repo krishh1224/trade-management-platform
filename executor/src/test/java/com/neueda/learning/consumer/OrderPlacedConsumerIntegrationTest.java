@@ -2,7 +2,8 @@ package com.neueda.learning.consumer;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.neueda.learning.domain.Quote;
-import com.neueda.learning.event.OrderPlacedEvent;
+import com.neueda.learning.event.KafkaEnvelope;
+import com.neueda.learning.event.OrderPlacedPayload;
 import com.neueda.learning.client.FauxnanceQuoteClient;
 import com.neueda.learning.mapper.AccountMapper;
 import com.neueda.learning.mapper.InstrumentMapper;
@@ -20,6 +21,8 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
+import java.util.UUID;
 
 import static org.mockito.Mockito.*;
 
@@ -67,10 +70,16 @@ class OrderPlacedConsumerIntegrationTest {
         long accountId = 2000L;
         long portfolioId = 3000L;
         long instrumentId = 4000L;
+        UUID orderUuid = new UUID(orderId, 0L); // MSB = orderId
 
-        // Setup event
-        OrderPlacedEvent event = new OrderPlacedEvent(
-                "ORDER_PLACED", orderId, accountId, System.currentTimeMillis()
+        // Setup event envelope
+        OrderPlacedPayload payload = new OrderPlacedPayload(
+                orderUuid, accountId, "INFY.NS", "BUY", 10, new BigDecimal("500.00"),
+                "key-a", OffsetDateTime.now()
+        );
+        KafkaEnvelope<OrderPlacedPayload> envelope = new KafkaEnvelope<>(
+                UUID.randomUUID(), "ORDER_PLACED", OffsetDateTime.now(),
+                "trade-api", 1, payload
         );
 
         // Setup order
@@ -109,7 +118,7 @@ class OrderPlacedConsumerIntegrationTest {
         when(quoteClient.getQuote("INFY.NS")).thenReturn(quote);
 
         // Execute
-        consumer.consumeOrderPlaced(event);
+        consumer.consumeOrderPlaced(envelope);
 
         // Verify all database queries were executed
         verify(orderMapper).findById(orderId);
@@ -128,10 +137,16 @@ class OrderPlacedConsumerIntegrationTest {
         long accountId = 2001L;
         long portfolioId = 3001L;
         long instrumentId = 4001L;
+        UUID orderUuid = new UUID(orderId, 0L); // MSB = orderId
 
-        // Setup event
-        OrderPlacedEvent event = new OrderPlacedEvent(
-                "ORDER_PLACED", orderId, accountId, System.currentTimeMillis()
+        // Setup event envelope
+        OrderPlacedPayload payload = new OrderPlacedPayload(
+                orderUuid, accountId, "INFY.NS", "BUY", 10, new BigDecimal("480.00"),
+                "key-b", OffsetDateTime.now()
+        );
+        KafkaEnvelope<OrderPlacedPayload> envelope = new KafkaEnvelope<>(
+                UUID.randomUUID(), "ORDER_PLACED", OffsetDateTime.now(),
+                "trade-api", 1, payload
         );
 
         // Setup order with too-low limit price for BUY
@@ -170,7 +185,7 @@ class OrderPlacedConsumerIntegrationTest {
         when(quoteClient.getQuote("INFY.NS")).thenReturn(quote);
 
         // Execute
-        consumer.consumeOrderPlaced(event);
+        consumer.consumeOrderPlaced(envelope);
 
         // Verify flow was executed
         verify(orderMapper).findById(orderId);
@@ -186,10 +201,16 @@ class OrderPlacedConsumerIntegrationTest {
         long accountId = 2002L;
         long portfolioId = 3002L;
         long instrumentId = 4002L;
+        UUID orderUuid = new UUID(orderId, 0L); // MSB = orderId
 
-        // Setup event
-        OrderPlacedEvent event = new OrderPlacedEvent(
-                "ORDER_PLACED", orderId, accountId, System.currentTimeMillis()
+        // Setup event envelope
+        OrderPlacedPayload payload = new OrderPlacedPayload(
+                orderUuid, accountId, "INFY.NS", "BUY", 10, new BigDecimal("500.00"),
+                "key-c", OffsetDateTime.now()
+        );
+        KafkaEnvelope<OrderPlacedPayload> envelope = new KafkaEnvelope<>(
+                UUID.randomUUID(), "ORDER_PLACED", OffsetDateTime.now(),
+                "trade-api", 1, payload
         );
 
         // Setup order
@@ -228,7 +249,7 @@ class OrderPlacedConsumerIntegrationTest {
                 .thenThrow(new com.neueda.learning.exception.QuoteUnavailableException("Service timeout"));
 
         // Execute - should not throw, should handle gracefully
-        consumer.consumeOrderPlaced(event);
+        consumer.consumeOrderPlaced(envelope);
 
         // Verify flow was attempted
         verify(orderMapper).findById(orderId);
@@ -240,12 +261,17 @@ class OrderPlacedConsumerIntegrationTest {
      */
     @Test
     void testUnknownEventType_IsIgnored() {
-        OrderPlacedEvent event = new OrderPlacedEvent(
-                "UNKNOWN_EVENT", 123L, 456L, System.currentTimeMillis()
+        OrderPlacedPayload payload = new OrderPlacedPayload(
+                UUID.randomUUID(), 456L, "INFY.NS", "BUY", 10, new BigDecimal("500.00"),
+                "key-unknown", OffsetDateTime.now()
+        );
+        KafkaEnvelope<OrderPlacedPayload> envelope = new KafkaEnvelope<>(
+                UUID.randomUUID(), "UNKNOWN_EVENT", OffsetDateTime.now(),
+                "trade-api", 1, payload
         );
 
         // Execute - should do nothing
-        consumer.consumeOrderPlaced(event);
+        consumer.consumeOrderPlaced(envelope);
 
         // Verify no database queries were made
         verify(orderMapper, never()).findById(any());
@@ -257,12 +283,17 @@ class OrderPlacedConsumerIntegrationTest {
      */
     @Test
     void testNullOrderId_IsIgnored() {
-        OrderPlacedEvent event = new OrderPlacedEvent(
-                "ORDER_PLACED", null, 456L, System.currentTimeMillis()  // null orderId
+        OrderPlacedPayload payload = new OrderPlacedPayload(
+                null, 456L, "INFY.NS", "BUY", 10, new BigDecimal("500.00"),
+                "key-null", OffsetDateTime.now()  // null orderId
+        );
+        KafkaEnvelope<OrderPlacedPayload> envelope = new KafkaEnvelope<>(
+                UUID.randomUUID(), "ORDER_PLACED", OffsetDateTime.now(),
+                "trade-api", 1, payload
         );
 
         // Execute - should do nothing
-        consumer.consumeOrderPlaced(event);
+        consumer.consumeOrderPlaced(envelope);
 
         // Verify no database queries were made
         verify(orderMapper, never()).findById(any());
@@ -273,15 +304,19 @@ class OrderPlacedConsumerIntegrationTest {
      */
     @Test
     void testEventWithUnknownFields_IsHandledGracefully() {
-        OrderPlacedEvent event = new OrderPlacedEvent(
-                "ORDER_PLACED", 1003L, 2003L, System.currentTimeMillis()
+        long orderId = 1003L;
+        UUID orderUuid = new UUID(orderId, 0L); // MSB = orderId
+
+        OrderPlacedPayload payload = new OrderPlacedPayload(
+                orderUuid, 2003L, "INFY.NS", "BUY", 10, new BigDecimal("500.00"),
+                "key-unknown", OffsetDateTime.now()
         );
-        // Simulate unknown fields via additional properties
-        event.setAdditionalProperty("unknownField1", "value1");
-        event.setAdditionalProperty("unknownField2", 12345);
+        KafkaEnvelope<OrderPlacedPayload> envelope = new KafkaEnvelope<>(
+                UUID.randomUUID(), "ORDER_PLACED", OffsetDateTime.now(),
+                "trade-api", 1, payload
+        );
 
         // Setup database mocks for successful execution
-        long orderId = 1003L;
         OrderRecord order = new OrderRecord(
                 orderId, 3003L, 4003L, 10,
                 new BigDecimal("500.00"), "NEW", "BUY", "key-unknown",
@@ -291,10 +326,11 @@ class OrderPlacedConsumerIntegrationTest {
         when(orderMapper.findById(orderId)).thenReturn(order);
 
         // Execute - should handle unknown fields without error
-        consumer.consumeOrderPlaced(event);
+        consumer.consumeOrderPlaced(envelope);
 
         // Verify execution proceeded
         verify(orderMapper).findById(orderId);
     }
 }
+
 

@@ -87,6 +87,8 @@ public class OrderPlacedConsumer {
      * Takes the most significant 64 bits of the UUID.
      */
     private Long convertUuidToOrderId(UUID uuid) {
-        return uuid.getMostSignificantBits();
+//        return uuid.getMostSignificantBits();
+        long mixed = uuid.getMostSignificantBits() ^ uuid.getLeastSignificantBits();
+        return mixed == Long.MIN_VALUE ? 0L : Math.abs(mixed);
     }
 }

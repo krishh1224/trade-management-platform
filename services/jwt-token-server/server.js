@@ -1,7 +1,7 @@
 const http = require("http");
 const crypto = require("crypto");
 
-const PORT = Number(process.env.PORT || 8082);
+const PORT = Number(process.env.PORT || 8086);
 // Must match trade-api's local-profile default; override with JWT_SECRET for any shared environment.
 const DEFAULT_SECRET = process.env.JWT_SECRET || "local-dev-only-trade-api-jwt-secret-not-for-production-use-000001";
 

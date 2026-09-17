@@ -2,6 +2,7 @@ package com.team5.kafka;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.team5.dto.request.PlaceOrderRequest;
 import java.time.OffsetDateTime;
@@ -30,6 +31,9 @@ public class OrderEventPublisher {
         this.kafkaTemplate = kafkaTemplate;
         this.objectMapper = new ObjectMapper();
         this.objectMapper.registerModule(new JavaTimeModule());
+        // Serialize OffsetDateTime as ISO-8601 strings (e.g., "2026-09-17T08:30:45Z")
+        // instead of numeric Unix timestamps. This matches consumer expectations.
+        this.objectMapper.disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
     }
 
     // call this AFTER the transaction has committed, never inside it
