@@ -10,7 +10,7 @@ services:
       # KAFKA_ADVERTISED_LISTENERS: tells external clients what address to use to connect back to Kafka
       # HOST: external address (for clients outside Docker, e.g., on Windows machine)
       # DOCKER: internal address (for containers in the same Docker network)
-      KAFKA_ADVERTISED_LISTENERS: HOST://${KAFKA_HOST:10.8.64.174}:8085,DOCKER://kafka:29092
+      KAFKA_ADVERTISED_LISTENERS: HOST://${KAFKA_HOST:-10.8.64.174}:8085,DOCKER://kafka:29092
       KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: HOST:PLAINTEXT,DOCKER:PLAINTEXT,CONTROLLER:PLAINTEXT
       KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
       KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
