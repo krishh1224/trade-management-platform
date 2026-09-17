@@ -1,8 +1,10 @@
 package com.neueda.learning.consumer;
 
 import com.neueda.learning.domain.ExecutionResult;
-import com.neueda.learning.event.OrderPlacedEvent;
+import com.neueda.learning.event.KafkaEnvelope;
+import com.neueda.learning.event.OrderPlacedPayload;
 import com.neueda.learning.service.TradeExecutionService;
+import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.kafka.annotation.KafkaListener;
@@ -11,7 +13,7 @@ import org.springframework.stereotype.Component;
 
 /**
  * Kafka consumer for ORDER_PLACED events.
- * Deserializes event envelope, validates event type, extracts orderId, and triggers execution.
+ * Deserializes KafkaEnvelope<OrderPlacedPayload>, validates event type, and triggers execution.
  */
 @Component
 public class OrderPlacedConsumer {
@@ -29,37 +31,62 @@ public class OrderPlacedConsumer {
      * Topic: orders
      * Consumer group: trade-executor
      * Key: accountId
+     * 
+     * The message format is: KafkaEnvelope<OrderPlacedPayload> as JSON
+     * - eventType: "ORDER_PLACED"
+     * - payload: OrderPlacedPayload with orderId (UUID), accountId, symbol, etc.
      */
     @KafkaListener(topics = "orders", groupId = "trade-executor")
-    public void consumeOrderPlaced(@Payload OrderPlacedEvent event) {
-        logger.info("Received Kafka message: {}", event);
+    public void consumeOrderPlaced(@Payload KafkaEnvelope<OrderPlacedPayload> envelope) {
+        logger.info("Received Kafka envelope: eventType={}, eventId={}, source={}",
+            envelope.getEventType(), envelope.getEventId(), envelope.getSource());
 
         try {
             // Validate event type
-            if (!EXPECTED_EVENT_TYPE.equalsIgnoreCase(event.getEventType())) {
-                logger.debug("Ignoring event with unexpected type: {}", event.getEventType());
+            if (!EXPECTED_EVENT_TYPE.equalsIgnoreCase(envelope.getEventType())) {
+                logger.debug("Ignoring event with unexpected type: {}", envelope.getEventType());
                 return;
             }
 
-            // Extract orderId
-            Long orderId = event.getOrderId();
+            // Extract payload
+            OrderPlacedPayload payload = envelope.getPayload();
+            if (payload == null) {
+                logger.warn("ORDER_PLACED envelope has no payload, ignoring: {}", envelope);
+                return;
+            }
+
+            // Extract orderId from payload
+            UUID orderId = payload.getOrderId();
             if (orderId == null) {
-                logger.warn("ORDER_PLACED event has no orderId, ignoring: {}", event);
+                logger.warn("ORDER_PLACED payload has no orderId, ignoring: {}", payload);
                 return;
             }
 
-            logger.info("Processing ORDER_PLACED event for orderId: {}", orderId);
+            logger.info("Processing ORDER_PLACED event for orderId: {}, accountId: {}, symbol: {}",
+                orderId, payload.getAccountId(), payload.getSymbol());
 
+            // Convert UUID orderId to Long for execution service
+            // Note: ExecutionService may need adjustment if it expects UUID instead of Long
+            Long orderIdLong = convertUuidToOrderId(orderId);
+            
             // Execute the order
-            ExecutionResult result = executionService.executeOrder(orderId);
+            ExecutionResult result = executionService.executeOrder(orderIdLong);
 
             logger.info("Order {} execution completed: {}", orderId, result);
             // TODO: In the next story, publish FILLED/REJECTED events and update the database
 
         } catch (Exception e) {
-            logger.error("Error processing ORDER_PLACED event: {}", event, e);
+            logger.error("Error processing ORDER_PLACED event from envelope: {}", envelope, e);
             // Kafka will handle retries based on Spring Kafka configuration
             // For now, we log and continue
         }
+    }
+
+    /**
+     * Convert UUID to Long for compatibility with ExecutionService.
+     * Takes the most significant 64 bits of the UUID.
+     */
+    private Long convertUuidToOrderId(UUID uuid) {
+        return uuid.getMostSignificantBits();
     }
 }
