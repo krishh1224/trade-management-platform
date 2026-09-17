@@ -3,6 +3,8 @@ package com.neueda.learning.consumer;
 import com.neueda.learning.domain.ExecutionResult;
 import com.neueda.learning.event.KafkaEnvelope;
 import com.neueda.learning.event.OrderPlacedPayload;
+import com.neueda.learning.exception.PermanentFailureException;
+import com.neueda.learning.exception.TransientFailureException;
 import com.neueda.learning.mapper.OrderMapper;
 import com.neueda.learning.mapper.PortfolioMapper;
 import com.neueda.learning.model.OrderRecord;
@@ -15,6 +17,8 @@ import java.time.OffsetDateTime;
 import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.dao.DataAccessException;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.kafka.support.Acknowledgment;
 import org.springframework.messaging.handler.annotation.Payload;
@@ -23,8 +27,13 @@ import org.springframework.stereotype.Component;
 /**
  * Kafka consumer for ORDER_PLACED events from the orders topic.
  * 
+ * Implements comprehensive failure classification and handling:
+ * - PERMANENT failures (malformed JSON, missing orderId, order not found) → DLT immediately, no retry
+ * - TRANSIENT failures (database connectivity, settlement conflicts) → retry with bounded backoff, then DLT
+ * - Fauxnance outage is NOT classified as permanent (returns REJECTED execution safely)
+ * 
  * Flow:
- * 1. Deserialize and validate ORDER_PLACED event
+ * 1. Deserialize and validate ORDER_PLACED event (PermanentFailureException if validation fails)
  * 2. Execute the order (get quote, apply decision logic)
  * 3. BEGIN settlement transaction:
  *    - Claim order (first write, guards duplicates)
@@ -36,6 +45,11 @@ import org.springframework.stereotype.Component;
  *
  * Message acknowledgment is MANUAL and happens only after successful event publishing,
  * ensuring no message loss on error.
+ *
+ * Exceptions thrown by this consumer are caught by DefaultErrorHandler configured in KafkaConsumerConfig:
+ * - PermanentFailureException: no retry, route to DLT immediately
+ * - TransientFailureException: retry with exponential backoff, then route to DLT
+ * - Other exceptions: treated as transient (retry with backoff, then DLT)
  */
 @Component
 public class OrderPlacedConsumer {
@@ -68,58 +82,69 @@ public class OrderPlacedConsumer {
      * Acknowledgment: MANUAL (acknowledge only after successful settlement and event publishing)
      * 
      * The message format is: KafkaEnvelope<OrderPlacedPayload> as JSON
+     *
+     * Throws:
+     * - PermanentFailureException: for malformed/invalid messages (orderId missing, order not found, etc.)
+     * - TransientFailureException: for temporary infrastructure failures (DB connection, settlement conflicts)
+     * - Other RuntimeException: for unexpected errors (treated as transient by default)
+     *
+     * The DefaultErrorHandler configured in KafkaConsumerConfig will classify and route these exceptions:
+     * - Permanent → immediate DLT, no retry
+     * - Transient → retry with exponential backoff, then DLT
      */
     @KafkaListener(topics = "orders", groupId = "trade-executor", properties = "max.poll.records=1")
     public void consumeOrderPlaced(@Payload KafkaEnvelope<OrderPlacedPayload> envelope,
                                    Acknowledgment ack) {
         logger.info("Received ORDER_PLACED: eventId={}", envelope.getEventId());
 
+        // Validate event type: non-matching event types are safely skipped without retry
+        if (!EXPECTED_EVENT_TYPE.equalsIgnoreCase(envelope.getEventType())) {
+            logger.debug("Ignoring event with unexpected type: {}. This is not an error—just skipping non-ORDER_PLACED events.", 
+                envelope.getEventType());
+            ack.acknowledge(); // Acknowledge to move forward, this is not a failure
+            return;
+        }
+
+        // Extract and validate payload
+        OrderPlacedPayload payload = envelope.getPayload();
+        if (payload == null) {
+            // Permanent failure: envelope has no payload
+            throw new PermanentFailureException("MISSING_PAYLOAD",
+                "ORDER_PLACED envelope has no payload");
+        }
+
+        UUID orderId = payload.getOrderId();
+        if (orderId == null) {
+            // Permanent failure: missing orderId field
+            throw new PermanentFailureException("MISSING_ORDER_ID",
+                "ORDER_PLACED payload has no orderId field");
+        }
+
+        logger.info("Processing ORDER_PLACED: orderId={}, accountId={}, symbol={}, side={}, quantity={}",
+            orderId, payload.getAccountId(), payload.getSymbol(), payload.getSide(), payload.getQuantity());
+
         try {
-            // Validate event type
-            if (!EXPECTED_EVENT_TYPE.equalsIgnoreCase(envelope.getEventType())) {
-                logger.debug("Ignoring event with unexpected type: {}", envelope.getEventType());
-                ack.acknowledge(); // Still acknowledge non-matching events
-                return;
-            }
-
-            // Extract and validate payload
-            OrderPlacedPayload payload = envelope.getPayload();
-            if (payload == null) {
-                logger.warn("ORDER_PLACED envelope has no payload, ignoring");
-                ack.acknowledge();
-                return;
-            }
-
-            UUID orderId = payload.getOrderId();
-            if (orderId == null) {
-                logger.warn("ORDER_PLACED payload has no orderId, ignoring");
-                ack.acknowledge();
-                return;
-            }
-
-            logger.info("Processing ORDER_PLACED: orderId={}, accountId={}, symbol={}, side={}, quantity={}",
-                orderId, payload.getAccountId(), payload.getSymbol(), payload.getSide(), payload.getQuantity());
-
             // Convert UUID to Long for database lookup
             Long orderIdLong = convertUuidToOrderId(orderId);
 
             // 1. Execute the order (get quote, apply decision logic)
             ExecutionResult execution = executionService.executeOrder(orderIdLong);
-            logger.info("Execution result: {}", execution);
+            logger.info("Execution result for order {}: {}", orderIdLong, execution);
 
             // 2. Load order and portfolio from database
             OrderRecord order = orderMapper.findById(orderIdLong);
             if (order == null) {
-                logger.warn("Order not found after execution: {}", orderIdLong);
-                ack.acknowledge(); // Don't retry - order doesn't exist
-                return;
+                // Permanent failure: order not found in database
+                // This is a poison message (orderId doesn't exist or was never created)
+                throw new PermanentFailureException("ORDER_NOT_FOUND",
+                    "Order not found in database after execution: " + orderIdLong);
             }
 
             PortfolioRecord portfolio = portfolioMapper.findById(order.getPortfolioId());
             if (portfolio == null) {
-                logger.warn("Portfolio not found for order {}: {}", orderIdLong, order.getPortfolioId());
-                ack.acknowledge();
-                return;
+                // Permanent failure: portfolio not found (data integrity issue)
+                throw new PermanentFailureException("PORTFOLIO_NOT_FOUND",
+                    "Portfolio not found for order " + orderIdLong + ": " + order.getPortfolioId());
             }
 
             Long accountId = portfolio.getAccountId();
@@ -134,27 +159,39 @@ public class OrderPlacedConsumer {
                 order.getInstrumentId()
             );
 
-            logger.info("Settlement result: {}", settlementResult);
+            logger.info("Settlement result for order {}: {}", orderIdLong, settlementResult);
 
             // Handle settlement outcomes
             if (settlementResult.isDuplicate()) {
                 // This order was already processed by another delivery (transaction idempotence)
-                logger.info("Order {} already processed (duplicate), not publishing event", orderIdLong);
+                // This is safe to acknowledge—no retry needed
+                logger.info("Order {} already processed (duplicate delivery), not publishing event", orderIdLong);
                 ack.acknowledge();
                 return;
             }
 
             if (!settlementResult.isSuccess()) {
-                // Settlement failed (insufficient balance, holding mismatch, version conflict exhausted, etc.)
-                logger.error("Settlement failed for order {}: {}", orderIdLong, settlementResult.getErrorMessage());
-                // In production, could publish an ERROR event here for monitoring
-                // For now, we don't acknowledge and let Kafka retry
-                return; // No ack = retry on next poll
+                // Settlement failed (insufficient balance, holding mismatch, version conflict, etc.)
+                String errorMsg = settlementResult.getErrorMessage();
+                logger.error("Settlement failed for order {}: {}", orderIdLong, errorMsg);
+
+                // Classify settlement errors: distinguish between permanent and transient
+                if (isTransientSettlementError(errorMsg)) {
+                    // Transient error (e.g., optimistic lock retries exhausted)
+                    // Signal for retry with bounded backoff
+                    throw new TransientFailureException("SETTLEMENT_CONFLICT",
+                        "Settlement failed due to transient conflict: " + errorMsg,
+                        true); // retriesExhausted = true (already retried internally)
+                } else {
+                    // Permanent error (e.g., insufficient balance, insufficient holdings)
+                    // This is a business rule violation, not a transient infrastructure issue
+                    throw new PermanentFailureException("SETTLEMENT_FAILED",
+                        "Settlement failed (permanent): " + errorMsg);
+                }
             }
 
             // 4. Transaction committed (by @Transactional); now publish event
-            OffsetDateTime executedOn = execution.isFilled() ? 
-                OffsetDateTime.now() : OffsetDateTime.now();
+            OffsetDateTime executedOn = OffsetDateTime.now();
 
             if (execution.isFilled()) {
                 tradeEventPublisher.publishOrderFilled(
@@ -178,13 +215,43 @@ public class OrderPlacedConsumer {
 
             // 5. Acknowledge the consumed message (only after successful event publishing)
             ack.acknowledge();
-            logger.info("Acknowledged ORDER_PLACED message for order {}", orderIdLong);
+            logger.info("Successfully processed and acknowledged ORDER_PLACED message for order {}", orderIdLong);
 
+        } catch (PermanentFailureException | TransientFailureException e) {
+            // These exceptions are explicitly thrown and will be caught by DefaultErrorHandler
+            // for proper classification and routing to DLT
+            logger.error("Known failure type: {}", e.getMessage());
+            throw e;
+        } catch (DataAccessException e) {
+            // Database connectivity issues are transient
+            logger.error("Database access error processing order: {}", e.getMessage(), e);
+            throw new TransientFailureException("DATABASE_ERROR",
+                "Database access error: " + e.getMessage(), e);
         } catch (Exception e) {
+            // Unexpected errors are logged and re-thrown as transient (will retry then DLT)
             logger.error("Unexpected error processing ORDER_PLACED event: {}", e.getMessage(), e);
-            // Don't acknowledge; let Kafka retry on next poll
-            // In production, could have dead-letter queue logic here
+            throw new TransientFailureException("UNEXPECTED_ERROR",
+                "Unexpected error: " + e.getMessage(), e);
         }
+    }
+
+    /**
+     * Determine if a settlement error is transient or permanent.
+     * Transient errors (should retry): optimistic lock conflicts, concurrent modifications
+     * Permanent errors (no retry): insufficient balance, insufficient holdings, data integrity
+     *
+     * @param errorMessage the settlement error message
+     * @return true if the error is transient and should be retried
+     */
+    private boolean isTransientSettlementError(String errorMessage) {
+        if (errorMessage == null) {
+            return false;
+        }
+
+        // Transient patterns: optimistic lock conflicts, concurrent modifications
+        return errorMessage.contains("version mismatch")
+            || errorMessage.contains("concurrent modification")
+            || errorMessage.contains("retries");
     }
 
     /**
@@ -196,3 +263,4 @@ public class OrderPlacedConsumer {
         return mixed == Long.MIN_VALUE ? 0L : Math.abs(mixed);
     }
 }
+
