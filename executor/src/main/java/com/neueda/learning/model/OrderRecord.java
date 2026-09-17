@@ -19,6 +19,9 @@ public class OrderRecord {
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
     private LocalDateTime expiresAt;
+    private BigDecimal executedPrice;
+    private LocalDateTime executedOn;
+    private String rejectionReason;
 
     // Constructors
     public OrderRecord() {
@@ -129,6 +132,30 @@ public class OrderRecord {
         this.expiresAt = expiresAt;
     }
 
+    public BigDecimal getExecutedPrice() {
+        return executedPrice;
+    }
+
+    public void setExecutedPrice(BigDecimal executedPrice) {
+        this.executedPrice = executedPrice;
+    }
+
+    public LocalDateTime getExecutedOn() {
+        return executedOn;
+    }
+
+    public void setExecutedOn(LocalDateTime executedOn) {
+        this.executedOn = executedOn;
+    }
+
+    public String getRejectionReason() {
+        return rejectionReason;
+    }
+
+    public void setRejectionReason(String rejectionReason) {
+        this.rejectionReason = rejectionReason;
+    }
+
     @Override
     public String toString() {
         return "OrderRecord{" +
@@ -143,6 +170,9 @@ public class OrderRecord {
                 ", createdAt=" + createdAt +
                 ", updatedAt=" + updatedAt +
                 ", expiresAt=" + expiresAt +
+                ", executedPrice=" + executedPrice +
+                ", executedOn=" + executedOn +
+                ", rejectionReason='" + rejectionReason + '\'' +
                 '}';
     }
 }

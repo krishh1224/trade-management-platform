@@ -78,7 +78,7 @@ class TradeExecutionServiceTest {
 
         AccountRecord account = new AccountRecord(
                 accountId, 1L, "1234567890", "CONSERVATIVE", "USD",
-                new BigDecimal("10000.00"), "ACTIVE",
+                new BigDecimal("10000.00"), "ACTIVE", 1L,
                 LocalDateTime.now(), LocalDateTime.now()
         );
 
@@ -124,7 +124,7 @@ class TradeExecutionServiceTest {
 
         AccountRecord account = new AccountRecord(
                 accountId, 1L, "1234567890", "CONSERVATIVE", "USD",
-                new BigDecimal("5000.00"), "ACTIVE",
+                new BigDecimal("5000.00"), "ACTIVE", 1L,
                 LocalDateTime.now(), LocalDateTime.now()
         );
 
@@ -169,7 +169,7 @@ class TradeExecutionServiceTest {
 
         AccountRecord account = new AccountRecord(
                 accountId, 1L, "1234567890", "CONSERVATIVE", "USD",
-                new BigDecimal("10000.00"), "ACTIVE",
+                new BigDecimal("10000.00"), "ACTIVE", 1L,
                 LocalDateTime.now(), LocalDateTime.now()
         );
 
@@ -215,7 +215,7 @@ class TradeExecutionServiceTest {
 
         AccountRecord account = new AccountRecord(
                 accountId, 1L, "1234567890", "CONSERVATIVE", "USD",
-                new BigDecimal("1000.00"), "ACTIVE",  // insufficient balance
+                new BigDecimal("1000.00"), "ACTIVE", 1L,  // insufficient balance
                 LocalDateTime.now(), LocalDateTime.now()
         );
 
@@ -257,7 +257,7 @@ class TradeExecutionServiceTest {
 
         AccountRecord account = new AccountRecord(
                 accountId, 1L, "1234567890", "CONSERVATIVE", "USD",
-                new BigDecimal("10000.00"), "SUSPENDED",  // account is suspended
+                new BigDecimal("10000.00"), "SUSPENDED", 1L,  // account is suspended
                 LocalDateTime.now(), LocalDateTime.now()
         );
 
@@ -294,7 +294,7 @@ class TradeExecutionServiceTest {
 
         AccountRecord account = new AccountRecord(
                 accountId, 1L, "1234567890", "CONSERVATIVE", "USD",
-                new BigDecimal("10000.00"), "ACTIVE",
+                new BigDecimal("10000.00"), "ACTIVE", 1L,
                 LocalDateTime.now(), LocalDateTime.now()
         );
 
@@ -362,7 +362,7 @@ class TradeExecutionServiceTest {
 
         AccountRecord account = new AccountRecord(
                 accountId, 1L, "1234567890", "CONSERVATIVE", "USD",
-                new BigDecimal("10000.00"), "ACTIVE",
+                new BigDecimal("10000.00"), "ACTIVE", 1L,
                 LocalDateTime.now(), LocalDateTime.now()
         );
 

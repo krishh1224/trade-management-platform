@@ -14,6 +14,7 @@ public class AccountRecord {
     private String baseCurrency;
     private BigDecimal balance;
     private String status;
+    private Long version;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 
@@ -21,7 +22,7 @@ public class AccountRecord {
     }
 
     public AccountRecord(Long accId, Long clientId, String accountNumber, String riskProfile,
-                         String baseCurrency, BigDecimal balance, String status,
+                         String baseCurrency, BigDecimal balance, String status, Long version,
                          LocalDateTime createdAt, LocalDateTime updatedAt) {
         this.accId = accId;
         this.clientId = clientId;
@@ -30,6 +31,7 @@ public class AccountRecord {
         this.baseCurrency = baseCurrency;
         this.balance = balance;
         this.status = status;
+        this.version = version;
         this.createdAt = createdAt;
         this.updatedAt = updatedAt;
     }
@@ -90,6 +92,14 @@ public class AccountRecord {
         this.status = status;
     }
 
+    public Long getVersion() {
+        return version;
+    }
+
+    public void setVersion(Long version) {
+        this.version = version;
+    }
+
     public LocalDateTime getCreatedAt() {
         return createdAt;
     }
@@ -116,6 +126,7 @@ public class AccountRecord {
                 ", baseCurrency='" + baseCurrency + '\'' +
                 ", balance=" + balance +
                 ", status='" + status + '\'' +
+                ", version=" + version +
                 ", createdAt=" + createdAt +
                 ", updatedAt=" + updatedAt +
                 '}';
