@@ -1,17 +1,17 @@
 package com.team5.service;
 
 import com.team5.auth.AccountAccessAuthorizer;
-import com.team5.exception.AccountNotActiveException;
-import com.team5.exception.AccountNotFoundException;
-import com.team5.exception.InstrumentNotFoundException;
-import com.team5.exception.OrderConflictException;
-import com.team5.exception.OrderNotFoundException;
-import com.team5.exception.DuplicateOrderException;
+import com.team5.domain.exception.AccountNotActiveException;
+import com.team5.domain.exception.AccountNotFoundException;
+import com.team5.domain.exception.InstrumentNotFoundException;
+import com.team5.domain.exception.OrderConflictException;
+import com.team5.domain.exception.OrderNotFoundException;
+import com.team5.domain.exception.DuplicateOrderException;
 import com.team5.dto.request.PlaceOrderRequest;
 import com.team5.dto.response.OrderResponse;
 import com.team5.mapper.AccountQueryMapper;
 import com.team5.mapper.OrderMapper;
-import java.math.BigDecimal;
+
 import java.math.RoundingMode;
 import java.time.OffsetDateTime;
 import java.util.Map;

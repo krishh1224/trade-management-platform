@@ -1,4 +1,4 @@
-package com.team5.exception;
+package com.team5.domain.exception;
 
 public class InsufficientFundsException extends DomainException {
 

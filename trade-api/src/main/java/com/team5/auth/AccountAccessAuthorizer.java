@@ -1,6 +1,6 @@
 package com.team5.auth;
 
-import com.team5.exception.AccountAccessDeniedException;
+import com.team5.domain.exception.AccountAccessDeniedException;
 import org.springframework.stereotype.Component;
 
 @Component
