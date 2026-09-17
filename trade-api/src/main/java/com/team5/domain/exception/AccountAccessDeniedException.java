@@ -1,4 +1,4 @@
-package com.team5.exception;
+package com.team5.domain.exception;
 
 // The contract reports a token/account mismatch with the same code and message as an inactive account.
 public class AccountAccessDeniedException extends DomainException {

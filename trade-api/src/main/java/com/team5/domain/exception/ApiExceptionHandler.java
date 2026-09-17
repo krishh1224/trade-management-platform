@@ -1,4 +1,4 @@
-package com.team5.exception;
+package com.team5.domain.exception;
 
 import com.team5.dto.response.ErrorResponse;
 import jakarta.validation.ConstraintViolationException;

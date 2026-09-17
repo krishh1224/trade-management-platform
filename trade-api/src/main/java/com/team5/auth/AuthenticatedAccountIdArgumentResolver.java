@@ -1,6 +1,6 @@
 package com.team5.auth;
 
-import com.team5.exception.UnauthorisedException;
+import com.team5.domain.exception.UnauthorisedException;
 import org.springframework.core.MethodParameter;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;

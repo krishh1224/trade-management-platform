@@ -25,7 +25,7 @@ END;
 $$;
 
 
-CREATE TABLE clients (
+CREATE TABLE IF NOT EXISTS clients (
                          id              BIGINT PRIMARY KEY,
                          name            VARCHAR(100) NOT NULL,
                          email           VARCHAR(255) NOT NULL UNIQUE,
@@ -36,7 +36,7 @@ CREATE TABLE clients (
 );
 
 
-CREATE TABLE accounts (
+CREATE TABLE IF NOT EXISTS accounts (
                           acc_id              BIGINT PRIMARY KEY,
                           client_id           BIGINT NOT NULL,
                           account_number      VARCHAR(10) NOT NULL UNIQUE
@@ -58,7 +58,7 @@ CREATE TABLE accounts (
 );
 
 
-CREATE TABLE portfolio (
+CREATE TABLE IF NOT EXISTS portfolio (
                            portfolio_id        BIGINT PRIMARY KEY,
                            name                VARCHAR(100) NOT NULL,
                            account_id          BIGINT NOT NULL UNIQUE,
@@ -72,7 +72,7 @@ CREATE TABLE portfolio (
 );
 
 
-CREATE TABLE instruments (
+CREATE TABLE IF NOT EXISTS instruments (
                              instrument_id       BIGINT PRIMARY KEY,
                              name                VARCHAR(150) NOT NULL,
                              ticker              VARCHAR(20) NOT NULL UNIQUE,
@@ -84,7 +84,7 @@ CREATE TABLE instruments (
 );
 
 
-CREATE TABLE portfolio_holdings (
+CREATE TABLE IF NOT EXISTS portfolio_holdings (
                                     portfolio_holding_id BIGINT PRIMARY KEY,
                                     portfolio_id         BIGINT NOT NULL,
                                     instrument_id        BIGINT NOT NULL,
@@ -108,7 +108,7 @@ CREATE TABLE portfolio_holdings (
 );
 
 
-CREATE TABLE orders (
+CREATE TABLE IF NOT EXISTS orders (
                         order_id            BIGINT PRIMARY KEY,
                         portfolio_id        BIGINT NOT NULL,
                         instrument_id       BIGINT NOT NULL,
@@ -134,7 +134,7 @@ CREATE TABLE orders (
 );
 
 
-CREATE TABLE transactions (
+CREATE TABLE IF NOT EXISTS transactions (
                               transaction_id      BIGINT PRIMARY KEY,
                               account_id          BIGINT NOT NULL,
                               order_id            BIGINT,
@@ -218,29 +218,29 @@ CREATE TABLE transactions (
 );
 
 
-CREATE INDEX idx_accounts_client_id
+CREATE INDEX IF NOT EXISTS idx_accounts_client_id
     ON accounts(client_id);
 
-CREATE INDEX idx_portfolio_holdings_portfolio_id
+CREATE INDEX IF NOT EXISTS idx_portfolio_holdings_portfolio_id
     ON portfolio_holdings(portfolio_id);
 
-CREATE INDEX idx_portfolio_holdings_instrument_id
+CREATE INDEX IF NOT EXISTS idx_portfolio_holdings_instrument_id
     ON portfolio_holdings(instrument_id);
 
-CREATE INDEX idx_orders_portfolio_id
+CREATE INDEX IF NOT EXISTS idx_orders_portfolio_id
     ON orders(portfolio_id);
 
-CREATE INDEX idx_orders_instrument_id
+CREATE INDEX IF NOT EXISTS idx_orders_instrument_id
     ON orders(instrument_id);
 
-CREATE INDEX idx_transactions_account_id
+CREATE INDEX IF NOT EXISTS idx_transactions_account_id
     ON transactions(account_id);
 
-CREATE INDEX idx_transactions_order_id
+CREATE INDEX IF NOT EXISTS idx_transactions_order_id
     ON transactions(order_id);
 
-CREATE INDEX idx_transactions_instrument_id
+CREATE INDEX IF NOT EXISTS idx_transactions_instrument_id
     ON transactions(instrument_id);
 
-CREATE INDEX idx_transactions_created_at
+CREATE INDEX IF NOT EXISTS idx_transactions_created_at
     ON transactions(created_at);
