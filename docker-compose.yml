@@ -46,7 +46,6 @@ services:
     profiles: ["platform"]
 
   # ============== POSTGRESQL ==============
-  # ============== POSTGRESQL ==============
   postgres:
     image: postgres:16-alpine
     container_name: postgres
@@ -96,6 +95,7 @@ services:
     ports:
       - "8081:8081"
     environment:
+      SPRING_PROFILES_ACTIVE: platform
       SERVER_PORT: 8081
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:-trading_platform}
       SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:-postgres}
@@ -124,10 +124,7 @@ services:
     build:
       context: .
       dockerfile: ./executor/Dockerfile
-    conta
-    name: pgdata
-  kafka-data:
-    name: kafka-datainer_name: executor
+    container_name: executor
     profiles: ["platform"]
     ports:
       - "8082:8082"
@@ -147,8 +144,7 @@ services:
       trade-api:
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "wget", "-qO-", "http://localhost:8082/actuator
-      test: ["CMD", "wget", "-qO-", "http://localhost:8081/health"]
+      test: ["CMD", "wget", "-qO-", "http://localhost:8082/actuator/health"]
       interval: 10s
       timeout: 5s
       retries: 10
@@ -159,6 +155,10 @@ services:
 networks:
   trading-net:
     name: trading-net
+    driver: bridge
 
 volumes:
   pgdata:
+    name: pgdata
+  kafka-data:
+    name: kafka-data
