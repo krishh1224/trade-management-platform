@@ -5,11 +5,13 @@ import com.neueda.learning.exception.QuoteUnavailableException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.*;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.client.RestClientException;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.util.List;
 
 /**
  * HTTP client for Fauxnance quote service.
@@ -24,17 +26,20 @@ public class FauxnanceQuoteClient {
     private final int maxRetries;
     private final long initialBackoffMs;
     private final long maxBackoffMs;
+    private final String fauxnanceApiKey;
 
     public FauxnanceQuoteClient(RestTemplate restTemplate,
-                                @Value("${fauxnance.base-url:http://localhost:8081}") String fauxnanceBaseUrl,
+                                @Value("https://y4t9nq2bqf.execute-api.eu-west-2.amazonaws.com/v1") String fauxnanceBaseUrl,
                                 @Value("${fauxnance.quote.max-retries:3}") int maxRetries,
                                 @Value("${fauxnance.quote.initial-backoff-ms:100}") long initialBackoffMs,
-                                @Value("${fauxnance.quote.max-backoff-ms:2000}") long maxBackoffMs) {
+                                @Value("${fauxnance.quote.max-backoff-ms:2000}") long maxBackoffMs,
+                                @Value("${fauxnance.api-key}") String fauxnanceApiKey) {
         this.restTemplate = restTemplate;
         this.fauxnanceBaseUrl = fauxnanceBaseUrl;
         this.maxRetries = maxRetries;
         this.initialBackoffMs = initialBackoffMs;
         this.maxBackoffMs = maxBackoffMs;
+        this.fauxnanceApiKey = fauxnanceApiKey;
     }
 
     /**
@@ -47,20 +52,39 @@ public class FauxnanceQuoteClient {
         for (int attempt = 0; attempt <= maxRetries; attempt++) {
             try {
                 logger.debug("Fetching quote for {} (attempt {}/{})", symbol, attempt + 1, maxRetries + 1);
-                
+
                 String url = fauxnanceBaseUrl + "/quotes/" + symbol;
-                FauxnanceQuoteResponse response = restTemplate.getForObject(url, FauxnanceQuoteResponse.class);
-                
-                if (response == null) {
+
+                HttpHeaders headers = new HttpHeaders();
+                headers.set("x-api-key", fauxnanceApiKey);
+                headers.setAccept(List.of(MediaType.APPLICATION_JSON));
+
+                HttpEntity<Void> entity = new HttpEntity<>(headers);
+
+                ResponseEntity<FauxnanceQuoteResponse> response =
+                        restTemplate.exchange(
+                                url,
+                                HttpMethod.GET,
+                                entity,
+                                FauxnanceQuoteResponse.class
+                        );
+
+                FauxnanceQuoteResponse quoteResponse = response.getBody();
+
+                if (quoteResponse == null) {
                     throw new RestClientException("Null response from Fauxnance");
+                }
+                
+                if (quoteResponse.data == null || quoteResponse.data.bid == null || quoteResponse.data.ask == null) {
+                    throw new RestClientException("Missing bid/ask prices in response: " + quoteResponse);
                 }
 
                 logger.debug("Quote retrieved for {}: {}", symbol, response);
                 
                 // Scale prices to 2 decimal places (matching Account.balance precision)
-                BigDecimal bid = response.bid.setScale(2, RoundingMode.HALF_UP);
-                BigDecimal ask = response.ask.setScale(2, RoundingMode.HALF_UP);
-                
+                BigDecimal bid = quoteResponse.data.bid.setScale(2, RoundingMode.HALF_UP);
+                BigDecimal ask = quoteResponse.data.ask.setScale(2, RoundingMode.HALF_UP);
+
                 return new Quote(symbol, bid, ask);
             } catch (RestClientException e) {
                 logger.warn("Failed to fetch quote for {} (attempt {}/{}): {}", 
@@ -85,29 +109,55 @@ public class FauxnanceQuoteClient {
 
     /**
      * DTO for Fauxnance API response.
+     * Response structure:
+     * {
+     *   "data": {
+     *     "bid": 123.45,
+     *     "ask": 123.50
+     *   }
+     * }
      */
     public static class FauxnanceQuoteResponse {
-        public String symbol;
-        public BigDecimal bid;
-        public BigDecimal ask;
+        public Data data;
 
         // Default constructor for Jackson
         public FauxnanceQuoteResponse() {
         }
 
-        public FauxnanceQuoteResponse(String symbol, BigDecimal bid, BigDecimal ask) {
-            this.symbol = symbol;
-            this.bid = bid;
-            this.ask = ask;
+        public FauxnanceQuoteResponse(Data data) {
+            this.data = data;
         }
 
         @Override
         public String toString() {
             return "FauxnanceQuoteResponse{" +
-                    "symbol='" + symbol + '\'' +
-                    ", bid=" + bid +
-                    ", ask=" + ask +
+                    "data=" + data +
                     '}';
+        }
+
+        /**
+         * Nested data object containing bid/ask prices.
+         */
+        public static class Data {
+            public BigDecimal bid;
+            public BigDecimal ask;
+
+            // Default constructor for Jackson
+            public Data() {
+            }
+
+            public Data(BigDecimal bid, BigDecimal ask) {
+                this.bid = bid;
+                this.ask = ask;
+            }
+
+            @Override
+            public String toString() {
+                return "Data{" +
+                        "bid=" + bid +
+                        ", ask=" + ask +
+                        '}';
+            }
         }
     }
 }

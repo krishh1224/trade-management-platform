@@ -7,11 +7,15 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.http.HttpMethod;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestTemplate;
 import java.math.BigDecimal;
 
 import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
 /**
@@ -32,8 +36,9 @@ class FauxnanceQuoteClientTest {
                 restTemplate,
                 "http://localhost:8081",
                 3,      // max retries
-                50,     // initial backoff
-                500     // max backoff
+                50L,    // initial backoff (ms)
+                500L,   // max backoff (ms)
+                "test-api-key"  // fauxnance API key
         );
     }
 
@@ -45,14 +50,18 @@ class FauxnanceQuoteClientTest {
         String symbol = "INFY.NS";
         FauxnanceQuoteClient.FauxnanceQuoteResponse response =
                 new FauxnanceQuoteClient.FauxnanceQuoteResponse(
-                        symbol,
-                        new BigDecimal("498.123456"),
-                        new BigDecimal("499.654321")
+                        new FauxnanceQuoteClient.FauxnanceQuoteResponse.Data(
+                                new BigDecimal("498.123456"),
+                                new BigDecimal("499.654321")
+                        )
                 );
 
-        when(restTemplate.getForObject("http://localhost:8081/quotes/" + symbol,
-                FauxnanceQuoteClient.FauxnanceQuoteResponse.class))
-                .thenReturn(response);
+        when(restTemplate.exchange(
+                contains("/quotes/" + symbol),
+                eq(HttpMethod.GET),
+                any(),
+                eq(FauxnanceQuoteClient.FauxnanceQuoteResponse.class)
+        )).thenReturn(new ResponseEntity<>(response, HttpStatus.OK));
 
         Quote quote = quoteClient.getQuote(symbol);
 
@@ -62,7 +71,7 @@ class FauxnanceQuoteClientTest {
         assertEquals(new BigDecimal("498.12"), quote.getBid());
         assertEquals(new BigDecimal("499.65"), quote.getAsk());
 
-        verify(restTemplate, times(1)).getForObject(anyString(), eq(FauxnanceQuoteClient.FauxnanceQuoteResponse.class));
+        verify(restTemplate, times(1)).exchange(anyString(), eq(HttpMethod.GET), any(), eq(FauxnanceQuoteClient.FauxnanceQuoteResponse.class));
     }
 
     /**
@@ -72,7 +81,7 @@ class FauxnanceQuoteClientTest {
     void testQuoteUnavailableAfterRetries() {
         String symbol = "INFY.NS";
 
-        when(restTemplate.getForObject(anyString(), eq(FauxnanceQuoteClient.FauxnanceQuoteResponse.class)))
+        when(restTemplate.exchange(anyString(), eq(HttpMethod.GET), any(), eq(FauxnanceQuoteClient.FauxnanceQuoteResponse.class)))
                 .thenThrow(new RestClientException("Connection timeout"));
 
         QuoteUnavailableException exception = assertThrows(QuoteUnavailableException.class, () ->
@@ -83,7 +92,7 @@ class FauxnanceQuoteClientTest {
         assertTrue(exception.getMessage().contains(symbol));
 
         // Should have attempted maxRetries + 1 times
-        verify(restTemplate, times(4)).getForObject(anyString(), eq(FauxnanceQuoteClient.FauxnanceQuoteResponse.class));
+        verify(restTemplate, times(4)).exchange(anyString(), eq(HttpMethod.GET), any(), eq(FauxnanceQuoteClient.FauxnanceQuoteResponse.class));
     }
 
     /**
@@ -94,21 +103,22 @@ class FauxnanceQuoteClientTest {
         String symbol = "INFY.NS";
         FauxnanceQuoteClient.FauxnanceQuoteResponse response =
                 new FauxnanceQuoteClient.FauxnanceQuoteResponse(
-                        symbol,
-                        new BigDecimal("498.00"),
-                        new BigDecimal("499.00")
+                        new FauxnanceQuoteClient.FauxnanceQuoteResponse.Data(
+                                new BigDecimal("498.00"),
+                                new BigDecimal("499.00")
+                        )
                 );
 
-        when(restTemplate.getForObject(anyString(), eq(FauxnanceQuoteClient.FauxnanceQuoteResponse.class)))
+        when(restTemplate.exchange(anyString(), eq(HttpMethod.GET), any(), eq(FauxnanceQuoteClient.FauxnanceQuoteResponse.class)))
                 .thenThrow(new RestClientException("First attempt fails"))
-                .thenReturn(response);  // Second attempt succeeds
+                .thenReturn(new ResponseEntity<>(response, HttpStatus.OK));  // Second attempt succeeds
 
         Quote quote = quoteClient.getQuote(symbol);
 
         assertNotNull(quote);
         assertEquals(symbol, quote.getSymbol());
 
-        verify(restTemplate, times(2)).getForObject(anyString(), eq(FauxnanceQuoteClient.FauxnanceQuoteResponse.class));
+        verify(restTemplate, times(2)).exchange(anyString(), eq(HttpMethod.GET), any(), eq(FauxnanceQuoteClient.FauxnanceQuoteResponse.class));
     }
 
     /**
@@ -118,8 +128,8 @@ class FauxnanceQuoteClientTest {
     void testNullResponseHandling() {
         String symbol = "INFY.NS";
 
-        when(restTemplate.getForObject(anyString(), eq(FauxnanceQuoteClient.FauxnanceQuoteResponse.class)))
-                .thenReturn(null);
+        when(restTemplate.exchange(anyString(), eq(HttpMethod.GET), any(), eq(FauxnanceQuoteClient.FauxnanceQuoteResponse.class)))
+                .thenReturn(new ResponseEntity<>(null, HttpStatus.OK));
 
         QuoteUnavailableException exception = assertThrows(QuoteUnavailableException.class, () ->
                 quoteClient.getQuote(symbol)
