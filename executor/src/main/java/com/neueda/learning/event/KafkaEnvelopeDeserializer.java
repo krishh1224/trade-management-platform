@@ -42,10 +42,18 @@ public class KafkaEnvelopeDeserializer implements Deserializer<KafkaEnvelope<Ord
                 .constructParametricType(KafkaEnvelope.class, OrderPlacedPayload.class);
             
             KafkaEnvelope<OrderPlacedPayload> envelope = objectMapper.readValue(json, envelopeType);
-            logger.info("Successfully deserialized: eventType={}, orderId={}, source={}", 
-                envelope.getEventType(), 
-                envelope.getPayload().getOrderId(),
-                envelope.getSource());
+            
+            // Handle null payload gracefully
+            if (envelope.getPayload() == null) {
+                logger.warn("Successfully deserialized envelope but payload is null: eventType={}, source={}", 
+                    envelope.getEventType(), 
+                    envelope.getSource());
+            } else {
+                logger.info("Successfully deserialized: eventType={}, orderId={}, source={}", 
+                    envelope.getEventType(), 
+                    envelope.getPayload().getOrderId(),
+                    envelope.getSource());
+            }
             return envelope;
         } catch (Exception e) {
             logger.error("Failed to deserialize message from topic {}: {}", topic, e.getMessage(), e);
