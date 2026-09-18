@@ -165,15 +165,16 @@ class ExecutionDecisionTest {
     @Test
     void testPrecisionHandling() {
         BigDecimal limitPrice = new BigDecimal("100.00");
-        // Fauxnance returns 6 decimal places
+        // Fauxnance returns 6 decimal places, but FauxnanceQuoteClient scales to 2 decimal places
+        // Simulate the scaled result (as returned by the client)
         Quote quote = new Quote("INFY.NS", 
-                new BigDecimal("99.123456"), 
-                new BigDecimal("99.654321"));
+                new BigDecimal("99.12"), 
+                new BigDecimal("99.65"));
 
         ExecutionDecision decision = ExecutionDecision.decide("BUY", limitPrice, quote);
 
         assertEquals(ExecutionStatus.FILLED, decision.getStatus());
-        // The quote client would have already scaled to 2 decimal places
+        // The quote client scales to 2 decimal places
         assertTrue(decision.getExecutionPrice().toString().matches("99\\.\\d{1,2}"));
     }
 

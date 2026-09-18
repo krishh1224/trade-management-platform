@@ -261,9 +261,14 @@ class TradeExecutionServiceTest {
                 LocalDateTime.now(), LocalDateTime.now()
         );
 
+        InstrumentRecord instrument = new InstrumentRecord(
+                instrumentId, "INFY.NS", "Infosys", "EQUITY", "INR", "NSE", true
+        );
+
         when(orderMapper.findById(orderId)).thenReturn(order);
         when(portfolioMapper.findById(portfolioId)).thenReturn(portfolio);
         when(accountMapper.findById(accountId)).thenReturn(account);
+        when(instrumentMapper.findById(instrumentId)).thenReturn(instrument);
 
         ExecutionResult result = executionService.executeOrder(orderId);
 

@@ -1,4 +1,4 @@
-package java.com.team5;
+package com.team5.service;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertSame;
@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.team5.auth.AccountAccessAuthorizer;
 import com.team5.domain.enums.AccountStatus;
 import com.team5.domain.enums.OrderStatus;
 import com.team5.domain.exception.AccountNotActiveException;
@@ -19,6 +20,7 @@ import java.math.BigDecimal;
 import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Map;
+
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -31,11 +33,14 @@ class AccountServiceImplTest {
     @Mock
     private AccountQueryMapper accountQueryMapper;
 
+    @Mock
+    private AccountAccessAuthorizer accountAccessAuthorizer;
+
     private AccountServiceImpl accountService;
 
     @BeforeEach
     void setUp() {
-        accountService = new AccountServiceImpl(accountQueryMapper);
+        accountService = new AccountServiceImpl(accountQueryMapper, accountAccessAuthorizer);
     }
 
     @Test
@@ -53,7 +58,7 @@ class AccountServiceImplTest {
         );
         when(accountQueryMapper.getAccount(101L)).thenReturn(expected);
 
-        AccountResponse actual = accountService.getAccount(101L);
+        AccountResponse actual = accountService.getAccount(101L, 101L);
 
         assertSame(expected, actual);
         verify(accountQueryMapper).getAccount(101L);
@@ -71,7 +76,7 @@ class AccountServiceImplTest {
         );
         when(accountQueryMapper.getBalance(101L)).thenReturn(expected);
 
-        BalanceResponse actual = accountService.getBalance(101L);
+        BalanceResponse actual = accountService.getBalance(101L, 101L);
 
         assertSame(expected, actual);
         verify(accountQueryMapper).getBalance(101L);
@@ -84,7 +89,7 @@ class AccountServiceImplTest {
         List<PositionResponse> expected = List.of(new PositionResponse(101L, "INFY.NS", 100, BigDecimal.valueOf(1450.00)));
         when(accountQueryMapper.getPositions(101L)).thenReturn(expected);
 
-        List<PositionResponse> actual = accountService.getPositions(101L);
+        List<PositionResponse> actual = accountService.getPositions(101L, 101L);
 
         assertSame(expected, actual);
         verify(accountQueryMapper).getPositions(101L);
@@ -97,7 +102,7 @@ class AccountServiceImplTest {
         List<OrderHistoryEntry> expected = List.of();
         when(accountQueryMapper.getOrders(101L, "FILLED", null, null)).thenReturn(expected);
 
-        List<OrderHistoryEntry> actual = accountService.getOrders(101L, OrderStatus.FILLED, null, null);
+        List<OrderHistoryEntry> actual = accountService.getOrders(101L, 101L, OrderStatus.FILLED, null, null);
 
         assertSame(expected, actual);
         verify(accountQueryMapper).getOrders(101L, "FILLED", null, null);
@@ -109,7 +114,7 @@ class AccountServiceImplTest {
 
         AccountNotFoundException exception = assertThrows(
             AccountNotFoundException.class,
-            () -> accountService.getAccount(999L)
+            () -> accountService.getAccount(101L, 999L)
         );
 
         assertEquals("ACC-404", exception.getCode());
@@ -121,7 +126,7 @@ class AccountServiceImplTest {
 
         AccountNotActiveException exception = assertThrows(
             AccountNotActiveException.class,
-            () -> accountService.getOrders(101L, null, null, null)
+            () -> accountService.getOrders(101L, 101L, null, null, null)
         );
 
         assertEquals("ACC-403", exception.getCode());

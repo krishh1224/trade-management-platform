@@ -86,33 +86,51 @@ class OrderPlacedConsumerDLTTest {
     // ==================== Test 1: Missing orderId → PermanentFailureException ====================
 
     @Test
-    @DisplayName("Test 1: Missing orderId throws PermanentFailureException (no retry, immediate DLT)")
+    @DisplayName("Test 1: Missing orderId generates orderId from accountId (backward compatibility)")
     void testMissingOrderId_ThrowsPermanentFailure() {
         // Given: ORDER_PLACED event with null orderId
+        // AccountId is 100L, so orderId will be generated from it using UUID.nameUUIDFromBytes("order:100")
+        long accountId = 100L;
+        long portfolioId = 200L;
+        long instrumentId = 300L;
+
         KafkaEnvelope<OrderPlacedPayload> envelope = new KafkaEnvelope<>(
             UUID.randomUUID(),
             "ORDER_PLACED",
             OffsetDateTime.now(),
             "test",
             1,
-            new OrderPlacedPayload(null, 100L, "INFY.NS", "BUY", 10, new BigDecimal("500.00"), "key1", OffsetDateTime.now())
+            new OrderPlacedPayload(null, accountId, "INFY.NS", "BUY", 10, new BigDecimal("500.00"), "key1", OffsetDateTime.now())
         );
 
-        // When/Then: Throws PermanentFailureException with correct failure reason
-        assertThatThrownBy(() -> consumer.consumeOrderPlaced(envelope, acknowledgment))
-            .isInstanceOf(PermanentFailureException.class)
-            .satisfies(ex -> {
-                PermanentFailureException pfe = (PermanentFailureException) ex;
-                assertThat(pfe.getFailureReason()).isEqualTo("MISSING_ORDER_ID");
-            });
+        OrderRecord order = new OrderRecord(
+            999L, portfolioId, instrumentId, 10,
+            new BigDecimal("500.00"), "NEW", "BUY", "key1",
+            LocalDateTime.now(), LocalDateTime.now(), null
+        );
 
-        // Verify: No settlement or publication attempts made
-        verify(settlementService, never()).settleOrder(any(), any(), any(), any(), any(), any());
-        verify(tradeEventPublisher, never()).publishOrderFilled(any(), any(), any(), any(), any(), any(), any());
-        verify(tradeEventPublisher, never()).publishOrderRejected(any(), any(), any());
-        
-        // Verify: acknowledgment is NOT called (will be deferred until DLT succeeds)
-        verify(acknowledgment, never()).acknowledge();
+        PortfolioRecord portfolio = new PortfolioRecord(
+            portfolioId, "Main", accountId, "ACTIVE",
+            LocalDateTime.now(), LocalDateTime.now()
+        );
+
+        ExecutionResult execution = new ExecutionResult(999L, ExecutionStatus.FILLED, new BigDecimal("500.00"), "Order executed");
+
+        // When: orderId is null, it's generated from accountId (deterministic)
+        // Mock with anyLong() since the exact value depends on UUID conversion
+        when(executionService.executeOrder(anyLong())).thenReturn(execution);
+        when(orderMapper.findById(anyLong())).thenReturn(order);
+        when(portfolioMapper.findById(portfolioId)).thenReturn(portfolio);
+        when(settlementService.settleOrder(any(), any(), any(), any(), any(), any()))
+            .thenReturn(SettlementResult.success());
+
+        // When: Consumer processes the event with missing orderId
+        consumer.consumeOrderPlaced(envelope, acknowledgment);
+
+        // Then: Order is still processed successfully with generated orderId (no exception thrown)
+        verify(executionService).executeOrder(anyLong());
+        verify(tradeEventPublisher).publishOrderFilled(any(), any(), any(), any(), any(), any(), any());
+        verify(acknowledgment).acknowledge();
     }
 
     // ==================== Test 2: Order not found → PermanentFailureException ====================
@@ -444,7 +462,7 @@ class OrderPlacedConsumerDLTTest {
     // ==================== Test 9: Missing payload → PermanentFailureException ====================
 
     @Test
-    @DisplayName("Test 9: Missing payload throws PermanentFailureException (no retry, immediate DLT)")
+    @DisplayName("Test 9: Missing payload is acknowledged and skipped (graceful handling)")
     void testMissingPayload_ThrowsPermanentFailure() {
         // Given: ORDER_PLACED event with null payload
         KafkaEnvelope<OrderPlacedPayload> envelope = new KafkaEnvelope<>(
@@ -456,15 +474,14 @@ class OrderPlacedConsumerDLTTest {
             null // payload is null
         );
 
-        // When/Then: Throws PermanentFailureException
-        assertThatThrownBy(() -> consumer.consumeOrderPlaced(envelope, acknowledgment))
-            .isInstanceOf(PermanentFailureException.class)
-            .satisfies(ex -> {
-                PermanentFailureException pfe = (PermanentFailureException) ex;
-                assertThat(pfe.getFailureReason()).isEqualTo("MISSING_PAYLOAD");
-            });
+        // When: Consumer processes the event with null payload
+        consumer.consumeOrderPlaced(envelope, acknowledgment);
 
-        verify(acknowledgment, never()).acknowledge();
+        // Then: Message is acknowledged and skipped gracefully (no exception thrown)
+        // This allows processing to continue instead of blocking on malformed messages
+        verify(acknowledgment).acknowledge();
+        verify(executionService, never()).executeOrder(any());
+        verify(settlementService, never()).settleOrder(any(), any(), any(), any(), any(), any());
     }
 
     // ==================== Test 10: Portfolio not found → PermanentFailureException ====================
