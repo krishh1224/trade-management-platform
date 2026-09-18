@@ -8,12 +8,12 @@ import com.team5.domain.enums.AccountStatus;
 import com.team5.domain.enums.Exchange;
 import com.team5.domain.enums.OrderSide;
 import com.team5.domain.enums.RiskProfile;
-import com.team5.exception.AccountNotActiveException;
-import com.team5.exception.AccountNotFoundException;
-import com.team5.exception.DuplicateOrderException;
-import com.team5.exception.InstrumentNotFoundException;
-import com.team5.exception.InsufficientFundsException;
-import com.team5.exception.InsufficientHoldingsException;
+import com.team5.domain.exception.AccountNotActiveException;
+import com.team5.domain.exception.AccountNotFoundException;
+import com.team5.domain.exception.DuplicateOrderException;
+import com.team5.domain.exception.InstrumentNotFoundException;
+import com.team5.domain.exception.InsufficientFundsException;
+import com.team5.domain.exception.InsufficientHoldingsException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 

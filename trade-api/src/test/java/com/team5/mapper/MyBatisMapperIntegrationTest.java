@@ -6,15 +6,14 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.team5.domain.enums.OrderSide;
-import com.team5.exception.AccountAccessDeniedException;
-import com.team5.exception.DuplicateOrderException;
-import com.team5.exception.OrderConflictException;
-import com.team5.exception.OrderNotFoundException;
+import com.team5.domain.exception.AccountAccessDeniedException;
+import com.team5.domain.exception.DuplicateOrderException;
+import com.team5.domain.exception.OrderConflictException;
+import com.team5.domain.exception.OrderNotFoundException;
 import com.team5.dto.request.PlaceOrderRequest;
 import com.team5.dto.response.OrderResponse;
 import com.team5.service.OrderService;
 import java.math.BigDecimal;
-import java.math.RoundingMode;
 import java.time.OffsetDateTime;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
@@ -154,8 +153,13 @@ class MyBatisMapperIntegrationTest {
         seedBaseData();
     }
 
+    // Renamed from placeOrderCommitsOrderBalanceHoldingsAndTransaction, and the
+    // balance/holdings/transaction assertions it used to carry were dropped. Trade REST
+    // API no longer performs a synchronous fill — pricing and cash/position movement are
+    // the executor's job (see "Trade REST API Publishes ORDER_PLACED and Answers NEW").
+    // Those assertions will be re-covered by the executor's own test suite in Story 5.
     @Test
-    void placeOrderCommitsOrderBalanceHoldingsAndTransaction() {
+    void placeOrderCommitsOrderAtNewStatus() {
         PlaceOrderRequest request = new PlaceOrderRequest();
         request.setAccountId(101L);
         request.setSymbol("INFY.NS");
@@ -170,41 +174,11 @@ class MyBatisMapperIntegrationTest {
         assertTrue(response.orderId().startsWith("ORD-"));
         assertEquals("NEW", response.status().name());
 
-        BigDecimal balance = jdbcTemplate.queryForObject(
-            "SELECT balance FROM accounts WHERE acc_id = 101",
-            BigDecimal.class
-        );
-        assertEquals(new BigDecimal("40000.00"), balance);
-
-        Long version = jdbcTemplate.queryForObject(
-            "SELECT version FROM accounts WHERE acc_id = 101",
-            Long.class
-        );
-        assertEquals(2L, version);
-
-        Long quantity = jdbcTemplate.queryForObject(
-            "SELECT quantity FROM portfolio_holdings WHERE portfolio_id = 201 AND instrument_id = 301",
-            Long.class
-        );
-        assertEquals(110L, quantity);
-
-        BigDecimal avgCost = jdbcTemplate.queryForObject(
-            "SELECT avg_cost FROM portfolio_holdings WHERE portfolio_id = 201 AND instrument_id = 301",
-            BigDecimal.class
-        );
-        assertEquals(new BigDecimal("1409.0909"), avgCost.setScale(4, RoundingMode.HALF_UP));
-
         Integer orderCount = jdbcTemplate.queryForObject(
             "SELECT COUNT(*) FROM orders WHERE idempotency_key = 'idem-commit-1'",
             Integer.class
         );
         assertEquals(1, orderCount);
-
-        Integer transactionCount = jdbcTemplate.queryForObject(
-            "SELECT COUNT(*) FROM transactions WHERE account_id = 101 AND transaction_type = 'BUY'",
-            Integer.class
-        );
-        assertEquals(1, transactionCount);
     }
 
     @Test

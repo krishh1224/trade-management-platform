@@ -2,8 +2,8 @@ package com.team5.service;
 
 import com.team5.auth.AccountAccessAuthorizer;
 import com.team5.domain.enums.OrderStatus;
-import com.team5.exception.AccountNotActiveException;
-import com.team5.exception.AccountNotFoundException;
+import com.team5.domain.exception.AccountNotActiveException;
+import com.team5.domain.exception.AccountNotFoundException;
 import com.team5.dto.response.AccountResponse;
 import com.team5.dto.response.BalanceResponse;
 import com.team5.dto.response.OrderHistoryEntry;

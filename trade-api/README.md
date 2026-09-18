@@ -71,6 +71,38 @@ To generate a test coverage report (JaCoCo):
 ```
 The coverage report will be available at `target/site/jacoco/index.html`.
 
+## Sprint 6 Characterisation Tests
+
+Sprint 6 order placement characterisation tests live in the package:
+
+`com.team5.characterisation.sprint6`
+
+Source location:
+
+`src/test/java/com/team5/characterisation/sprint6`
+
+These tests intentionally record current service behavior (what it does now), including behavior we may disagree with, and pin it before service changes.
+
+### Pinned Current Behaviour (Order Placement)
+
+* Affordable BUY order returns HTTP 200 with response fields pinned: `orderId` (starts with `ORD-`), `status=NEW`, `message=Order accepted`, `symbol`, `side`, `quantity`, `price`.
+* Reused idempotency key returns HTTP 409 with `errorCode=ORD-409`, `message=Duplicate order`.
+* Unaffordable BUY returns HTTP 400 with `errorCode=ORD-400`, `message=Insufficient funds`.
+* Unknown symbol returns HTTP 404 with `errorCode=INS-404`, `message=Instrument not found`.
+* Account not ACTIVE returns HTTP 403 with `errorCode=ACC-403`, `message=Account not active`.
+
+### Pinned Persistence Effects For Accepted Order
+
+On accepted BUY order, tests pin the exact write-side effects currently produced:
+
+* `orders` row is created with `status=NEW`, `side=BUY`, expected `quantity`, and stored `price`.
+* `accounts.balance` is debited by trade amount.
+* `portfolio_holdings.quantity` increases and `avg_cost` is recomputed.
+
+### Story Guardrail
+
+If a later change deliberately modifies one of these pinned behaviors, update the corresponding characterization test in the same commit as that service change and call it out in the commit message.
+
 Note that `MyBatisMapperIntegrationTest` requires a running PostgreSQL instance (see `docker-compose.yml` at the repository root); it will fail if no database is reachable.
 
 ## API Contract

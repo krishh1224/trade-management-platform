@@ -1,18 +1,70 @@
 services:
+  # ============== KAFKA ==============
+  kafka:
+    image: apache/kafka:3.8.0
+    container_name: kafka-sprint7
+    environment:
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_LISTENERS: HOST://0.0.0.0:8085,DOCKER://kafka:29092,CONTROLLER://kafka:9093
+      # KAFKA_ADVERTISED_LISTENERS: tells external clients what address to use to connect back to Kafka
+      # HOST: external address (for clients outside Docker, e.g., on Windows machine)
+      # DOCKER: internal address (for containers in the same Docker network)
+      KAFKA_ADVERTISED_LISTENERS: HOST://${KAFKA_HOST:-10.8.64.174}:8085,DOCKER://kafka:29092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: HOST:PLAINTEXT,DOCKER:PLAINTEXT,CONTROLLER:PLAINTEXT
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
+      KAFKA_INTER_BROKER_LISTENER_NAME: DOCKER
+      CLUSTER_ID: 4L6g3nShT-eMCtK--X86sw
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "false"
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      KAFKA_LOG_DIRS: /var/lib/kafka/data
+    volumes:
+      - kafka-data:/var/lib/kafka/data
+    ports:
+      - "8085:8085"
+    healthcheck:
+      test: [ "CMD-SHELL", "/opt/kafka/bin/kafka-broker-api-versions.sh --bootstrap-server kafka:29092 > /dev/null 2>&1" ]
+      interval: 10s
+      timeout: 10s
+      retries: 15
+      start_period: 30s
+    networks:
+      - trading-net
+
+  kafka-ui:
+    image: ghcr.io/kafbat/kafka-ui:latest
+    container_name: kafka-ui
+    depends_on:
+      - kafka
+    ports:
+      - "8086:8080"
+    environment:
+      KAFKA_CLUSTERS_0_NAME: trading-cluster
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:29092
+    networks:
+      - trading-net
+    profiles: ["platform"]
+
+  # ============== POSTGRESQL ==============
   postgres:
     image: postgres:16-alpine
     container_name: postgres
-    profiles: ["platform"]
     environment:
-      POSTGRES_DB: ${POSTGRES_DB:-trade_management}
+      POSTGRES_DB: ${POSTGRES_DB:-trading_platform}
       POSTGRES_USER: ${POSTGRES_USER:-postgres}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
     volumes:
       - pgdata:/var/lib/postgresql/data
       - ./database/database/migration/V1_schema.sql:/docker-entrypoint-initdb.d/01_schema.sql:ro
       - ./database/database/seed/001_seed.sql:/docker-entrypoint-initdb.d/02_seed.sql:ro
+    ports:
+      - "5432:5432"
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-trade_management}"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-trading_platform}"]
       interval: 10s
       timeout: 5s
       retries: 10
@@ -20,6 +72,7 @@ services:
     networks:
       - trading-net
 
+  # ============== JWT AUTH STUB ==============
   auth-stub:
     build:
       context: ./services/jwt-token-server
@@ -37,6 +90,7 @@ services:
     networks:
       - trading-net
 
+  # ============== TRADE API (PRODUCER) ==============
   trade-api:
     build:
       context: .
@@ -47,18 +101,19 @@ services:
       - "8081:8081"
     environment:
       SPRING_PROFILES_ACTIVE: platform
-      POSTGRES_HOST: postgres
-      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:-trade_management}
+      SERVER_PORT: 8081
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:-trading_platform}
       SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:-postgres}
       SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
       JWT_SECRET: ${JWT_SECRET:?JWT_SECRET must be set to a secret of at least 32 bytes}
-      AUTH_STUB_HOST: auth-stub
       AUTH_STUB_BASE_URL: http://auth-stub:8082
-      SERVER_PORT: 8081
+      KAFKA_BOOTSTRAP_SERVERS: kafka:29092
     depends_on:
       postgres:
         condition: service_healthy
       auth-stub:
+        condition: service_healthy
+      kafka:
         condition: service_healthy
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://localhost:8081/health"]
@@ -69,9 +124,46 @@ services:
     networks:
       - trading-net
 
+  # ============== EXECUTOR (CONSUMER) ==============
+  executor:
+    build:
+      context: .
+      dockerfile: ./executor/Dockerfile
+    container_name: executor
+    profiles: ["platform"]
+    ports:
+      - "8082:8082"
+    environment:
+      SPRING_PROFILES_ACTIVE: platform
+      SERVER_PORT: 8082
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:-trading_platform}
+      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:-postgres}
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      FAUXNANCE_BASE_URL: http://trade-api:8081
+    depends_on:
+      kafka:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+      trade-api:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8082/actuator/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    networks:
+      - trading-net
+
 networks:
   trading-net:
     name: trading-net
+    driver: bridge
 
 volumes:
   pgdata:
+    name: pgdata
+  kafka-data:
+    name: kafka-data
