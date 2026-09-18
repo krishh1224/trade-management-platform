@@ -2,11 +2,14 @@ package com.neueda.learning.config;
 
 import com.neueda.learning.exception.PermanentFailureException;
 import com.neueda.learning.exception.TransientFailureException;
+import org.apache.kafka.common.TopicPartition;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.kafka.annotation.EnableKafka;
+import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.kafka.listener.DefaultErrorHandler;
+import org.springframework.kafka.listener.DeadLetterPublishingRecoverer;
 import org.springframework.kafka.support.serializer.ErrorHandlingDeserializer;
 import org.springframework.util.backoff.ExponentialBackOff;
 
@@ -45,19 +48,23 @@ public class KafkaConsumerConfig {
     /**
      * Configure DefaultErrorHandler with:
      * - Exponential backoff for transient failures
+     * - DeadLetterPublishingRecoverer to route failed messages to {topic}.DLT
      * - Immediate (no-retry) routing for permanent failures
      *
      * The DefaultErrorHandler will:
-     * 1. For PermanentFailureException: immediately send to DLT, no retry
-     * 2. For other exceptions: retry with exponential backoff, then DLT
+     * 1. For PermanentFailureException: immediately send to DLT via DeadLetterPublishingRecoverer, no retry
+     * 2. For other exceptions: retry with exponential backoff, then send to DLT via DeadLetterPublishingRecoverer
      *
-     * DLT routing happens automatically via Spring Kafka's dead-letter infrastructure
-     * when the listener container detects a RecoverableException or after max retries.
+     * DLT routing happens via DeadLetterPublishingRecoverer which publishes the original message
+     * to {topic}.DLT topic (e.g., "orders" → "orders.DLT") when:
+     * - A PermanentFailureException is encountered (no retry)
+     * - Retries are exhausted for transient failures
      *
-     * @return configured DefaultErrorHandler
+     * @param kafkaTemplate KafkaTemplate for publishing to DLT
+     * @return configured DefaultErrorHandler with DLT routing
      */
     @Bean
-    public DefaultErrorHandler kafkaErrorHandler() {
+    public DefaultErrorHandler kafkaErrorHandler(KafkaTemplate<Object, Object> kafkaTemplate) {
         // Create exponential backoff configuration for transient failures
         ExponentialBackOff backOff = new ExponentialBackOff();
         backOff.setInitialInterval(retryInitialIntervalMs);
@@ -65,17 +72,32 @@ public class KafkaConsumerConfig {
         backOff.setMultiplier(retryMultiplier);
         backOff.setMaxElapsedTime(retryMaxIntervalMs * retryMaxAttempts);
 
-        // Create default error handler with backoff
-        DefaultErrorHandler errorHandler = new DefaultErrorHandler(backOff);
+        // Create DeadLetterPublishingRecoverer to route failed messages to {topic}.DLT
+        // This recoverer publishes the original message to a topic named "{originalTopic}.DLT"
+        // For example, a failed message from "orders" topic goes to "orders.DLT"
+        DeadLetterPublishingRecoverer recoverer = new DeadLetterPublishingRecoverer(kafkaTemplate,
+            (record, exception) -> {
+                // Determine the DLT topic name: append ".DLT" to original topic
+                String dltTopicName = record.topic() + ".DLT";
+                // All DLT messages go to partition 0 (DLTs have only 1 partition per design)
+                return new TopicPartition(dltTopicName, 0);
+            }
+        );
+
+        // Create default error handler with backoff and DLT recovery
+        DefaultErrorHandler errorHandler = new DefaultErrorHandler(recoverer, backOff);
 
         // Configure exception-based routing:
         // PermanentFailureException: do not retry, send to DLT immediately
-        // This is set via addNotRetryableExceptions which will cause the DefaultErrorHandler
-        // to not retry and let the message fail (which routes to DLT)
+        // When this exception is thrown, the error handler will:
+        // 1. NOT retry (because it's marked as non-retryable)
+        // 2. Immediately invoke the recoverer to publish to DLT
         errorHandler.addNotRetryableExceptions(PermanentFailureException.class);
 
         // For all other exceptions (including TransientFailureException),
-        // the DefaultErrorHandler will retry with backoff before routing to DLT
+        // the DefaultErrorHandler will:
+        // 1. Retry with exponential backoff (100ms → 200ms → 400ms)
+        // 2. If all retries are exhausted, invoke the recoverer to publish to DLT
 
         return errorHandler;
     }
@@ -92,6 +114,12 @@ public class KafkaConsumerConfig {
     // executor.retry.max-interval-ms=5000
     // executor.retry.multiplier=2.0
     // executor.retry.max-attempts=3
+    //
+    // DLT Routing (automatic via DeadLetterPublishingRecoverer):
+    // - Spring Boot auto-creates KafkaTemplate bean for DLT publishing
+    // - PermanentFailureException → no retry → DLT immediately
+    // - Other exceptions → retry with backoff → DLT after exhaustion
+    // - Topic naming: {topic} → {topic}.DLT (e.g., orders → orders.DLT)
 }
 
 

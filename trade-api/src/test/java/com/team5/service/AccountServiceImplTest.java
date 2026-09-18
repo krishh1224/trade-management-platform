@@ -1,4 +1,12 @@
-package com.team5.service;
+            () -> accountService.getOrders(101L, null, null, null)
+            () -> accountService.getAccount(999L)
+        List<OrderHistoryEntry> actual = accountService.getOrders(101L, OrderStatus.FILLED, null, null);
+        List<PositionResponse> actual = accountService.getPositions(101L);
+        BalanceResponse actual = accountService.getBalance(101L);
+        AccountResponse actual = accountService.getAccount(101L);
+        accountService = new AccountServiceImpl(accountQueryMapper);
+import com.team5.service.AccountServiceImpl;
+package java.com.team5;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertSame;
