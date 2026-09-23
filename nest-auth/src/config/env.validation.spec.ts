@@ -1,0 +1,67 @@
+import { validate } from './env.validation';
+
+const validEnv = {
+  JWT_SECRET: 'a'.repeat(32),
+  POSTGRES_DB: 'trade_management',
+  POSTGRES_USER: 'postgres',
+  POSTGRES_PASSWORD: 'postgres',
+};
+
+describe('validate', () => {
+  it('accepts a fully specified environment and applies defaults', () => {
+    const config = validate(validEnv);
+
+    expect(config).toEqual({
+      PORT: 3000,
+      JWT_SECRET: validEnv.JWT_SECRET,
+      POSTGRES_HOST: 'localhost',
+      POSTGRES_PORT: 5432,
+      POSTGRES_DB: 'trade_management',
+      POSTGRES_USER: 'postgres',
+      POSTGRES_PASSWORD: 'postgres',
+    });
+  });
+
+  it('honours explicit overrides instead of defaults', () => {
+    const config = validate({
+      ...validEnv,
+      PORT: '4000',
+      POSTGRES_HOST: 'postgres',
+      POSTGRES_PORT: '5433',
+    });
+
+    expect(config.PORT).toBe(4000);
+    expect(config.POSTGRES_HOST).toBe('postgres');
+    expect(config.POSTGRES_PORT).toBe(5433);
+  });
+
+  it('rejects a missing JWT_SECRET', () => {
+    const { JWT_SECRET, ...rest } = validEnv;
+    expect(() => validate(rest)).toThrow(/JWT_SECRET/);
+  });
+
+  it('rejects a JWT_SECRET shorter than 32 bytes', () => {
+    expect(() => validate({ ...validEnv, JWT_SECRET: 'too-short' })).toThrow(
+      /at least 32 bytes/,
+    );
+  });
+
+  it('rejects a missing POSTGRES_DB', () => {
+    const { POSTGRES_DB, ...rest } = validEnv;
+    expect(() => validate(rest)).toThrow(/POSTGRES_DB/);
+  });
+
+  it('rejects a missing POSTGRES_USER', () => {
+    const { POSTGRES_USER, ...rest } = validEnv;
+    expect(() => validate(rest)).toThrow(/POSTGRES_USER/);
+  });
+
+  it('rejects a missing POSTGRES_PASSWORD', () => {
+    const { POSTGRES_PASSWORD, ...rest } = validEnv;
+    expect(() => validate(rest)).toThrow(/POSTGRES_PASSWORD/);
+  });
+
+  it('accepts an empty-string POSTGRES_PASSWORD', () => {
+    expect(() => validate({ ...validEnv, POSTGRES_PASSWORD: '' })).not.toThrow();
+  });
+});
