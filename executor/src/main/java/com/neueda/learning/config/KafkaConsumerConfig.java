@@ -2,15 +2,22 @@ package com.neueda.learning.config;
 
 import com.neueda.learning.exception.PermanentFailureException;
 import com.neueda.learning.exception.TransientFailureException;
+import java.nio.charset.StandardCharsets;
 import org.apache.kafka.common.TopicPartition;
+import org.apache.kafka.common.errors.SerializationException;
+import org.apache.kafka.common.header.Headers;
+import org.apache.kafka.common.header.internals.RecordHeaders;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.kafka.annotation.EnableKafka;
 import org.springframework.kafka.core.KafkaTemplate;
+import org.springframework.kafka.listener.ListenerExecutionFailedException;
 import org.springframework.kafka.listener.DefaultErrorHandler;
 import org.springframework.kafka.listener.DeadLetterPublishingRecoverer;
-import org.springframework.kafka.support.serializer.ErrorHandlingDeserializer;
+import org.springframework.kafka.support.converter.ConversionException;
+import org.springframework.kafka.support.serializer.DeserializationException;
+import org.springframework.messaging.converter.MessageConversionException;
 import org.springframework.util.backoff.ExponentialBackOff;
 
 /**
@@ -83,6 +90,11 @@ public class KafkaConsumerConfig {
                 return new TopicPartition(dltTopicName, 0);
             }
         );
+        recoverer.setHeadersFunction((record, exception) -> {
+            Headers headers = new RecordHeaders();
+            headers.add("x-failure-reason", resolveFailureReason(exception).getBytes(StandardCharsets.UTF_8));
+            return headers;
+        });
 
         // Create default error handler with backoff and DLT recovery
         DefaultErrorHandler errorHandler = new DefaultErrorHandler(recoverer, backOff);
@@ -92,7 +104,13 @@ public class KafkaConsumerConfig {
         // When this exception is thrown, the error handler will:
         // 1. NOT retry (because it's marked as non-retryable)
         // 2. Immediately invoke the recoverer to publish to DLT
-        errorHandler.addNotRetryableExceptions(PermanentFailureException.class);
+        errorHandler.addNotRetryableExceptions(
+            PermanentFailureException.class,
+            DeserializationException.class,
+            SerializationException.class,
+            ConversionException.class,
+            MessageConversionException.class
+        );
 
         // For all other exceptions (including TransientFailureException),
         // the DefaultErrorHandler will:
@@ -100,6 +118,45 @@ public class KafkaConsumerConfig {
         // 2. If all retries are exhausted, invoke the recoverer to publish to DLT
 
         return errorHandler;
+    }
+
+    private String resolveFailureReason(Throwable exception) {
+        if (exception == null) {
+            return "UNKNOWN_FAILURE";
+        }
+
+        Throwable root = unwrap(exception);
+
+        if (root instanceof PermanentFailureException pfe) {
+            return pfe.getFailureReason();
+        }
+        if (root instanceof TransientFailureException tfe) {
+            return tfe.getFailureReason();
+        }
+        if (root instanceof DeserializationException) {
+            return "MALFORMED_JSON";
+        }
+
+        String className = root.getClass().getSimpleName();
+        if ("RecordDeserializationException".equals(className)) {
+            return "MALFORMED_JSON";
+        }
+
+        return className;
+    }
+
+    private Throwable unwrap(Throwable throwable) {
+        Throwable current = throwable;
+
+        if (current instanceof ListenerExecutionFailedException && current.getCause() != null) {
+            current = current.getCause();
+        }
+
+        while (current.getCause() != null && current.getCause() != current) {
+            current = current.getCause();
+        }
+
+        return current;
     }
 
     // Kafka consumer configuration via Spring Boot application.properties:
