@@ -95,32 +95,35 @@ public class OrderPlacedConsumer {
     @KafkaListener(topics = "orders", groupId = "trade-executor", properties = "max.poll.records=1")
     public void consumeOrderPlaced(@Payload KafkaEnvelope<OrderPlacedPayload> envelope,
                                    Acknowledgment ack) {
+        if (envelope == null) {
+            throw new PermanentFailureException("MALFORMED_JSON", "Envelope is null after deserialization");
+        }
+
         logger.info("Received ORDER_PLACED: eventId={}", envelope.getEventId());
 
-        // Validate event type: non-matching event types are safely skipped without retry
+        // Unexpected event types are poison messages for this consumer.
         if (!EXPECTED_EVENT_TYPE.equalsIgnoreCase(envelope.getEventType())) {
-            logger.debug("Ignoring event with unexpected type: {}. This is not an error—just skipping non-ORDER_PLACED events.", 
-                envelope.getEventType());
-            ack.acknowledge(); // Acknowledge to move forward, this is not a failure
-            return;
+            throw new PermanentFailureException(
+                "UNEXPECTED_EVENT_TYPE",
+                "Expected ORDER_PLACED but got: " + envelope.getEventType()
+            );
         }
 
         // Extract and validate payload
         OrderPlacedPayload payload = envelope.getPayload();
         if (payload == null) {
-            // Graceful handling: null payload is valid data state (e.g., test/empty messages)
-            // Log and acknowledge without processing
-            logger.warn("Received ORDER_PLACED with null payload. Skipping message (eventId={})", envelope.getEventId());
-            ack.acknowledge();
-            return;
+            throw new PermanentFailureException(
+                "MISSING_PAYLOAD",
+                "ORDER_PLACED payload is missing for eventId=" + envelope.getEventId()
+            );
         }
 
         UUID orderId = payload.getOrderId();
         if (orderId == null) {
-            // Generate orderId from accountId if not provided (backward compatibility)
-            // This allows processing of messages from older producers that don't include orderId
-            orderId = generateOrderIdFromAccountId(payload.getAccountId());
-            logger.debug("Generated orderId={} from accountId={}", orderId, payload.getAccountId());
+            throw new PermanentFailureException(
+                "MISSING_ORDER_ID",
+                "ORDER_PLACED payload is missing orderId for eventId=" + envelope.getEventId()
+            );
         }
 
         logger.info("Processing ORDER_PLACED: orderId={}, accountId={}, symbol={}, side={}, quantity={}",
@@ -264,20 +267,6 @@ public class OrderPlacedConsumer {
     private Long convertUuidToOrderId(UUID uuid) {
         long mixed = uuid.getMostSignificantBits() ^ uuid.getLeastSignificantBits();
         return mixed == Long.MIN_VALUE ? 0L : Math.abs(mixed);
-    }
-
-    /**
-     * Generate a deterministic orderId from accountId.
-     * Used for backward compatibility with messages that don't include orderId.
-     * Ensures same accountId always generates same orderId for idempotence.
-     * 
-     * @param accountId the account ID
-     * @return a deterministically generated UUID
-     */
-    private UUID generateOrderIdFromAccountId(long accountId) {
-        // Use a fixed namespace UUID for deterministic generation
-        // Format: use accountId as bytes to create a stable UUID
-        return UUID.nameUUIDFromBytes(("order:" + accountId).getBytes());
     }
 }
 
