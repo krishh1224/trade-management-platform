@@ -1,6 +1,8 @@
 export interface EnvConfig {
   PORT: number;
   JWT_SECRET: string;
+  JWT_ISSUER: string;
+  ACCESS_TOKEN_TTL_SECONDS: number;
   POSTGRES_HOST: string;
   POSTGRES_PORT: number;
   POSTGRES_DB: string;
@@ -11,12 +13,31 @@ export interface EnvConfig {
 // JWT_SECRET has no default on purpose: this service must refuse to start
 // without a real secret, the same convention trade-api's platform profile uses.
 const MIN_JWT_SECRET_BYTES = 32;
+const CONTRACT_JWT_ISSUER = 'auth-service';
+const CONTRACT_ACCESS_TOKEN_TTL_SECONDS = 900;
 
 export function validate(env: Record<string, string | undefined>): EnvConfig {
   const jwtSecret = env.JWT_SECRET;
   if (!jwtSecret || Buffer.byteLength(jwtSecret, 'utf8') < MIN_JWT_SECRET_BYTES) {
     throw new Error(
       `JWT_SECRET must be set to a secret of at least ${MIN_JWT_SECRET_BYTES} bytes`,
+    );
+  }
+
+  const jwtIssuer = env.JWT_ISSUER ?? CONTRACT_JWT_ISSUER;
+  if (jwtIssuer !== CONTRACT_JWT_ISSUER) {
+    throw new Error(`JWT_ISSUER must be set to ${CONTRACT_JWT_ISSUER}`);
+  }
+
+  const accessTokenTtlSeconds = Number(
+    env.ACCESS_TOKEN_TTL_SECONDS ?? String(CONTRACT_ACCESS_TOKEN_TTL_SECONDS),
+  );
+  if (
+    !Number.isInteger(accessTokenTtlSeconds) ||
+    accessTokenTtlSeconds !== CONTRACT_ACCESS_TOKEN_TTL_SECONDS
+  ) {
+    throw new Error(
+      `ACCESS_TOKEN_TTL_SECONDS must be set to ${CONTRACT_ACCESS_TOKEN_TTL_SECONDS}`,
     );
   }
 
@@ -38,6 +59,8 @@ export function validate(env: Record<string, string | undefined>): EnvConfig {
   return {
     PORT: Number(env.PORT ?? 3000),
     JWT_SECRET: jwtSecret,
+    JWT_ISSUER: jwtIssuer,
+    ACCESS_TOKEN_TTL_SECONDS: accessTokenTtlSeconds,
     POSTGRES_HOST: env.POSTGRES_HOST ?? 'localhost',
     POSTGRES_PORT: Number(env.POSTGRES_PORT ?? 5432),
     POSTGRES_DB: postgresDb,

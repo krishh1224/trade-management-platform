@@ -2,6 +2,8 @@ import { validate } from './env.validation';
 
 const validEnv = {
   JWT_SECRET: 'a'.repeat(32),
+  JWT_ISSUER: 'auth-service',
+  ACCESS_TOKEN_TTL_SECONDS: '900',
   POSTGRES_DB: 'trade_management',
   POSTGRES_USER: 'postgres',
   POSTGRES_PASSWORD: 'postgres',
@@ -14,6 +16,8 @@ describe('validate', () => {
     expect(config).toEqual({
       PORT: 3000,
       JWT_SECRET: validEnv.JWT_SECRET,
+      JWT_ISSUER: 'auth-service',
+      ACCESS_TOKEN_TTL_SECONDS: 900,
       POSTGRES_HOST: 'localhost',
       POSTGRES_PORT: 5432,
       POSTGRES_DB: 'trade_management',
@@ -43,6 +47,16 @@ describe('validate', () => {
   it('rejects a JWT_SECRET shorter than 32 bytes', () => {
     expect(() => validate({ ...validEnv, JWT_SECRET: 'too-short' })).toThrow(
       /at least 32 bytes/,
+    );
+  });
+
+  it('rejects a JWT_ISSUER other than auth-service', () => {
+    expect(() => validate({ ...validEnv, JWT_ISSUER: 'some-other-issuer' })).toThrow(/JWT_ISSUER/);
+  });
+
+  it('rejects ACCESS_TOKEN_TTL_SECONDS values other than 900', () => {
+    expect(() => validate({ ...validEnv, ACCESS_TOKEN_TTL_SECONDS: '600' })).toThrow(
+      /ACCESS_TOKEN_TTL_SECONDS/,
     );
   });
 
