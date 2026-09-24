@@ -27,6 +27,7 @@ $$;
 
 CREATE TABLE IF NOT EXISTS clients (
                          id              BIGINT PRIMARY KEY,
+                         acc_id          BIGINT NOT NULL UNIQUE,
                          name            VARCHAR(100) NOT NULL,
                          email           VARCHAR(255) NOT NULL UNIQUE,
                          phone           VARCHAR(20) NOT NULL UNIQUE,
@@ -38,7 +39,6 @@ CREATE TABLE IF NOT EXISTS clients (
 
 CREATE TABLE IF NOT EXISTS accounts (
                           acc_id              BIGINT PRIMARY KEY,
-                          client_id           BIGINT NOT NULL,
                           account_number      VARCHAR(10) NOT NULL UNIQUE
                                                                      DEFAULT generate_account_number(),
                           risk_profile        VARCHAR(20) NOT NULL
@@ -50,11 +50,7 @@ CREATE TABLE IF NOT EXISTS accounts (
                               CHECK (status IN ('ACTIVE', 'SUSPENDED', 'CLOSED')),
                           version             BIGINT NOT NULL DEFAULT 0,
                           created_at          TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-                          updated_at          TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-
-                          CONSTRAINT fk_accounts_client
-                              FOREIGN KEY (client_id)
-                                  REFERENCES clients(id)
+                          updated_at          TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
 
@@ -217,9 +213,14 @@ CREATE TABLE IF NOT EXISTS transactions (
                                       )
 );
 
+ALTER TABLE clients
+    ADD CONSTRAINT fk_clients_account
+        FOREIGN KEY (acc_id)
+            REFERENCES accounts(acc_id);
 
-CREATE INDEX IF NOT EXISTS idx_accounts_client_id
-    ON accounts(client_id);
+
+CREATE INDEX IF NOT EXISTS idx_clients_acc_id
+    ON clients(acc_id);
 
 CREATE INDEX IF NOT EXISTS idx_portfolio_holdings_portfolio_id
     ON portfolio_holdings(portfolio_id);

@@ -413,7 +413,6 @@ class SettlementServiceTest {
     private AccountRecord createAccountRecord(long accountId, BigDecimal balance, Long version) {
         AccountRecord account = new AccountRecord();
         account.setAccId(accountId);
-        account.setClientId(1L);
         account.setAccountNumber("ACC-" + accountId);
         account.setRiskProfile("MODERATE");
         account.setBaseCurrency("INR");
