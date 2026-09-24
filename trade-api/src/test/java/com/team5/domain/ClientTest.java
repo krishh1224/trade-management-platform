@@ -37,6 +37,7 @@ class ClientTest {
     void shouldRejectBlankName() {
         Client client = new Client(
                 1L,
+                101L,
                 " ",
                 "john@example.com",
                 "9999999999",
@@ -57,6 +58,7 @@ class ClientTest {
     void shouldRejectBlankEmail() {
         Client client = new Client(
                 1L,
+                101L,
                 "John Doe",
                 " ",
                 "9999999999",
@@ -77,6 +79,7 @@ class ClientTest {
     void shouldRejectBlankPhone() {
         Client client = new Client(
                 1L,
+                101L,
                 "John Doe",
                 "john@example.com",
                 " ",
@@ -97,6 +100,7 @@ class ClientTest {
     void shouldRejectNullDateOfBirth() {
         Client client = new Client(
                 1L,
+                101L,
                 "John Doe",
                 "john@example.com",
                 "9999999999",
@@ -116,6 +120,7 @@ class ClientTest {
     private Client createClient() {
         return new Client(
                 1L,
+                101L,
                 "John Doe",
                 "john@example.com",
                 "9999999999",

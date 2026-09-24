@@ -8,7 +8,6 @@ import java.time.LocalDateTime;
  */
 public class AccountRecord {
     private Long accId;
-    private Long clientId;
     private String accountNumber;
     private String riskProfile;
     private String baseCurrency;
@@ -21,11 +20,10 @@ public class AccountRecord {
     public AccountRecord() {
     }
 
-    public AccountRecord(Long accId, Long clientId, String accountNumber, String riskProfile,
+    public AccountRecord(Long accId, String accountNumber, String riskProfile,
                          String baseCurrency, BigDecimal balance, String status, Long version,
                          LocalDateTime createdAt, LocalDateTime updatedAt) {
         this.accId = accId;
-        this.clientId = clientId;
         this.accountNumber = accountNumber;
         this.riskProfile = riskProfile;
         this.baseCurrency = baseCurrency;
@@ -36,20 +34,18 @@ public class AccountRecord {
         this.updatedAt = updatedAt;
     }
 
+    public AccountRecord(Long accId, Long clientId, String accountNumber, String riskProfile,
+                         String baseCurrency, BigDecimal balance, String status, Long version,
+                         LocalDateTime createdAt, LocalDateTime updatedAt) {
+        this(accId, accountNumber, riskProfile, baseCurrency, balance, status, version, createdAt, updatedAt);
+    }
+
     public Long getAccId() {
         return accId;
     }
 
     public void setAccId(Long accId) {
         this.accId = accId;
-    }
-
-    public Long getClientId() {
-        return clientId;
-    }
-
-    public void setClientId(Long clientId) {
-        this.clientId = clientId;
     }
 
     public String getAccountNumber() {
@@ -120,7 +116,6 @@ public class AccountRecord {
     public String toString() {
         return "AccountRecord{" +
                 "accId=" + accId +
-                ", clientId=" + clientId +
                 ", accountNumber='" + accountNumber + '\'' +
                 ", riskProfile='" + riskProfile + '\'' +
                 ", baseCurrency='" + baseCurrency + '\'' +

@@ -37,7 +37,6 @@ class AccountTest {
     void shouldRejectNullAccountId() {
         Account account = new Account(
                 null,
-                1L,
                 "ACC0000001",
                 RiskProfile.LOW,
                 "INR",
@@ -140,7 +139,6 @@ class AccountTest {
 
     private Account createAccount(String balance) {
         return new Account(
-                1L,
                 1L,
                 "ACC0000001",
                 RiskProfile.LOW,

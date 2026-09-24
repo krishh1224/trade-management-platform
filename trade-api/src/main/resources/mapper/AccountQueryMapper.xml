@@ -14,7 +14,7 @@
       a.version AS version,
       a.updated_at AS lastUpdated
     FROM accounts a
-    INNER JOIN clients c ON c.id = a.client_id
+    INNER JOIN clients c ON c.acc_id = a.acc_id
     WHERE a.acc_id = #{accountId}
   </select>
 
