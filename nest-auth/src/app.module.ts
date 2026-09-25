@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
+import { AuthModule } from './auth/auth.module';
 import { AuthTokenModule } from './auth-token/auth-token.module';
 import { validate } from './config/env.validation';
 import { CredentialsModule } from './credentials/credentials.module';
@@ -14,6 +15,7 @@ import { LoggingModule } from './logging/logging.module';
     }),
     LoggingModule,
     HealthModule,
+    AuthModule,
     CredentialsModule,
     AuthTokenModule,
   ],
