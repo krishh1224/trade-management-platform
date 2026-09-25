@@ -39,18 +39,8 @@ export class AuthController {
   }
 
   @Post('login')
-  @HttpCode(HttpStatus.OK)
-  @ApiTags('Auth')
-  @ApiOperation({ operationId: 'login', summary: 'Log in and receive tokens' })
-  @ApiOkResponse({ description: 'Authenticated.', type: TokenResponse })
-  @ApiUnauthorizedResponse({ description: 'Authentication failed.', type: ErrorResponse })
-  @ApiInvalidInputResponse()
-  async login(@Body() request: LoginRequest, @Req() req: Request): Promise<TokenResponse> {
-    const callerIp = LoginThrottleService.extractCallerIp(
-      req.headers,
-      req.ip || req.socket.remoteAddress || 'unknown',
-    );
-    return this.authService.login(request, callerIp);
+  async login(@Body() request: LoginRequest): Promise<TokenResponse> {
+    return this.authService.login(request);
   }
 
   @Get('me')
