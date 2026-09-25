@@ -1,8 +1,8 @@
 # Nest Auth Service
 
-Infra skeleton for the Sprint 8 auth service: Node 20+, TypeScript, NestJS.
-Currently exposes only a health endpoint; login/token endpoints are a
-follow-up story.
+Sprint 8 auth service: Node 20+, TypeScript, NestJS. Implements the four
+routes in [`contracts/auth-api.yaml`](contracts/auth-api.yaml) plus a health
+endpoint.
 
 ## Configuration
 
@@ -38,8 +38,28 @@ docker compose --profile platform up -d --build nest-auth
 
 ## Endpoints
 
+- `POST /auth/register`, `POST /auth/login`, `POST /auth/refresh`,
+  `GET /auth/me` — as specified in `contracts/auth-api.yaml`.
 - `GET /health` — `200 {status: "UP", postgresReachable: true}` if it can
   reach Postgres, otherwise `503 {status: "DOWN", postgresReachable: false}`.
+  Not part of the auth contract, so it is excluded from the OpenAPI document.
+
+## API documentation (OpenAPI)
+
+The running service publishes its own OpenAPI document, generated at startup
+by `@nestjs/swagger` from the decorators on `AuthController` and the DTOs
+(`src/auth/auth.dto.ts`, `src/auth/refresh.dto.ts`). Nothing is maintained by
+hand beside the code.
+
+| What | Path | Local URL |
+|---|---|---|
+| Human page (Swagger UI) | `/docs` | http://localhost:3000/docs |
+| JSON document | `/docs-json` | http://localhost:3000/docs-json |
+
+This does not replace `contracts/auth-api.yaml`, which stays the binding
+contract. The generated document is the evidence that the code still matches
+it: compare the paths, status codes and schemas in `/docs-json` against the
+contract.
 
 ## Credential store
 

@@ -259,20 +259,21 @@ components:
           format: int64
           minimum: 1
           description: The numeric trading account key, `ACCOUNTS.id`, that this user will trade.
-          example: 1
+          example: 101
         roles:
           type: array
           minItems: 1
           items:
             $ref: '#/components/schemas/Role'
           description: |
-            Optional. Defaults to `["CUSTOMER"]`. Ignore this field on a public registration route
+            Optional. Defaults to `["USER"]`. Ignore this field on a public registration route
             unless the caller already holds an `ADMIN` token. Accepting a self-declared role is a
             privilege-escalation bug, and the Sprint 8 security review looks for it.
       example:
         username: priya.menon
         password: 'correct horse battery staple'
-        accountId: 1
+        accountId: 101
+        roles: [USER]
 
     LoginRequest:
       type: object
@@ -334,13 +335,13 @@ components:
           type: integer
           format: int64
           description: The numeric trading account key, `ACCOUNTS.id`.
-          example: 1
+          example: 101
         roles:
           type: array
           minItems: 1
           items:
             $ref: '#/components/schemas/Role'
-          example: [CUSTOMER]
+          example: [USER]
         createdOn:
           type: string
           format: date-time
@@ -348,7 +349,7 @@ components:
 
     Role:
       type: string
-      enum: [CUSTOMER, ADMIN]
+      enum: [USER, ADMIN]
 
     ErrorResponse:
       type: object
