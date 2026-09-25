@@ -103,8 +103,9 @@ export class AuthService {
       };
 
       const newAccessToken = this.authTokenService.issueAccessToken(subject);
-      const newFamilyId = this.refreshTokenService.generateFamilyId();
-      const newRefreshTokenIssue = this.refreshTokenService.issueRefreshToken(newFamilyId);
+      // Reuse the same family_id to keep the token chain linked
+      // If this token is ever stolen and replayed, the entire family is revoked
+      const newRefreshTokenIssue = this.refreshTokenService.issueRefreshToken(validation.familyId);
 
       await this.refreshTokenService.consumeRefreshToken(validation.tokenId);
       await this.refreshTokenService.storeRefreshToken(
@@ -112,7 +113,7 @@ export class AuthService {
         validation.userId,
         validation.roles,
         newRefreshTokenIssue.tokenHash,
-        newFamilyId,
+        validation.familyId,
       );
 
       return {
