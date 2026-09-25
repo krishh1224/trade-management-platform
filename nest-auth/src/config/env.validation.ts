@@ -3,6 +3,7 @@ export interface EnvConfig {
   JWT_SECRET: string;
   JWT_ISSUER: string;
   ACCESS_TOKEN_TTL_SECONDS: number;
+  REFRESH_TOKEN_TTL_DAYS: number;
   POSTGRES_HOST: string;
   POSTGRES_PORT: number;
   POSTGRES_DB: string;
@@ -15,6 +16,7 @@ export interface EnvConfig {
 const MIN_JWT_SECRET_BYTES = 32;
 const CONTRACT_JWT_ISSUER = 'auth-service';
 const CONTRACT_ACCESS_TOKEN_TTL_SECONDS = 900;
+const CONTRACT_REFRESH_TOKEN_TTL_DAYS = 7;
 
 export function validate(env: Record<string, string | undefined>): EnvConfig {
   const jwtSecret = env.JWT_SECRET;
@@ -41,6 +43,15 @@ export function validate(env: Record<string, string | undefined>): EnvConfig {
     );
   }
 
+  const refreshTokenTtlDays = Number(
+    env.REFRESH_TOKEN_TTL_DAYS ?? String(CONTRACT_REFRESH_TOKEN_TTL_DAYS),
+  );
+  if (!Number.isInteger(refreshTokenTtlDays) || refreshTokenTtlDays !== CONTRACT_REFRESH_TOKEN_TTL_DAYS) {
+    throw new Error(
+      `REFRESH_TOKEN_TTL_DAYS must be set to ${CONTRACT_REFRESH_TOKEN_TTL_DAYS}`,
+    );
+  }
+
   const postgresDb = env.POSTGRES_DB;
   if (!postgresDb) {
     throw new Error('POSTGRES_DB must be set');
@@ -61,6 +72,7 @@ export function validate(env: Record<string, string | undefined>): EnvConfig {
     JWT_SECRET: jwtSecret,
     JWT_ISSUER: jwtIssuer,
     ACCESS_TOKEN_TTL_SECONDS: accessTokenTtlSeconds,
+    REFRESH_TOKEN_TTL_DAYS: refreshTokenTtlDays,
     POSTGRES_HOST: env.POSTGRES_HOST ?? 'localhost',
     POSTGRES_PORT: Number(env.POSTGRES_PORT ?? 5432),
     POSTGRES_DB: postgresDb,

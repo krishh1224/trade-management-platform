@@ -3,12 +3,30 @@ import { GUARDS_METADATA, METHOD_METADATA, PATH_METADATA } from '@nestjs/common/
 import { VerifiedAccessTokenPayload } from '../auth-token/auth-token.service';
 import { AuthController } from './auth.controller';
 import { JwtAuthGuard } from './jwt-auth.guard';
+import { AuthTokenService } from '../auth-token/auth-token.service';
+import { RefreshTokenService } from '../auth-token/refresh-token.service';
 
 describe('AuthController', () => {
   let controller: AuthController;
+  let authTokenService: jest.Mocked<AuthTokenService>;
+  let refreshTokenService: jest.Mocked<RefreshTokenService>;
 
   beforeEach(() => {
-    controller = new AuthController();
+    authTokenService = {
+      issueAccessToken: jest.fn(),
+      verifyAccessToken: jest.fn(),
+    } as any;
+
+    refreshTokenService = {
+      validateRefreshToken: jest.fn(),
+      issueRefreshToken: jest.fn(),
+      storeRefreshToken: jest.fn(),
+      consumeRefreshToken: jest.fn(),
+      revokeFamily: jest.fn(),
+      generateFamilyId: jest.fn(),
+    } as any;
+
+    controller = new AuthController(authTokenService, refreshTokenService);
   });
 
   it('maps to GET /auth/me and is protected by JwtAuthGuard', () => {

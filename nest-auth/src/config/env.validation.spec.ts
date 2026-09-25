@@ -18,6 +18,7 @@ describe('validate', () => {
       JWT_SECRET: validEnv.JWT_SECRET,
       JWT_ISSUER: 'auth-service',
       ACCESS_TOKEN_TTL_SECONDS: 900,
+      REFRESH_TOKEN_TTL_DAYS: 7,
       POSTGRES_HOST: 'localhost',
       POSTGRES_PORT: 5432,
       POSTGRES_DB: 'trade_management',
