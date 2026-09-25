@@ -2,31 +2,23 @@ import { RequestMethod } from '@nestjs/common';
 import { GUARDS_METADATA, METHOD_METADATA, PATH_METADATA } from '@nestjs/common/constants';
 import { VerifiedAccessTokenPayload } from '../auth-token/auth-token.service';
 import { AuthController } from './auth.controller';
+import { UserResponse } from './auth.dto';
+import { AuthService } from './auth.service';
 import { JwtAuthGuard } from './jwt-auth.guard';
-import { AuthTokenService } from '../auth-token/auth-token.service';
-import { RefreshTokenService } from '../auth-token/refresh-token.service';
 
 describe('AuthController', () => {
   let controller: AuthController;
-  let authTokenService: jest.Mocked<AuthTokenService>;
-  let refreshTokenService: jest.Mocked<RefreshTokenService>;
+  let authService: jest.Mocked<AuthService>;
 
   beforeEach(() => {
-    authTokenService = {
-      issueAccessToken: jest.fn(),
-      verifyAccessToken: jest.fn(),
+    authService = {
+      register: jest.fn(),
+      login: jest.fn(),
+      refresh: jest.fn(),
+      me: jest.fn(),
     } as any;
 
-    refreshTokenService = {
-      validateRefreshToken: jest.fn(),
-      issueRefreshToken: jest.fn(),
-      storeRefreshToken: jest.fn(),
-      consumeRefreshToken: jest.fn(),
-      revokeFamily: jest.fn(),
-      generateFamilyId: jest.fn(),
-    } as any;
-
-    controller = new AuthController(authTokenService, refreshTokenService);
+    controller = new AuthController(authService);
   });
 
   it('maps to GET /auth/me and is protected by JwtAuthGuard', () => {
@@ -43,7 +35,7 @@ describe('AuthController', () => {
     expect(guards).toContain(JwtAuthGuard);
   });
 
-  it('returns the verified user from the guard without re-decoding in the controller', () => {
+  it('returns the authenticated user response from AuthService', async () => {
     const currentUser: VerifiedAccessTokenPayload = {
       sub: '8f14e45f-ceea-4c1b-9d3b-1a2b3c4d5e6f',
       accountId: 1,
@@ -53,6 +45,17 @@ describe('AuthController', () => {
       iss: 'auth-service',
     };
 
-    expect(controller.getCurrentUser(currentUser)).toEqual(currentUser);
+    const response: UserResponse = {
+      id: currentUser.sub,
+      username: 'priya.menon',
+      accountId: 1,
+      roles: ['CUSTOMER'],
+      createdOn: '2026-10-05T08:00:00.000Z',
+    };
+
+    authService.me.mockResolvedValue(response);
+
+    await expect(controller.getCurrentUser(currentUser)).resolves.toEqual(response);
+    expect(authService.me).toHaveBeenCalledWith(currentUser);
   });
 });

@@ -18,6 +18,8 @@
 CREATE TABLE IF NOT EXISTS credentials (
     id            BIGSERIAL PRIMARY KEY,
     account_id    BIGINT NOT NULL UNIQUE REFERENCES accounts(acc_id),
+    username      VARCHAR(64) NOT NULL UNIQUE,
+    roles         VARCHAR(16) NOT NULL DEFAULT 'USER' CHECK (roles IN ('USER', 'ADMIN')),
     password_hash VARCHAR(255) NOT NULL,
     created_at    TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at    TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
