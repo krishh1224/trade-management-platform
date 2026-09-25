@@ -4,6 +4,7 @@ import { AuthTokenService } from '../auth-token/auth-token.service';
 import { RefreshTokenService } from '../auth-token/refresh-token.service';
 import { CredentialsRepository } from '../credentials/credentials.repository';
 import { PasswordService } from '../credentials/password.service';
+import { LoginThrottleService } from './login-throttle.service';
 
 describe('AuthService', () => {
   let service: AuthService;
@@ -11,6 +12,7 @@ describe('AuthService', () => {
   let passwordService: jest.Mocked<PasswordService>;
   let authTokenService: jest.Mocked<AuthTokenService>;
   let refreshTokenService: jest.Mocked<RefreshTokenService>;
+  let loginThrottleService: jest.Mocked<LoginThrottleService>;
 
   beforeEach(() => {
     credentialsRepository = {
@@ -38,11 +40,18 @@ describe('AuthService', () => {
       generateFamilyId: jest.fn(),
     } as any;
 
+    loginThrottleService = {
+      checkThrottle: jest.fn(),
+      recordFailure: jest.fn(),
+      clearFailures: jest.fn(),
+    } as any;
+
     service = new AuthService(
       credentialsRepository,
       passwordService,
       authTokenService,
       refreshTokenService,
+      loginThrottleService,
     );
   });
 
@@ -116,10 +125,13 @@ describe('AuthService', () => {
     });
     refreshTokenService.storeRefreshToken.mockResolvedValue(1);
 
-    const result = await service.login({
-      username: 'priya.menon',
-      password: 'correct horse battery staple',
-    });
+    const result = await service.login(
+      {
+        username: 'priya.menon',
+        password: 'correct horse battery staple',
+      },
+      '192.168.1.1',
+    );
 
     expect(result).toEqual({
       accessToken: 'access-token',
@@ -127,9 +139,12 @@ describe('AuthService', () => {
       tokenType: 'Bearer',
       expiresIn: 900,
     });
+
+    // Verify throttle was cleared on successful login
+    expect(loginThrottleService.clearFailures).toHaveBeenCalledWith('192.168.1.1');
   });
 
-  it('returns AUTH-401 for wrong credentials', async () => {
+  it('returns AUTH-401 for wrong password', async () => {
     credentialsRepository.findByUsername.mockResolvedValue({
       id: 1,
       accountId: 101,
@@ -141,12 +156,137 @@ describe('AuthService', () => {
     passwordService.verify.mockResolvedValue(false);
 
     await expect(
-      service.login({ username: 'priya.menon', password: 'wrong' }),
+      service.login(
+        { username: 'priya.menon', password: 'wrong' },
+        '192.168.1.1',
+      ),
     ).rejects.toMatchObject({
       status: HttpStatus.UNAUTHORIZED,
       response: { errorCode: 'AUTH-401', message: 'Unauthorised' },
     });
+
+    // Verify failure was recorded
+    expect(loginThrottleService.recordFailure).toHaveBeenCalledWith('192.168.1.1');
   });
+
+  it('returns AUTH-401 for unknown username', async () => {
+    credentialsRepository.findByUsername.mockResolvedValue(null);
+    passwordService.verify.mockResolvedValue(false); // Dummy hash will not match
+
+    await expect(
+      service.login(
+        { username: 'unknown.user', password: 'any' },
+        '192.168.1.1',
+      ),
+    ).rejects.toMatchObject({
+      status: HttpStatus.UNAUTHORIZED,
+      response: { errorCode: 'AUTH-401', message: 'Unauthorised' },
+    });
+
+    // Verify failure was recorded
+    expect(loginThrottleService.recordFailure).toHaveBeenCalledWith('192.168.1.1');
+  });
+
+  it('performs password verification for unknown username (timing-safe)', async () => {
+    credentialsRepository.findByUsername.mockResolvedValue(null);
+    passwordService.verify.mockResolvedValue(false);
+
+    await expect(
+      service.login(
+        { username: 'unknown.user', password: 'test' },
+        '192.168.1.1',
+      ),
+    ).rejects.toThrow();
+
+    // Verify that passwordService.verify was called even though username not found
+    // This ensures comparable timing for unknown username vs wrong password
+    expect(passwordService.verify).toHaveBeenCalled();
+    expect(passwordService.verify).toHaveBeenCalledWith('test', expect.any(String));
+  });
+
+  it('unknown username and wrong password return identical status and response body', async () => {
+    const wrongPasswordCredential = {
+      id: 1,
+      accountId: 101,
+      username: 'priya.menon',
+      role: 'USER' as const,
+      passwordHash: '$2b$12$abc',
+      createdOn: new Date(),
+    };
+
+    // Test 1: Wrong password
+    credentialsRepository.findByUsername.mockResolvedValueOnce(wrongPasswordCredential);
+    passwordService.verify.mockResolvedValueOnce(false);
+
+    let error1: HttpException | undefined;
+    try {
+      await service.login({ username: 'priya.menon', password: 'wrong' }, '192.168.1.1');
+    } catch (e) {
+      error1 = e as HttpException;
+    }
+
+    // Test 2: Unknown username
+    credentialsRepository.findByUsername.mockResolvedValueOnce(null);
+    passwordService.verify.mockResolvedValueOnce(false);
+
+    let error2: HttpException | undefined;
+    try {
+      await service.login({ username: 'unknown.user', password: 'any' }, '192.168.1.1');
+    } catch (e) {
+      error2 = e as HttpException;
+    }
+
+    // Both should return the same status
+    expect(error1?.getStatus()).toBe(HttpStatus.UNAUTHORIZED);
+    expect(error2?.getStatus()).toBe(HttpStatus.UNAUTHORIZED);
+
+    // Both should return the same response body
+    expect(error1?.getResponse()).toEqual({
+      errorCode: 'AUTH-401',
+      message: 'Unauthorised',
+    });
+    expect(error2?.getResponse()).toEqual({
+      errorCode: 'AUTH-401',
+      message: 'Unauthorised',
+    });
+  });
+
+  it('checks throttle before attempting login', async () => {
+    loginThrottleService.checkThrottle.mockImplementation(() => {
+      throw new HttpException(
+        { errorCode: 'AUTH-401', message: 'Unauthorised' },
+        HttpStatus.UNAUTHORIZED,
+      );
+    });
+
+    await expect(
+      service.login({ username: 'user', password: 'pass' }, '192.168.1.1'),
+    ).rejects.toThrow();
+
+    // Verify checkThrottle was called first
+    expect(loginThrottleService.checkThrottle).toHaveBeenCalledWith('192.168.1.1');
+  });
+
+  it('records failure and throws throttle exception on max attempts', async () => {
+    const callerIp = '192.168.1.1';
+    credentialsRepository.findByUsername.mockResolvedValue(null);
+    passwordService.verify.mockResolvedValue(false);
+
+    // Simulate recordFailure throwing on max attempts
+    loginThrottleService.recordFailure.mockImplementationOnce(() => {
+      throw new HttpException(
+        { errorCode: 'AUTH-401', message: 'Unauthorised' },
+        HttpStatus.UNAUTHORIZED,
+      );
+    });
+
+    await expect(
+      service.login({ username: 'user', password: 'pass' }, callerIp),
+    ).rejects.toThrow(HttpException);
+
+    expect(loginThrottleService.recordFailure).toHaveBeenCalledWith(callerIp);
+  });
+
 
   it('refresh succeeds for valid token', async () => {
     refreshTokenService.validateRefreshToken.mockResolvedValue({

@@ -19,6 +19,8 @@ describe('validate', () => {
       JWT_ISSUER: 'auth-service',
       ACCESS_TOKEN_TTL_SECONDS: 900,
       REFRESH_TOKEN_TTL_DAYS: 7,
+      LOGIN_MAX_ATTEMPTS: 5,
+      LOGIN_LOCKOUT_DURATION_SECONDS: 60,
       POSTGRES_HOST: 'localhost',
       POSTGRES_PORT: 5432,
       POSTGRES_DB: 'trade_management',

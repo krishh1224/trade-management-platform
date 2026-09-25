@@ -1,13 +1,28 @@
 import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
 import { createHash } from 'crypto';
+import { Request } from 'express';
 import { AuthTokenService, VerifiedAccessTokenPayload } from '../auth-token/auth-token.service';
 import { RefreshTokenService } from '../auth-token/refresh-token.service';
 import { CredentialsRepository } from '../credentials/credentials.repository';
 import { PasswordService } from '../credentials/password.service';
 import { LoginRequest, RegisterRequest, UserResponse } from './auth.dto';
 import { TokenResponse } from './refresh.dto';
+import { LoginThrottleService } from './login-throttle.service';
 
 const DEFAULT_ROLE: 'USER' | 'ADMIN' = 'USER';
+
+/**
+ * Dummy password hash for timing-safe unknown username checks.
+ * Generated via bcrypt.hash('dummy', 12) and stored as a constant.
+ * When a username is not found, we verify against this hash to ensure
+ * the password-hashing work is performed, preventing timing attacks
+ * that could reveal whether a username exists.
+ *
+ * The hash value itself is never used; the result of comparison is discarded.
+ * Any bcrypt hash will work; this one is arbitrary.
+ */
+const DUMMY_PASSWORD_HASH =
+  '$2b$12$PjZlWHphNX1z8nKZR3zYu.KZJ8kZcOIWIbVbWZwFzC5CvNgxEhMqm';
 
 @Injectable()
 export class AuthService {
@@ -16,6 +31,7 @@ export class AuthService {
     private readonly passwordService: PasswordService,
     private readonly authTokenService: AuthTokenService,
     private readonly refreshTokenService: RefreshTokenService,
+    private readonly loginThrottleService: LoginThrottleService,
   ) {}
 
   async register(request: RegisterRequest): Promise<UserResponse> {
@@ -43,44 +59,74 @@ export class AuthService {
           HttpStatus.CONFLICT,
         );
       }
+      if (this.isForeignKeyViolation(error)) {
+        throw new HttpException(
+          { errorCode: 'VAL-422', message: 'Invalid input' },
+          HttpStatus.UNPROCESSABLE_ENTITY,
+        );
+      }
       throw error;
     }
   }
 
-  async login(request: LoginRequest): Promise<TokenResponse> {
-    const credential = await this.credentialsRepository.findByUsername(request.username);
-    if (!credential) {
+  async login(request: LoginRequest, callerIp: string): Promise<TokenResponse> {
+    // Check if caller is throttled before attempting login
+    this.loginThrottleService.checkThrottle(callerIp);
+
+    try {
+      const credential = await this.credentialsRepository.findByUsername(request.username);
+
+      // Timing-safe unknown username check: always verify password to ensure comparable work
+      const passwordHash = credential?.passwordHash ?? DUMMY_PASSWORD_HASH;
+      const passwordMatches = await this.passwordService.verify(request.password, passwordHash);
+
+      // Reject if username not found OR password wrong
+      if (!credential || !passwordMatches) {
+        this.loginThrottleService.recordFailure(callerIp);
+        throw this.unauthorised();
+      }
+
+      // Password is correct and username exists. Clear any previous throttle entries.
+      this.loginThrottleService.clearFailures(callerIp);
+
+      const subject = {
+        sub: this.subjectForAccount(credential.accountId),
+        accountId: credential.accountId,
+        roles: [credential.role],
+      };
+
+      const accessToken = this.authTokenService.issueAccessToken(subject);
+      const familyId = this.refreshTokenService.generateFamilyId();
+      const issued = this.refreshTokenService.issueRefreshToken(familyId);
+      await this.refreshTokenService.storeRefreshToken(
+        credential.accountId,
+        subject.sub,
+        [credential.role],
+        issued.tokenHash,
+        familyId,
+      );
+
+      return {
+        accessToken,
+        refreshToken: issued.refreshToken,
+        tokenType: 'Bearer',
+        expiresIn: 900,
+      };
+    } catch (error) {
+      // If it's already an AuthException (throttle or unauthorised), re-throw
+      if (error instanceof HttpException) {
+        throw error;
+      }
+
+      // Any other error (DB error, etc.) is treated as login failure
+      try {
+        this.loginThrottleService.recordFailure(callerIp);
+      } catch (throttleError) {
+        throw throttleError; // Throttle exception takes priority
+      }
+
       throw this.unauthorised();
     }
-
-    const passwordMatches = await this.passwordService.verify(request.password, credential.passwordHash);
-    if (!passwordMatches) {
-      throw this.unauthorised();
-    }
-
-    const subject = {
-      sub: this.subjectForAccount(credential.accountId),
-      accountId: credential.accountId,
-      roles: [credential.role],
-    };
-
-    const accessToken = this.authTokenService.issueAccessToken(subject);
-    const familyId = this.refreshTokenService.generateFamilyId();
-    const issued = this.refreshTokenService.issueRefreshToken(familyId);
-    await this.refreshTokenService.storeRefreshToken(
-      credential.accountId,
-      subject.sub,
-      [credential.role],
-      issued.tokenHash,
-      familyId,
-    );
-
-    return {
-      accessToken,
-      refreshToken: issued.refreshToken,
-      tokenType: 'Bearer',
-      expiresIn: 900,
-    };
   }
 
   async refresh(refreshToken: string): Promise<TokenResponse> {
@@ -159,6 +205,15 @@ export class AuthService {
 
     const pgError = error as { code?: string };
     return pgError.code === '23505';
+  }
+
+  private isForeignKeyViolation(error: unknown): boolean {
+    if (!error || typeof error !== 'object') {
+      return false;
+    }
+
+    const pgError = error as { code?: string };
+    return pgError.code === '23503';
   }
 
   private subjectForAccount(accountId: number): string {

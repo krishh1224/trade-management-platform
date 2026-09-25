@@ -45,10 +45,16 @@ describe('AuthController - endpoint delegation', () => {
       expiresIn: 900,
     };
 
+    const mockReq = {
+      headers: {},
+      ip: '192.168.1.1',
+      socket: { remoteAddress: '192.168.1.1' },
+    } as any;
+
     authService.login.mockResolvedValue(response);
 
-    await expect(controller.login(request)).resolves.toEqual(response);
-    expect(authService.login).toHaveBeenCalledWith(request);
+    await expect(controller.login(request, mockReq)).resolves.toEqual(response);
+    expect(authService.login).toHaveBeenCalledWith(request, '192.168.1.1');
   });
 
   it('delegates refresh to AuthService', async () => {

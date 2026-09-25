@@ -4,6 +4,8 @@ export interface EnvConfig {
   JWT_ISSUER: string;
   ACCESS_TOKEN_TTL_SECONDS: number;
   REFRESH_TOKEN_TTL_DAYS: number;
+  LOGIN_MAX_ATTEMPTS: number;
+  LOGIN_LOCKOUT_DURATION_SECONDS: number;
   POSTGRES_HOST: string;
   POSTGRES_PORT: number;
   POSTGRES_DB: string;
@@ -17,6 +19,10 @@ const MIN_JWT_SECRET_BYTES = 32;
 const CONTRACT_JWT_ISSUER = 'auth-service';
 const CONTRACT_ACCESS_TOKEN_TTL_SECONDS = 900;
 const CONTRACT_REFRESH_TOKEN_TTL_DAYS = 7;
+
+// Login throttle defaults: 5 failed attempts trigger a 60-second lockout
+const DEFAULT_LOGIN_MAX_ATTEMPTS = 5;
+const DEFAULT_LOGIN_LOCKOUT_DURATION_SECONDS = 60;
 
 export function validate(env: Record<string, string | undefined>): EnvConfig {
   const jwtSecret = env.JWT_SECRET;
@@ -67,12 +73,26 @@ export function validate(env: Record<string, string | undefined>): EnvConfig {
     throw new Error('POSTGRES_PASSWORD must be set');
   }
 
+  const loginMaxAttempts = Number(env.LOGIN_MAX_ATTEMPTS ?? String(DEFAULT_LOGIN_MAX_ATTEMPTS));
+  if (!Number.isInteger(loginMaxAttempts) || loginMaxAttempts < 1) {
+    throw new Error('LOGIN_MAX_ATTEMPTS must be a positive integer');
+  }
+
+  const loginLockoutDurationSeconds = Number(
+    env.LOGIN_LOCKOUT_DURATION_SECONDS ?? String(DEFAULT_LOGIN_LOCKOUT_DURATION_SECONDS),
+  );
+  if (!Number.isInteger(loginLockoutDurationSeconds) || loginLockoutDurationSeconds < 1) {
+    throw new Error('LOGIN_LOCKOUT_DURATION_SECONDS must be a positive integer');
+  }
+
   return {
     PORT: Number(env.PORT ?? 3000),
     JWT_SECRET: jwtSecret,
     JWT_ISSUER: jwtIssuer,
     ACCESS_TOKEN_TTL_SECONDS: accessTokenTtlSeconds,
     REFRESH_TOKEN_TTL_DAYS: refreshTokenTtlDays,
+    LOGIN_MAX_ATTEMPTS: loginMaxAttempts,
+    LOGIN_LOCKOUT_DURATION_SECONDS: loginLockoutDurationSeconds,
     POSTGRES_HOST: env.POSTGRES_HOST ?? 'localhost',
     POSTGRES_PORT: Number(env.POSTGRES_PORT ?? 5432),
     POSTGRES_DB: postgresDb,
