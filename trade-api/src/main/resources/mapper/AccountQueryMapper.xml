@@ -43,7 +43,7 @@
 
   <select id="getOrders" resultType="com.team5.dto.response.OrderHistoryEntry">
     SELECT
-      o.order_id::TEXT AS orderId,
+      COALESCE(o.external_order_id, 'ORD-' || o.order_id::TEXT) AS orderId,
       p.account_id AS accountId,
       i.ticker AS symbol,
       o.side AS side,
