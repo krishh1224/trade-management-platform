@@ -1,10 +1,10 @@
 import { RequestMethod } from '@nestjs/common';
 import { GUARDS_METADATA, METHOD_METADATA, PATH_METADATA } from '@nestjs/common/constants';
-import { VerifiedAccessTokenPayload } from '../auth-token/auth-token.service';
+import { VerifiedAccessTokenPayload } from '../../token/services/auth-token.service';
 import { AuthController } from './auth.controller';
-import { UserResponse } from './auth.dto';
-import { AuthService } from './auth.service';
-import { JwtAuthGuard } from './jwt-auth.guard';
+import { UserResponse } from '../dto/auth.dto';
+import { AuthService } from '../services/auth.service';
+import { JwtAuthGuard } from '../guards/jwt-auth.guard';
 
 describe('AuthController', () => {
   let controller: AuthController;

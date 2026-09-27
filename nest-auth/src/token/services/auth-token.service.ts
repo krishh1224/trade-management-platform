@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import jwt, { JwtPayload } from 'jsonwebtoken';
-import { EnvConfig } from '../config/env.validation';
+import { EnvConfig } from '../../config/env.validation';
 
 export interface AccessTokenSubject {
   sub: string;

@@ -1,8 +1,8 @@
 import { ExecutionContext, HttpException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import jwt from 'jsonwebtoken';
-import { AuthTokenService } from '../auth-token/auth-token.service';
-import { AuthenticatedRequest } from './authenticated-request';
+import { AuthTokenService } from '../../token/services/auth-token.service';
+import { AuthenticatedRequest } from '../interfaces/authenticated-request';
 import { JwtAuthGuard } from './jwt-auth.guard';
 
 describe('JwtAuthGuard', () => {

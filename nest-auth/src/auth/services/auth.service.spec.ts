@@ -1,9 +1,9 @@
 import { HttpException, HttpStatus } from '@nestjs/common';
 import { AuthService } from './auth.service';
-import { AuthTokenService } from '../auth-token/auth-token.service';
-import { RefreshTokenService } from '../auth-token/refresh-token.service';
-import { CredentialsRepository } from '../credentials/credentials.repository';
-import { PasswordService } from '../credentials/password.service';
+import { AuthTokenService } from '../../token/services/auth-token.service';
+import { RefreshTokenService } from '../../token/services/refresh-token.service';
+import { CredentialsRepository } from '../../credentials/credentials.repository';
+import { PasswordService } from '../../credentials/password.service';
 import { LoginThrottleService } from './login-throttle.service';
 
 describe('AuthService', () => {

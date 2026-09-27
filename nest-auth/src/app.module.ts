@@ -1,7 +1,7 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { AuthModule } from './auth/auth.module';
-import { AuthTokenModule } from './auth-token/auth-token.module';
+import { TokenModule } from './token/token.module';
 import { validate } from './config/env.validation';
 import { CredentialsModule } from './credentials/credentials.module';
 import { HealthModule } from './health/health.module';
@@ -17,7 +17,7 @@ import { LoggingModule } from './logging/logging.module';
     HealthModule,
     AuthModule,
     CredentialsModule,
-    AuthTokenModule,
+    TokenModule,
   ],
 })
 export class AppModule {}

@@ -1,7 +1,7 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
-import { AuthTokenService } from './auth-token.service';
-import { RefreshTokenService } from './refresh-token.service';
+import { AuthTokenService } from './services/auth-token.service';
+import { RefreshTokenService } from './services/refresh-token.service';
 import { CredentialsModule } from '../credentials/credentials.module';
 import { LoggingModule } from '../logging/logging.module';
 
@@ -10,4 +10,4 @@ import { LoggingModule } from '../logging/logging.module';
   providers: [AuthTokenService, RefreshTokenService],
   exports: [AuthTokenService, RefreshTokenService],
 })
-export class AuthTokenModule {}
+export class TokenModule {}

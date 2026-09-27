@@ -1,9 +1,9 @@
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { randomBytes, createHash } from 'crypto';
-import { EnvConfig } from '../config/env.validation';
-import { RedactingLogger } from '../logging/redacting-logger.service';
-import { RefreshTokensRepository } from '../credentials/refresh-tokens.repository';
+import { EnvConfig } from '../../config/env.validation';
+import { RedactingLogger } from '../../logging/redacting-logger.service';
+import { RefreshTokensRepository } from '../../credentials/refresh-tokens.repository';
 import { AccessTokenSubject } from './auth-token.service';
 
 export interface RefreshTokenIssueResult {

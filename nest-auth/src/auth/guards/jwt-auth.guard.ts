@@ -5,8 +5,8 @@ import {
   HttpStatus,
   Injectable,
 } from '@nestjs/common';
-import { AuthTokenService } from '../auth-token/auth-token.service';
-import { AuthenticatedRequest } from './authenticated-request';
+import { AuthTokenService } from '../../token/services/auth-token.service';
+import { AuthenticatedRequest } from '../interfaces/authenticated-request';
 
 const AUTH_UNAUTHORISED_RESPONSE = {
   errorCode: 'AUTH-401',

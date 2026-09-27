@@ -11,6 +11,7 @@ import {
   Min,
   MinLength,
 } from 'class-validator';
+import { IsStrongPassword } from '../../config/validators/is-strong-password.validator';
 
 export const ROLES = ['USER', 'ADMIN'] as const;
 
@@ -31,12 +32,17 @@ export class RegisterRequest {
     minLength: 12,
     maxLength: 128,
     writeOnly: true,
-    description: 'Minimum twelve characters.',
-    example: 'correct horse battery staple',
+    description:
+      'Password must be at least 12 characters and contain uppercase, lowercase, digit, and special character (!@#$%^&*()_+-=[]{}|;:,.<>?).',
+    example: 'MySecure!Pass123',
   })
   @IsString()
   @MinLength(12)
   @MaxLength(128)
+  @IsStrongPassword({
+    message:
+      'Password must be at least 12 characters and contain uppercase, lowercase, digit, and special character',
+  })
   password!: string;
 
   @ApiProperty({

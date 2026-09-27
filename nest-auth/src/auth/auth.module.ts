@@ -1,13 +1,13 @@
 import { Module } from '@nestjs/common';
-import { AuthTokenModule } from '../auth-token/auth-token.module';
+import { TokenModule } from '../token/token.module';
 import { CredentialsModule } from '../credentials/credentials.module';
-import { AuthController } from './auth.controller';
-import { AuthService } from './auth.service';
-import { JwtAuthGuard } from './jwt-auth.guard';
-import { LoginThrottleService } from './login-throttle.service';
+import { AuthController } from './controllers/auth.controller';
+import { AuthService } from './services/auth.service';
+import { JwtAuthGuard } from './guards/jwt-auth.guard';
+import { LoginThrottleService } from './services/login-throttle.service';
 
 @Module({
-  imports: [AuthTokenModule, CredentialsModule],
+  imports: [TokenModule, CredentialsModule],
   controllers: [AuthController],
   providers: [JwtAuthGuard, AuthService, LoginThrottleService],
 })

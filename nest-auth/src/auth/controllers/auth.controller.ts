@@ -10,13 +10,13 @@ import {
   ApiUnprocessableEntityResponse,
 } from '@nestjs/swagger';
 import { Request } from 'express';
-import { VerifiedAccessTokenPayload } from '../auth-token/auth-token.service';
-import { ErrorResponse, LoginRequest, RegisterRequest, UserResponse } from './auth.dto';
-import { CurrentUser } from './current-user.decorator';
-import { JwtAuthGuard } from './jwt-auth.guard';
-import { RefreshRequest, TokenResponse } from './refresh.dto';
-import { AuthService } from './auth.service';
-import { LoginThrottleService } from './login-throttle.service';
+import { VerifiedAccessTokenPayload } from '../../token/services/auth-token.service';
+import { ErrorResponse, LoginRequest, RegisterRequest, UserResponse } from '../dto/auth.dto';
+import { CurrentUser } from '../decorators/current-user.decorator';
+import { JwtAuthGuard } from '../guards/jwt-auth.guard';
+import { RefreshRequest, TokenResponse } from '../dto/refresh.dto';
+import { AuthService } from '../services/auth.service';
+import { LoginThrottleService } from '../services/login-throttle.service';
 
 const ApiInvalidInputResponse = () =>
   ApiUnprocessableEntityResponse({

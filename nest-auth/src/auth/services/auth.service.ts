@@ -1,12 +1,12 @@
 import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
 import { createHash } from 'crypto';
 import { Request } from 'express';
-import { AuthTokenService, VerifiedAccessTokenPayload } from '../auth-token/auth-token.service';
-import { RefreshTokenService } from '../auth-token/refresh-token.service';
-import { CredentialsRepository } from '../credentials/credentials.repository';
-import { PasswordService } from '../credentials/password.service';
-import { LoginRequest, RegisterRequest, UserResponse } from './auth.dto';
-import { TokenResponse } from './refresh.dto';
+import { AuthTokenService, VerifiedAccessTokenPayload } from '../../token/services/auth-token.service';
+import { RefreshTokenService } from '../../token/services/refresh-token.service';
+import { CredentialsRepository } from '../../credentials/credentials.repository';
+import { PasswordService } from '../../credentials/password.service';
+import { LoginRequest, RegisterRequest, UserResponse } from '../dto/auth.dto';
+import { TokenResponse } from '../dto/refresh.dto';
 import { LoginThrottleService } from './login-throttle.service';
 
 const DEFAULT_ROLE: 'USER' | 'ADMIN' = 'USER';

@@ -1,6 +1,6 @@
 import { Injectable, HttpException, HttpStatus } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { EnvConfig } from '../config/env.validation';
+import { EnvConfig } from '../../config/env.validation';
 
 export interface ThrottleEntry {
   failedAttempts: number;

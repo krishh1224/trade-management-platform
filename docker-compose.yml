@@ -72,25 +72,8 @@ services:
     networks:
       - trading-net
 
-  # ============== JWT AUTH STUB ==============
-  auth-stub:
-    build:
-      context: ./services/jwt-token-server
-      dockerfile: Dockerfile
-    container_name: auth-stub
-    profiles: ["platform"]
-    environment:
-      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET must be set to a secret of at least 32 bytes}
-    healthcheck:
-      test: ["CMD", "wget", "-qO-", "http://localhost:8082/health"]
-      interval: 10s
-      timeout: 5s
-      retries: 10
-      start_period: 5s
-    networks:
-      - trading-net
-
   # ============== NEST AUTH (SPRINT 8) ==============
+  # Replaced legacy auth-stub with NestJS implementation
   nest-auth:
     build:
       context: ./nest-auth
@@ -135,12 +118,12 @@ services:
       SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:-postgres}
       SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
       JWT_SECRET: ${JWT_SECRET:?JWT_SECRET must be set to a secret of at least 32 bytes}
-      AUTH_STUB_BASE_URL: http://auth-stub:8082
+      AUTH_STUB_BASE_URL: http://nest-auth:3000
       KAFKA_BOOTSTRAP_SERVERS: kafka:29092
     depends_on:
       postgres:
         condition: service_healthy
-      auth-stub:
+      nest-auth:
         condition: service_healthy
       kafka:
         condition: service_healthy
