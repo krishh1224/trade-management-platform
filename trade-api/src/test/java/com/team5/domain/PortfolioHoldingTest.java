@@ -108,6 +108,27 @@ class PortfolioHoldingTest {
         );
     }
 
+    @Test
+    void gettersReturnConstructorValues() {
+        PortfolioHolding holding = createHolding("100", "50");
+
+        assertEquals(1L, holding.getPortfolioHoldingId());
+        assertEquals(1L, holding.getPortfolioId());
+        assertEquals(1L, holding.getInstrumentId());
+        assertNull(holding.getCreatedAt());
+        assertNull(holding.getUpdatedAt());
+    }
+
+    @Test
+    void toStringContainsKeyFields() {
+        PortfolioHolding holding = createHolding("100", "50");
+
+        String text = holding.toString();
+
+        assertTrue(text.contains("portfolioHoldingId=1"));
+        assertTrue(text.contains("quantity=100"));
+    }
+
     private PortfolioHolding createHolding(
             String quantity,
             String averageCost

@@ -86,6 +86,29 @@ class InstrumentTest {
         );
     }
 
+    @Test
+    void gettersReturnConstructorValues() {
+        Instrument instrument = createInstrument(true);
+
+        assertEquals(1L, instrument.getInstrumentId());
+        assertEquals("RELIANCE", instrument.getTicker());
+        assertEquals("Reliance Industries", instrument.getName());
+        assertEquals("EQUITY", instrument.getAssetClass());
+        assertEquals("INR", instrument.getCurrency());
+        assertEquals(Exchange.NSE, instrument.getExchange());
+    }
+
+    @Test
+    void toStringContainsKeyFields() {
+        Instrument instrument = createInstrument(true);
+
+        String text = instrument.toString();
+
+        assertTrue(text.contains("ticker='RELIANCE'"));
+        assertTrue(text.contains("exchange=NSE"));
+        assertTrue(text.contains("tradable=true"));
+    }
+
     private Instrument createInstrument(boolean tradable) {
         return new Instrument(
                 1L,
