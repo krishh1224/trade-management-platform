@@ -77,7 +77,7 @@ class OrderServiceImplTest {
         when(orderMapper.findInstrumentByTicker("INFY.NS")).thenReturn(instrument);
         when(orderMapper.findPortfolioIdByAccountId(101L)).thenReturn(201L);
         when(orderMapper.insertOrder(
-            anyLong(), eq(201L), eq(301L), eq("BUY"), eq(10L), eq(storedPrice),
+            anyLong(), anyString(), eq(201L), eq(301L), eq("BUY"), eq(10L), eq(storedPrice),
             eq("NEW"), eq("idem-version-mismatch"), any(), any()))
             .thenReturn(1);
         when(orderMapper.findOrderById(anyLong(), anyString())).thenReturn(expected);
@@ -87,7 +87,7 @@ class OrderServiceImplTest {
         assertSame(expected, response);
         assertEquals(OrderStatus.NEW, response.status());
         verify(orderMapper).insertOrder(
-            anyLong(), eq(201L), eq(301L), eq("BUY"), eq(10L), eq(storedPrice),
+            anyLong(), anyString(), eq(201L), eq(301L), eq("BUY"), eq(10L), eq(storedPrice),
             eq("NEW"), eq("idem-version-mismatch"), any(), any());
     }
 

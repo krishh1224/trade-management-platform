@@ -115,6 +115,7 @@ class OrderPlacementCharacterisationTest {
         jdbcTemplate.execute("""
             CREATE TABLE orders (
               order_id BIGINT PRIMARY KEY,
+              external_order_id VARCHAR(50),
               portfolio_id BIGINT NOT NULL,
               instrument_id BIGINT NOT NULL,
               side VARCHAR(10) NOT NULL,
