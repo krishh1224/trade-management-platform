@@ -61,7 +61,7 @@ describe('CredentialsRepository', () => {
     });
     expect(result?.id).toBe(1); // not '1'
     expect(result?.accountId).toBe(101); // not '101'
-    expect(queryMock).toHaveBeenCalledWith(expect.stringContaining('FROM credentials'), [101]);
+    expect(queryMock).toHaveBeenCalledWith(expect.stringContaining('FROM auth.credentials'), [101]);
   });
 
   it('returns null when no row matches', async () => {
@@ -97,7 +97,7 @@ describe('CredentialsRepository', () => {
       passwordHash: '$2b$12$xyz',
       createdOn: new Date('2026-10-06T08:00:00.000Z'),
     });
-    expect(queryMock).toHaveBeenCalledWith(expect.stringContaining('FROM credentials WHERE username'), [
+    expect(queryMock).toHaveBeenCalledWith(expect.stringContaining('FROM auth.credentials WHERE username'), [
       'aditya.kumar',
     ]);
   });
@@ -145,7 +145,7 @@ describe('CredentialsRepository', () => {
       createdOn: new Date('2026-10-07T08:00:00.000Z'),
     });
     expect(queryMock).toHaveBeenCalledWith(
-      expect.stringContaining('INSERT INTO credentials'),
+      expect.stringContaining('INSERT INTO auth.credentials'),
       [77, 'new.user', 'USER', '$2b$12$abcxyz'],
     );
   });

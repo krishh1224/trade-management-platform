@@ -213,10 +213,18 @@ CREATE TABLE IF NOT EXISTS transactions (
                                       )
 );
 
-ALTER TABLE clients
-    ADD CONSTRAINT fk_clients_account
-        FOREIGN KEY (acc_id)
-            REFERENCES accounts(acc_id);
+DO $$ 
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.table_constraints 
+        WHERE constraint_name = 'fk_clients_account' AND table_name = 'clients'
+    ) THEN
+        ALTER TABLE clients
+            ADD CONSTRAINT fk_clients_account
+                FOREIGN KEY (acc_id)
+                    REFERENCES accounts(acc_id);
+    END IF;
+END $$;
 
 
 CREATE INDEX IF NOT EXISTS idx_clients_acc_id

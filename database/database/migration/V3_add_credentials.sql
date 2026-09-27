@@ -15,9 +15,11 @@
 -- anything from accounts, etc). If a display name is ever needed alongside
 -- a credential, join through clients (or accounts -> clients) for it.
 
-CREATE TABLE IF NOT EXISTS credentials (
+CREATE SCHEMA IF NOT EXISTS auth;
+
+CREATE TABLE IF NOT EXISTS auth.credentials (
     id            BIGSERIAL PRIMARY KEY,
-    account_id    BIGINT NOT NULL UNIQUE REFERENCES accounts(acc_id),
+    account_id    BIGINT NOT NULL UNIQUE REFERENCES public.accounts(acc_id),
     username      VARCHAR(64) NOT NULL UNIQUE,
     roles         VARCHAR(16) NOT NULL DEFAULT 'USER' CHECK (roles IN ('USER', 'ADMIN')),
     password_hash VARCHAR(255) NOT NULL,

@@ -48,7 +48,7 @@ export class RefreshTokensRepository {
         created_at: string;
         updated_at: string;
       }>(
-        `INSERT INTO refresh_tokens (account_id, user_id, roles, token_hash, family_id, expires_at)
+        `INSERT INTO auth.refresh_tokens (account_id, user_id, roles, token_hash, family_id, expires_at)
          VALUES ($1, $2, $3, $4, $5, $6)
          RETURNING id, account_id, user_id, roles, token_hash, family_id, expires_at, consumed_at, revoked_at, created_at, updated_at`,
         [accountId, userId, roles, tokenHash, familyId, expiresAt],
@@ -86,7 +86,7 @@ export class RefreshTokensRepository {
         revoked_at: string | null;
         created_at: string;
         updated_at: string;
-      }>('SELECT * FROM refresh_tokens WHERE token_hash = $1', [tokenHash]);
+      }>('SELECT * FROM auth.refresh_tokens WHERE token_hash = $1', [tokenHash]);
 
       if (result.rows.length === 0) {
         return null;
@@ -120,7 +120,7 @@ export class RefreshTokensRepository {
         created_at: string;
         updated_at: string;
       }>(
-        `UPDATE refresh_tokens SET consumed_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP
+        `UPDATE auth.refresh_tokens SET consumed_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP
          WHERE id = $1 AND consumed_at IS NULL
          RETURNING id, account_id, user_id, roles, token_hash, family_id, expires_at, consumed_at, revoked_at, created_at, updated_at`,
         [tokenId],
@@ -147,7 +147,7 @@ export class RefreshTokensRepository {
   async revokeFamily(familyId: string): Promise<number> {
     try {
       const result = await this.pool.query(
-        `UPDATE refresh_tokens SET revoked_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP
+        `UPDATE auth.refresh_tokens SET revoked_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP
          WHERE family_id = $1 AND revoked_at IS NULL`,
         [familyId],
       );
@@ -181,7 +181,7 @@ export class RefreshTokensRepository {
         created_at: string;
         updated_at: string;
       }>(
-        `SELECT * FROM refresh_tokens
+        `SELECT * FROM auth.refresh_tokens
          WHERE account_id = $1 AND consumed_at IS NULL AND revoked_at IS NULL AND expires_at > CURRENT_TIMESTAMP
          ORDER BY created_at DESC`,
         [accountId],

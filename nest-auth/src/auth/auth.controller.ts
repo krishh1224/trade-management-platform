@@ -39,8 +39,9 @@ export class AuthController {
   }
 
   @Post('login')
-  async login(@Body() request: LoginRequest): Promise<TokenResponse> {
-    return this.authService.login(request);
+  async login(@Body() request: LoginRequest, @Req() req: any): Promise<TokenResponse> {
+    const callerIp = req.ip || req.connection?.remoteAddress || 'unknown';
+    return this.authService.login(request, callerIp);
   }
 
   @Get('me')

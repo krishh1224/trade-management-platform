@@ -31,7 +31,7 @@ export class CredentialsRepository {
         roles: 'USER' | 'ADMIN';
         password_hash: string;
         created_at: string;
-      }>('SELECT id, account_id, username, roles, password_hash, created_at FROM credentials WHERE account_id = $1', [
+      }>('SELECT id, account_id, username, roles, password_hash, created_at FROM auth.credentials WHERE account_id = $1', [
         accountId,
       ]);
 
@@ -74,7 +74,7 @@ export class CredentialsRepository {
         roles: 'USER' | 'ADMIN';
         password_hash: string;
         created_at: string;
-      }>('SELECT id, account_id, username, roles, password_hash, created_at FROM credentials WHERE username = $1', [
+      }>('SELECT id, account_id, username, roles, password_hash, created_at FROM auth.credentials WHERE username = $1', [
         username,
       ]);
 
@@ -114,7 +114,7 @@ export class CredentialsRepository {
       password_hash: string;
       created_at: string;
     }>(
-      `INSERT INTO credentials (account_id, username, roles, password_hash)
+      `INSERT INTO auth.credentials (account_id, username, roles, password_hash)
        VALUES ($1, $2, $3, $4)
        RETURNING id, account_id, username, roles, password_hash, created_at`,
       [accountId, username, role, passwordHash],

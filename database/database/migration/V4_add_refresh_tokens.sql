@@ -16,9 +16,9 @@
 -- are changed - the client must re-authenticate to get a new refresh token with
 -- updated roles.
 
-CREATE TABLE IF NOT EXISTS refresh_tokens (
+CREATE TABLE IF NOT EXISTS auth.refresh_tokens (
     id               BIGSERIAL PRIMARY KEY,
-    account_id       BIGINT NOT NULL REFERENCES accounts(acc_id),
+    account_id       BIGINT NOT NULL REFERENCES public.accounts(acc_id),
     user_id          UUID NOT NULL,
     roles            TEXT[] NOT NULL,
     token_hash       VARCHAR(255) NOT NULL,
@@ -32,8 +32,8 @@ CREATE TABLE IF NOT EXISTS refresh_tokens (
 
 -- Indices for common lookups:
 -- - Finding a token by hash (for consumption/validation)
-CREATE INDEX IF NOT EXISTS idx_refresh_tokens_hash ON refresh_tokens(token_hash);
+CREATE INDEX IF NOT EXISTS idx_refresh_tokens_hash ON auth.refresh_tokens(token_hash);
 -- - Finding live tokens for an account (for revocation on theft)
-CREATE INDEX IF NOT EXISTS idx_refresh_tokens_account_live ON refresh_tokens(account_id, revoked_at) WHERE revoked_at IS NULL;
+CREATE INDEX IF NOT EXISTS idx_refresh_tokens_account_live ON auth.refresh_tokens(account_id, revoked_at) WHERE revoked_at IS NULL;
 -- - Finding expired tokens (for cleanup/auditing)
-CREATE INDEX IF NOT EXISTS idx_refresh_tokens_expires ON refresh_tokens(expires_at);
+CREATE INDEX IF NOT EXISTS idx_refresh_tokens_expires ON auth.refresh_tokens(expires_at);
