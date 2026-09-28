@@ -16,6 +16,7 @@ public interface OrderMapper {
 
     int insertOrder(
         @Param("orderId") Long orderId,
+        @Param("externalOrderId") String externalOrderId,
         @Param("portfolioId") Long portfolioId,
         @Param("instrumentId") Long instrumentId,
         @Param("side") String side,

@@ -78,6 +78,7 @@ public class OrderServiceImpl implements OrderService {
         try {
             int insertedOrders = orderMapper.insertOrder(
                 persistentOrderId,
+                externalOrderId,
                 portfolioId,
                 asLong(instrument, "instrument_id"),
                 request.getSide().name(),

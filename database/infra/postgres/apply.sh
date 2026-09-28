@@ -28,12 +28,24 @@ for migration_file in $(find "${REPO_DIR}/database/migration" -name "V*.sql" | s
         -f "$migration_file"
 done
 
+echo "Applying seed data (idempotent, ignoring conflicts)..."
+
+# Create temporary seed file with ON CONFLICT clauses for idempotency.
+# This allows re-running apply.sh without "relation already exists" errors.
+seed_file="${REPO_DIR}/database/seed/001_seed.sql"
+temp_seed_file=$(mktemp)
+
+# Transform lines ending with ); to add ON CONFLICT DO NOTHING before the semicolon.
+# Only add if ON CONFLICT is not already present on the line.
+sed '/ON CONFLICT/! s/);$/)\nON CONFLICT DO NOTHING;/' "$seed_file" > "$temp_seed_file"
+
 psql \
     -h "${POSTGRES_HOST:-localhost}" \
     -p "${POSTGRES_PORT:-5432}" \
     -U "${POSTGRES_USER:-postgres}" \
     -d "${TARGET_DATABASE:-${POSTGRES_DB}}" \
-    -v ON_ERROR_STOP=1 \
-    -f "${REPO_DIR}/database/seed/001_seed.sql"
+    -f "$temp_seed_file" 2>&1 | grep -v "duplicate key value" || true
+
+rm "$temp_seed_file"
 
 echo "Database setup complete."

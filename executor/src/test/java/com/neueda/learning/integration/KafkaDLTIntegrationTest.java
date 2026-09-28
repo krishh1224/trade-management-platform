@@ -22,7 +22,7 @@ import java.util.UUID;
  * with proper failure-reason headers.
  *
  * Prerequisites:
- * - Kafka is running on EC2 at 10.8.64.174:8085
+ * - Kafka is running on EC2 at 10.8.67.91:8085
  * - Executor service is running locally and consuming from orders topic
  * - PostgreSQL and other services are running
  *
@@ -34,7 +34,7 @@ import java.util.UUID;
  */
 public class KafkaDLTIntegrationTest {
 
-    private static final String BOOTSTRAP_SERVERS = "10.8.64.174:8085";
+    private static final String BOOTSTRAP_SERVERS = "10.8.67.91:8085";
     private static final String ORDERS_TOPIC = "orders";
     private static final String DLT_TOPIC = "orders.DLT";
 

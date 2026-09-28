@@ -47,6 +47,7 @@ class MyBatisMapperIntegrationTest {
         jdbcTemplate.execute("""
             CREATE TABLE clients (
               id BIGINT PRIMARY KEY,
+                            acc_id BIGINT NOT NULL UNIQUE,
               name VARCHAR(100) NOT NULL,
               email VARCHAR(255) NOT NULL UNIQUE,
               phone VARCHAR(20) NOT NULL UNIQUE,
@@ -59,7 +60,6 @@ class MyBatisMapperIntegrationTest {
         jdbcTemplate.execute("""
             CREATE TABLE accounts (
               acc_id BIGINT PRIMARY KEY,
-              client_id BIGINT NOT NULL,
               account_number VARCHAR(10) NOT NULL UNIQUE,
               risk_profile VARCHAR(20) NOT NULL,
               base_currency VARCHAR(3) NOT NULL,
@@ -67,10 +67,14 @@ class MyBatisMapperIntegrationTest {
               status VARCHAR(20) NOT NULL,
               version BIGINT NOT NULL,
               created_at TIMESTAMP NOT NULL,
-              updated_at TIMESTAMP NOT NULL,
-              CONSTRAINT fk_accounts_client FOREIGN KEY (client_id) REFERENCES clients(id)
+                            updated_at TIMESTAMP NOT NULL
             )
             """);
+
+                jdbcTemplate.execute("""
+                        ALTER TABLE clients
+                        ADD CONSTRAINT fk_clients_account FOREIGN KEY (acc_id) REFERENCES accounts(acc_id)
+                        """);
 
         jdbcTemplate.execute("""
             CREATE TABLE portfolio (
@@ -114,6 +118,7 @@ class MyBatisMapperIntegrationTest {
         jdbcTemplate.execute("""
             CREATE TABLE orders (
               order_id BIGINT PRIMARY KEY,
+              external_order_id VARCHAR(50),
               portfolio_id BIGINT NOT NULL,
               instrument_id BIGINT NOT NULL,
               side VARCHAR(10) NOT NULL,
@@ -319,31 +324,31 @@ class MyBatisMapperIntegrationTest {
     private void seedBaseData() {
         jdbcTemplate.update(
             """
-            INSERT INTO clients (id, name, email, phone, dob, created_at, updated_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
-            """,
-            1L,
-            "Priya Menon",
-            "priya.menon@example.com",
-            "9876500101",
-            java.sql.Date.valueOf("1990-05-10"),
-            OffsetDateTime.parse("2026-09-09T14:00:00Z"),
-            OffsetDateTime.parse("2026-09-09T14:00:00Z")
-        );
-
-        jdbcTemplate.update(
-            """
-            INSERT INTO accounts (acc_id, client_id, account_number, risk_profile, base_currency, balance, status, version, created_at, updated_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO accounts (acc_id, account_number, risk_profile, base_currency, balance, status, version, created_at, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             101L,
-            1L,
             "1000000001",
             "MODERATE",
             "INR",
             new BigDecimal("50000.00"),
             "ACTIVE",
             1L,
+            OffsetDateTime.parse("2026-09-09T14:00:00Z"),
+            OffsetDateTime.parse("2026-09-09T14:00:00Z")
+        );
+
+        jdbcTemplate.update(
+            """
+            INSERT INTO clients (id, acc_id, name, email, phone, dob, created_at, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            1L,
+            101L,
+            "Priya Menon",
+            "priya.menon@example.com",
+            "9876500101",
+            java.sql.Date.valueOf("1990-05-10"),
             OffsetDateTime.parse("2026-09-09T14:00:00Z"),
             OffsetDateTime.parse("2026-09-09T14:00:00Z")
         );

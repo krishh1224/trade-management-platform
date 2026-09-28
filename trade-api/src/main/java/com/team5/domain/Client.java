@@ -10,6 +10,9 @@ public class Client {
 
     private final long id;
 
+    @NotNull
+    private final Long accId;
+
     @NotBlank
     private final String name;
 
@@ -26,9 +29,10 @@ public class Client {
 
     private final LocalDateTime updatedAt;
 
-    public Client(long id, String name, String email, String phone,
+    public Client(long id, Long accId, String name, String email, String phone,
                   LocalDate dob, LocalDateTime createdAt, LocalDateTime updatedAt) {
         this.id = id;
+        this.accId = accId;
         this.name = name;
         this.email = email;
         this.phone = phone;
@@ -38,6 +42,7 @@ public class Client {
     }
 
     public long getId() { return id; }
+    public Long getAccId() { return accId; }
     public String getName() { return name; }
     public String getEmail() { return email; }
     public String getPhone() { return phone; }
@@ -47,6 +52,6 @@ public class Client {
 
     @Override
     public String toString() {
-        return "Client{id=" + id + ", name='" + name + "', email='" + email + "'}";
+        return "Client{id=" + id + ", accId=" + accId + ", name='" + name + "', email='" + email + "'}";
     }
 }

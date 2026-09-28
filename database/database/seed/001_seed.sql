@@ -1,20 +1,20 @@
-INSERT INTO clients (id, name, email, phone, dob) VALUES
-(1, 'Sreyansh Baid', 'sreyansh.baid@example.com', '9876500001', '1995-04-12'),
-(2, 'Riya Rangwani', 'riya.rangwani@example.com', '9876500002', '1992-08-25'),
-(3, 'Krishna Gupta', 'krishna.gupta@example.com', '9876500003', '1988-01-17'),
-(4, 'Ananya Singh', 'ananya.singh@example.com', '9876500004', '1997-11-03'),
-(5, 'Sameer Patil', 'sameer.patil@example.com', '9876500005', '1990-06-21'),
-(6, 'Meera Iyer', 'meera.iyer@example.com', '9876500006', '1994-09-14');
-
 INSERT INTO accounts
-(acc_id, client_id, account_number, risk_profile, base_currency, balance, status)
+(acc_id, account_number, risk_profile, base_currency, balance, status)
 VALUES
-(101, 1, '1000000001', 'LOW', 'INR', 98000.0000, 'ACTIVE'),
-(102, 2, '1000000002', 'MODERATE', 'INR', 156000.0000, 'ACTIVE'),
-(103, 3, '1000000003', 'ADVENTUROUS', 'INR', 82000.0000, 'ACTIVE'),
-(104, 4, '1000000004', 'LOW', 'INR', 116600.0000, 'ACTIVE'),
-(105, 5, '1000000005', 'MODERATE', 'INR', 95000.0000, 'SUSPENDED'),
-(106, 6, '1000000006', 'ADVENTUROUS', 'INR', 65000.0000, 'ACTIVE');
+(101, '1000000001', 'LOW', 'INR', 98000.0000, 'ACTIVE'),
+(102, '1000000002', 'MODERATE', 'INR', 156000.0000, 'ACTIVE'),
+(103, '1000000003', 'ADVENTUROUS', 'INR', 82000.0000, 'ACTIVE'),
+(104, '1000000004', 'LOW', 'INR', 116600.0000, 'ACTIVE'),
+(105, '1000000005', 'MODERATE', 'INR', 95000.0000, 'SUSPENDED'),
+(106, '1000000006', 'ADVENTUROUS', 'INR', 65000.0000, 'ACTIVE');
+
+INSERT INTO clients (id, acc_id, name, email, phone, dob) VALUES
+(1, 101, 'Sreyansh Baid', 'sreyansh.baid@example.com', '9876500001', '1995-04-12'),
+(2, 102, 'Riya Rangwani', 'riya.rangwani@example.com', '9876500002', '1992-08-25'),
+(3, 103, 'Krishna Gupta', 'krishna.gupta@example.com', '9876500003', '1988-01-17'),
+(4, 104, 'Ananya Singh', 'ananya.singh@example.com', '9876500004', '1997-11-03'),
+(5, 105, 'Sameer Patil', 'sameer.patil@example.com', '9876500005', '1990-06-21'),
+(6, 106, 'Meera Iyer', 'meera.iyer@example.com', '9876500006', '1994-09-14');
 
 INSERT INTO portfolio
 (portfolio_id, name, account_id, status)

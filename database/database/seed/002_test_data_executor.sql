@@ -2,14 +2,14 @@
 -- Account 101 (already exists, portfolio_id=201)
 -- Account 100 (new test account, portfolio_id=1000)
 
--- Insert test client for account 100
-INSERT INTO clients (id, name, email, phone, dob) 
-VALUES (100, 'Test Client Account 100', 'test100@example.com', '9999999999', '2000-01-01')
+-- Insert test account 100 (new)
+INSERT INTO accounts (acc_id, account_number, risk_profile, base_currency, balance, status)
+VALUES (100, '1000000100', 'MODERATE', 'INR', 500000.0000, 'ACTIVE')
 ON CONFLICT DO NOTHING;
 
--- Insert test account 100 (new)
-INSERT INTO accounts (acc_id, client_id, account_number, risk_profile, base_currency, balance, status)
-VALUES (100, 100, '1000000100', 'MODERATE', 'INR', 500000.0000, 'ACTIVE')
+-- Insert test client for account 100
+INSERT INTO clients (id, acc_id, name, email, phone, dob)
+VALUES (100, 100, 'Test Client Account 100', 'test100@example.com', '9999999999', '2000-01-01')
 ON CONFLICT DO NOTHING;
 
 -- Insert test portfolio for account 100

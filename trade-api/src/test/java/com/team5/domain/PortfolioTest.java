@@ -64,6 +64,29 @@ class PortfolioTest {
         assertFalse(portfolio.isActive());
     }
 
+    @Test
+    void gettersReturnConstructorValues() {
+        Portfolio portfolio = createPortfolio("ACTIVE");
+
+        assertEquals(1L, portfolio.getPortfolioId());
+        assertEquals("My Portfolio", portfolio.getName());
+        assertEquals(1L, portfolio.getAccountId());
+        assertEquals("ACTIVE", portfolio.getStatus());
+        assertNull(portfolio.getCreatedAt());
+        assertNull(portfolio.getUpdatedAt());
+    }
+
+    @Test
+    void toStringContainsKeyFields() {
+        Portfolio portfolio = createPortfolio("ACTIVE");
+
+        String text = portfolio.toString();
+
+        assertTrue(text.contains("portfolioId=1"));
+        assertTrue(text.contains("name='My Portfolio'"));
+        assertTrue(text.contains("status='ACTIVE'"));
+    }
+
     private Portfolio createPortfolio(String status) {
         return new Portfolio(
                 1L,
