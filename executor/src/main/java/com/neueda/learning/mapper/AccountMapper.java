@@ -16,7 +16,7 @@ public interface AccountMapper {
     /**
      * Load an account by its ID, including version for optimistic locking.
      */
-    @Select("SELECT acc_id, client_id, account_number, risk_profile, base_currency, " +
+    @Select("SELECT acc_id, account_number, risk_profile, base_currency, " +
             "balance, status, version, created_at, updated_at " +
             "FROM accounts WHERE acc_id = #{accountId}")
     AccountRecord findById(Long accountId);

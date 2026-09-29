@@ -18,9 +18,6 @@ public class Account {
     @NotNull
     private final Long accId;
     
-    @NotNull
-    private final Long clientId;
-    
     @NotBlank
     @Size(min = 10, max = 10)
     private final String accountNumber;
@@ -42,12 +39,11 @@ public class Account {
     
     private final LocalDateTime updatedAt;
 
-    public Account(Long accId, Long clientId, String accountNumber,
+    public Account(Long accId, String accountNumber,
                    RiskProfile riskProfile, String baseCurrency, BigDecimal balance,
                    AccountStatus status, LocalDateTime createdAt, LocalDateTime updatedAt) {
 
         this.accId         = accId;
-        this.clientId      = clientId;
         this.accountNumber = accountNumber;
         this.riskProfile   = riskProfile;
         this.baseCurrency  = baseCurrency;
@@ -83,7 +79,6 @@ public class Account {
     }
 
     public Long getAccId()             { return accId; }
-    public Long getClientId()          { return clientId; }
     public String getAccountNumber()   { return accountNumber; }
     public RiskProfile getRiskProfile(){ return riskProfile; }
     public String getBaseCurrency()    { return baseCurrency; }
@@ -95,6 +90,6 @@ public class Account {
     @Override
     public String toString() {
         return "Account{accId=" + accId + ", accountNumber='" + accountNumber
-            + "', clientId=" + clientId + ", status=" + status + ", balance=" + balance + "}";
+            + "', status=" + status + ", balance=" + balance + "}";
     }
 }

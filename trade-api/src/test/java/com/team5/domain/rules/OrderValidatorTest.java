@@ -35,7 +35,7 @@ class OrderValidatorTest {
     }
 
     private Account activeAccount(BigDecimal balance) {
-        return new Account(1L, 1L, "ACC-0001", RiskProfile.MODERATE,
+                return new Account(1L, "ACC-0001", RiskProfile.MODERATE,
                 "USD", balance, AccountStatus.ACTIVE,
                 LocalDateTime.now(), LocalDateTime.now());
     }
@@ -103,7 +103,7 @@ class OrderValidatorTest {
     // Checks that an order is rejected when the account is inactive.
     @Test
     void orderRejectedWhenAccountInactive() {
-        Account account = new Account(1L, 1L, "ACC-0002", RiskProfile.MODERATE,
+        Account account = new Account(1L, "ACC-0002", RiskProfile.MODERATE,
                 "USD", new BigDecimal("1000.00"), AccountStatus.SUSPENDED,
                 LocalDateTime.now(), LocalDateTime.now());
         Instrument instrument = tradableInstrument();

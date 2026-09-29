@@ -38,7 +38,7 @@ SELECT
 FROM orders o
 INNER JOIN portfolio p ON p.portfolio_id = o.portfolio_id
 INNER JOIN accounts a ON a.acc_id = p.account_id
-INNER JOIN clients c ON c.id = a.client_id
+INNER JOIN clients c ON c.acc_id = a.acc_id
 INNER JOIN instruments i ON i.instrument_id = o.instrument_id
 WHERE (%(watermark)s::timestamp IS NULL OR o.created_at > %(watermark)s::timestamp)
 ORDER BY o.created_at ASC, o.order_id ASC

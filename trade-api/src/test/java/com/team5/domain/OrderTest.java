@@ -9,6 +9,7 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -119,6 +120,39 @@ class OrderTest {
                 violations.stream()
                         .anyMatch(v -> v.getPropertyPath().toString().equals("quantity"))
         );
+    }
+
+    @Test
+    void gettersReturnConstructorValues() {
+        LocalDateTime now = LocalDateTime.of(2026, 1, 1, 0, 0);
+        Order order = new Order(
+                1L, 2L, 3L, 10, new BigDecimal("100"),
+                OrderStatus.NEW, OrderSide.BUY, "ORDER123",
+                now, now, now
+        );
+
+        assertEquals(1L, order.getOrderId());
+        assertEquals(2L, order.getPortfolioId());
+        assertEquals(3L, order.getInstrumentId());
+        assertEquals(10, order.getQuantity());
+        assertEquals(new BigDecimal("100"), order.getPrice());
+        assertEquals(OrderSide.BUY, order.getSide());
+        assertEquals("ORDER123", order.getIdempotencyKey());
+        assertEquals(now, order.getCreatedAt());
+        assertEquals(now, order.getUpdatedAt());
+        assertEquals(now, order.getExpiresAt());
+    }
+
+    @Test
+    void toStringContainsKeyFields() {
+        Order order = createOrder(OrderStatus.NEW);
+
+        String text = order.toString();
+
+        assertTrue(text.contains("orderId=1"));
+        assertTrue(text.contains("side=BUY"));
+        assertTrue(text.contains("status=NEW"));
+        assertTrue(text.contains("idempotencyKey='ORDER123'"));
     }
 
     private Order createOrder(OrderStatus status) {

@@ -37,7 +37,6 @@ class AccountTest {
     void shouldRejectNullAccountId() {
         Account account = new Account(
                 null,
-                1L,
                 "ACC0000001",
                 RiskProfile.LOW,
                 "INR",
@@ -138,9 +137,38 @@ class AccountTest {
         );
     }
 
+    @Test
+    void gettersReturnConstructorValues() {
+        Account account = createAccount("1000.00");
+
+        assertEquals(1L, account.getAccId());
+        assertEquals("ACC0000001", account.getAccountNumber());
+        assertEquals(RiskProfile.LOW, account.getRiskProfile());
+        assertEquals("INR", account.getBaseCurrency());
+        assertNull(account.getCreatedAt());
+        assertNull(account.getUpdatedAt());
+    }
+
+    @Test
+    void isActiveReturnsTrueForActiveAccount() {
+        Account account = createAccount("1000.00");
+
+        assertTrue(account.isActive());
+    }
+
+    @Test
+    void toStringContainsKeyFields() {
+        Account account = createAccount("1000.00");
+
+        String text = account.toString();
+
+        assertTrue(text.contains("accId=1"));
+        assertTrue(text.contains("accountNumber='ACC0000001'"));
+        assertTrue(text.contains("status=ACTIVE"));
+    }
+
     private Account createAccount(String balance) {
         return new Account(
-                1L,
                 1L,
                 "ACC0000001",
                 RiskProfile.LOW,

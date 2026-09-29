@@ -103,7 +103,7 @@ SELECT instrument_id, ticker, name, asset_class, currency, exchange, tradable FR
 
 ```properties
 # Database
-spring.datasource.url=jdbc:postgresql://localhost:5432/trading_platform
+spring.datasource.url=jdbc:postgresql://localhost:5432/trade_management
 spring.datasource.username=postgres
 spring.datasource.password=postgres
 
