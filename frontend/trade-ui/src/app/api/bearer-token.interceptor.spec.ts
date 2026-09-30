@@ -1,0 +1,93 @@
+import { HttpClient } from '@angular/common/http';
+import { TestBed } from '@angular/core/testing';
+import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
+
+import { AuthSessionService } from '../auth/auth-session.service';
+import { provideApi } from './provide-api';
+
+describe('bearer token interceptor', () => {
+  function setup(token: string | null) {
+    TestBed.configureTestingModule({
+      providers: [
+        provideApi({ tradeApi: 'http://trade', authApi: 'http://auth' }),
+        provideHttpClientTesting(),
+        { provide: AuthSessionService, useValue: { token: () => token } }
+      ]
+    });
+
+    return {
+      http: TestBed.inject(HttpClient),
+      httpMock: TestBed.inject(HttpTestingController)
+    };
+  }
+
+  it('a request to a platform API carries the bearer token', () => {
+    const { http, httpMock } = setup('jwt-token');
+
+    http.get('http://trade/api/v1/accounts/101').subscribe();
+
+    const req = httpMock.expectOne('http://trade/api/v1/accounts/101');
+    expect(req.request.headers.get('Authorization')).toBe('Bearer jwt-token');
+    req.flush({});
+  });
+
+  it('a request to a third-party origin does not carry the bearer token', () => {
+    const { http, httpMock } = setup('jwt-token');
+
+    http.get('https://example.com/analytics/pixel').subscribe();
+
+    const req = httpMock.expectOne('https://example.com/analytics/pixel');
+    expect(req.request.headers.has('Authorization')).toBe(false);
+    req.flush({});
+  });
+
+  it('the unauthenticated auth routes are called without a header', () => {
+    const { http, httpMock } = setup('jwt-token');
+
+    http.post('http://auth/auth/login', { username: 'u', password: 'p' }).subscribe();
+    http.post('http://auth/auth/register', { username: 'u', password: 'p', accountId: 101 }).subscribe();
+    http.post('http://auth/auth/refresh', { refreshToken: 'r' }).subscribe();
+
+    const loginReq = httpMock.expectOne('http://auth/auth/login');
+    expect(loginReq.request.headers.has('Authorization')).toBe(false);
+    loginReq.flush({});
+
+    const registerReq = httpMock.expectOne('http://auth/auth/register');
+    expect(registerReq.request.headers.has('Authorization')).toBe(false);
+    registerReq.flush({});
+
+    const refreshReq = httpMock.expectOne('http://auth/auth/refresh');
+    expect(refreshReq.request.headers.has('Authorization')).toBe(false);
+    refreshReq.flush({});
+  });
+
+  it('the protected auth route carries the bearer token', () => {
+    const { http, httpMock } = setup('jwt-token');
+
+    http.get('http://auth/auth/me').subscribe();
+
+    const req = httpMock.expectOne('http://auth/auth/me');
+    expect(req.request.headers.get('Authorization')).toBe('Bearer jwt-token');
+    req.flush({});
+  });
+
+  it('does not add authorization when no token exists', () => {
+    const { http, httpMock } = setup(null);
+
+    http.get('http://trade/api/v1/accounts/101').subscribe();
+
+    const req = httpMock.expectOne('http://trade/api/v1/accounts/101');
+    expect(req.request.headers.has('Authorization')).toBe(false);
+    req.flush({});
+  });
+
+  it('passes through requests with non-parseable URLs', () => {
+    const { http, httpMock } = setup('jwt-token');
+
+    http.get('/relative/path').subscribe();
+
+    const req = httpMock.expectOne('/relative/path');
+    expect(req.request.headers.has('Authorization')).toBe(false);
+    req.flush({});
+  });
+});
