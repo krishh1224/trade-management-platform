@@ -1,0 +1,145 @@
+<header class="nav">
+  <div class="container nav-inner">
+    <span class="brand">
+      <svg class="brand-mark" viewBox="0 0 24 24" width="24" height="24" aria-hidden="true"><path d="M2 20L12 3l10 17h-5.2L12 11.6 7.2 20z" fill="currentColor" /></svg>
+      Artha
+    </span>
+
+    <button class="nav-cta" type="button" (click)="scrollTo('sign-in')">Sign in</button>
+  </div>
+</header>
+
+<main>
+  <section class="hero container">
+    <div class="ticker" aria-hidden="true">
+      <div class="ticker-track">
+        @for (copy of [0, 1]; track copy) {
+          @for (item of ticker; track item.symbol) {
+            <span class="ticker-item">
+              <strong>{{ item.symbol }}</strong>
+              <span>{{ item.price }}</span>
+              <span class="ticker-change" [class.flat]="item.change === 0">
+                {{ item.change === 0 ? '' : '↑' }} {{ item.change.toFixed(2) }}%
+              </span>
+            </span>
+          }
+        }
+      </div>
+    </div>
+
+    <h1>Trade with clarity.<br /><span>Execute with confidence.</span></h1>
+    <button class="hero-cta" type="button" (click)="scrollTo('sign-in')">Get started</button>
+
+    <div class="hero-grid">
+      <div class="chart-card" aria-hidden="true">
+        <div class="chart-head">
+          <span class="chart-title">Market overview</span>
+          <span class="chart-tabs"><span>1D</span><span class="active">1W</span><span>1M</span><span>1Y</span></span>
+        </div>
+        <svg class="chart" viewBox="0 0 400 160">
+          <defs>
+            <linearGradient id="area-fill" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stop-color="#0f9d63" stop-opacity="0.22" />
+              <stop offset="100%" stop-color="#0f9d63" stop-opacity="0" />
+            </linearGradient>
+          </defs>
+          <g class="grid">
+            <line x1="0" y1="40" x2="400" y2="40" />
+            <line x1="0" y1="80" x2="400" y2="80" />
+            <line x1="0" y1="120" x2="400" y2="120" />
+          </g>
+          <path class="area" d="M0 128 L25 120 L50 124 L75 104 L100 110 L125 92 L150 98 L175 76 L200 84 L225 66 L250 72 L275 54 L300 60 L325 42 L350 48 L375 30 L400 22 L400 160 L0 160 Z" />
+          <path class="line" d="M0 128 L25 120 L50 124 L75 104 L100 110 L125 92 L150 98 L175 76 L200 84 L225 66 L250 72 L275 54 L300 60 L325 42 L350 48 L375 30 L400 22" />
+          <circle class="pulse" cx="400" cy="22" r="4" />
+        </svg>
+      </div>
+
+      <section class="sign-in-card" id="sign-in" aria-labelledby="sign-in-title">
+        <h2 id="sign-in-title">Sign in</h2>
+
+        <form [formGroup]="signInForm" (ngSubmit)="submit()" novalidate>
+          <div class="field-group">
+            <label for="username">Username</label>
+            <input
+              id="username"
+              type="text"
+              formControlName="username"
+              data-testid="signin-username"
+              autocomplete="username"
+              [class.invalid]="signInForm.controls.username.touched && signInForm.controls.username.invalid"
+            />
+            @if (signInForm.controls.username.touched && signInForm.controls.username.hasError('required')) {
+              <div class="field-error">Username is required.</div>
+            }
+          </div>
+
+          <div class="field-group">
+            <div class="label-row">
+              <label for="password">Password</label>
+              <button
+                class="text-button"
+                type="button"
+                (click)="togglePasswordVisibility()"
+                [attr.aria-pressed]="showPassword()"
+                aria-controls="password"
+              >
+                {{ showPassword() ? 'Hide' : 'Show' }}
+              </button>
+            </div>
+            <input
+              id="password"
+              [type]="showPassword() ? 'text' : 'password'"
+              formControlName="password"
+              data-testid="signin-password"
+              autocomplete="current-password"
+              [class.invalid]="signInForm.controls.password.touched && signInForm.controls.password.invalid"
+            />
+            @if (signInForm.controls.password.touched && signInForm.controls.password.hasError('required')) {
+              <div class="field-error">Password is required.</div>
+            }
+          </div>
+
+          @if (errorMessage()) {
+            <div class="form-error" role="alert">{{ errorMessage() }}</div>
+          }
+
+          <button
+            class="submit-button"
+            type="submit"
+            data-testid="signin-submit"
+            [disabled]="signInForm.invalid || submitting()"
+          >
+            @if (submitting()) {
+              <span class="spinner" aria-hidden="true"></span>
+            }
+            {{ submitting() ? 'Signing in…' : 'Sign in' }}
+          </button>
+        </form>
+      </section>
+    </div>
+  </section>
+
+  <section class="stocks container" aria-label="Stocks">
+
+    <div class="orbit">
+      <span class="ring ring-1" aria-hidden="true"></span>
+      <span class="ring ring-2" aria-hidden="true"></span>
+      <span class="ring ring-3" aria-hidden="true"></span>
+      <span class="ring ring-4" aria-hidden="true"></span>
+
+      <div class="stock-card s1"><small>NSE</small><strong>Infosys</strong><span>INFY.NS</span></div>
+      <div class="stock-card s2"><small>NSE</small><strong>Reliance Industries</strong><span>RELIANCE.NS</span></div>
+      <div class="stock-card s3"><small>BSE</small><strong>Tata Steel</strong><span>TATASTEEL.BO</span></div>
+      <div class="stock-card s4"><small>NSE</small><strong>HDFC Bank</strong><span>HDFCBANK.NS</span></div>
+      <div class="stock-card s5"><small>NSE</small><strong>ICICI Bank</strong><span>ICICIBANK.NS</span></div>
+      <div class="stock-card s6"><small>NSE</small><strong>ITC</strong><span>ITC.NS</span></div>
+    </div>
+  </section>
+
+  <section class="quote">
+    <blockquote class="container">
+      <p>In the short run, the market is a voting machine, but in the long run, it is a weighing machine.</p>
+      <footer>Benjamin Graham</footer>
+    </blockquote>
+  </section>
+</main>

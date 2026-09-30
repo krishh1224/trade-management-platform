@@ -1,0 +1,94 @@
+import { HttpErrorResponse } from '@angular/common/http';
+import { Component, inject, signal } from '@angular/core';
+import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
+import { Router } from '@angular/router';
+import { finalize } from 'rxjs';
+
+import { AuthSessionService } from '../auth/auth-session.service';
+
+@Component({
+  selector: 'app-sign-in',
+  imports: [ReactiveFormsModule],
+  templateUrl: './sign-in.component.html',
+  styleUrl: './sign-in.component.css'
+})
+export class SignInComponent {
+  private readonly formBuilder = inject(FormBuilder);
+  private readonly authSession = inject(AuthSessionService);
+  private readonly router = inject(Router);
+
+  readonly submitting = signal(false);
+  readonly errorMessage = signal('');
+  readonly showPassword = signal(false);
+
+  /**
+   * Sample figures for the landing-page ticker, taken from the seed data: the
+   * latest seed order price and its change against the seeded average cost.
+   * Not live prices.
+   */
+  readonly ticker = [
+    { symbol: 'INFY', price: '1,580.00', change: 8.97 },
+    { symbol: 'RELIANCE', price: '2,800.00', change: 0 },
+    { symbol: 'TATASTEEL', price: '150.00', change: 3.45 },
+    { symbol: 'HDFCBANK', price: '1,700.00', change: 3.03 },
+    { symbol: 'ICICIBANK', price: '1,000.00', change: 5.26 },
+    { symbol: 'ITC', price: '450.00', change: 4.65 }
+  ];
+
+  readonly signInForm = this.formBuilder.nonNullable.group({
+    username: ['', [Validators.required]],
+    password: ['', [Validators.required]]
+  });
+
+  togglePasswordVisibility(): void {
+    this.showPassword.update((visible) => !visible);
+  }
+
+  scrollTo(sectionId: string): void {
+    document.getElementById(sectionId)?.scrollIntoView({ behavior: 'smooth' });
+
+    if (sectionId === 'sign-in') {
+      document.getElementById('username')?.focus({ preventScroll: true });
+    }
+  }
+
+  submit(): void {
+    if (this.signInForm.invalid) {
+      this.signInForm.markAllAsTouched();
+      return;
+    }
+
+    this.submitting.set(true);
+    this.errorMessage.set('');
+
+    this.authSession
+      .signIn(this.signInForm.getRawValue())
+      .pipe(finalize(() => this.submitting.set(false)))
+      .subscribe({
+        next: () => {
+          void this.router.navigateByUrl('/');
+        },
+        error: (error: unknown) => {
+          this.errorMessage.set(this.toReadableError(error));
+        }
+      });
+  }
+
+  private toReadableError(error: unknown): string {
+    if (error instanceof HttpErrorResponse) {
+      if (error.status === 401) {
+        return 'Invalid username or password.';
+      }
+    }
+
+    if (this.isUnauthorizedError(error)) {
+      return 'Invalid username or password.';
+    }
+
+    return 'Sign-in failed. Please try again.';
+  }
+
+  private isUnauthorizedError(error: unknown): error is { status: number } {
+    return typeof error === 'object' && error !== null && 'status' in error && error.status === 401;
+  }
+}
