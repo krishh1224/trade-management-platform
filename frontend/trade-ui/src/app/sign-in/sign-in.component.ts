@@ -1,10 +1,11 @@
 import { HttpErrorResponse } from '@angular/common/http';
 import { Component, inject, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
-import { Router } from '@angular/router';
+import { ActivatedRoute, Router } from '@angular/router';
 import { finalize } from 'rxjs';
 
 import { AuthSessionService } from '../auth/auth-session.service';
+import { isSafeReturnUrl, safeReturnUrl } from '../auth/return-url';
 
 @Component({
   selector: 'app-sign-in',
@@ -16,6 +17,7 @@ export class SignInComponent {
   private readonly formBuilder = inject(FormBuilder);
   private readonly authSession = inject(AuthSessionService);
   private readonly router = inject(Router);
+  private readonly route = inject(ActivatedRoute);
 
   readonly submitting = signal(false);
   readonly errorMessage = signal('');
@@ -39,6 +41,20 @@ export class SignInComponent {
     username: ['', [Validators.required]],
     password: ['', [Validators.required]]
   });
+
+  constructor() {
+    const returnUrl = this.route.snapshot.queryParamMap.get('returnUrl');
+
+    // Drop an unsafe return address from the address bar. It would be ignored after sign-in anyway.
+    if (returnUrl !== null && !isSafeReturnUrl(returnUrl)) {
+      void this.router.navigate([], {
+        relativeTo: this.route,
+        queryParams: { returnUrl: null },
+        queryParamsHandling: 'merge',
+        replaceUrl: true
+      });
+    }
+  }
 
   togglePasswordVisibility(): void {
     this.showPassword.update((visible) => !visible);
@@ -66,7 +82,7 @@ export class SignInComponent {
       .pipe(finalize(() => this.submitting.set(false)))
       .subscribe({
         next: () => {
-          void this.router.navigateByUrl('/');
+          void this.router.navigateByUrl(safeReturnUrl(this.route.snapshot.queryParamMap.get('returnUrl')));
         },
         error: (error: unknown) => {
           this.errorMessage.set(this.toReadableError(error));

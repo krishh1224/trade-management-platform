@@ -56,6 +56,44 @@ describe('SignInComponent', () => {
     expect(localStorage.getItem('trade-ui.auth.session')).toContain('jwt');
   });
 
+  it.each([
+    ['/orders?status=NEW', '/orders?status=NEW'],
+    ['https://evil.com', '/'],
+    ['//evil.com', '/']
+  ])('after sign-in the return address %s lands on %s', async (returnUrl, landing) => {
+    const router = TestBed.inject(Router);
+    await router.navigateByUrl(`/sign-in?returnUrl=${encodeURIComponent(returnUrl)}`);
+    const fixture = TestBed.createComponent(SignInComponent);
+    const navigateSpy = vi.spyOn(router, 'navigateByUrl').mockResolvedValue(true);
+    authServiceMock.login.mockReturnValue(
+      of({ accessToken: 'jwt', expiresIn: 900, refreshToken: 'refresh', tokenType: 'Bearer' })
+    );
+
+    fixture.componentInstance.signInForm.setValue({ username: 'team5', password: 'secret' });
+    fixture.componentInstance.submit();
+    await fixture.whenStable();
+
+    expect(navigateSpy).toHaveBeenCalledWith(landing);
+  });
+
+  it('an unsafe return address is removed from the address bar', async () => {
+    const router = TestBed.inject(Router);
+    await router.navigateByUrl('/sign-in?returnUrl=hello.com');
+
+    TestBed.createComponent(SignInComponent);
+    await vi.waitFor(() => expect(router.url).toBe('/sign-in'));
+  });
+
+  it('a safe return address is left in the address bar', async () => {
+    const router = TestBed.inject(Router);
+    await router.navigateByUrl('/sign-in?returnUrl=%2Forders');
+
+    TestBed.createComponent(SignInComponent);
+    await new Promise((resolve) => setTimeout(resolve));
+
+    expect(router.url).toBe('/sign-in?returnUrl=%2Forders');
+  });
+
   it('invalid credentials show a readable error', () => {
     const fixture = TestBed.createComponent(SignInComponent);
     const component = fixture.componentInstance;

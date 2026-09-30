@@ -24,6 +24,16 @@ export class AuthSessionService {
   readonly isAuthenticated = computed(() => this.token() !== null);
   readonly claims = computed(() => decodeClaims(this.token()));
 
+  /** True when a token is held and, where its expiry can be read, has not passed. */
+  hasActiveSession(): boolean {
+    if (!this.isAuthenticated()) {
+      return false;
+    }
+
+    const exp = this.claims()?.exp;
+    return exp === undefined || exp * 1000 > Date.now();
+  }
+
   signIn(credentials: LoginRequest): Observable<void> {
     return this.authService.login(credentials).pipe(
       tap((response) => this.storeSession(response)),
