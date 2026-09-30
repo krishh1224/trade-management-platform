@@ -17,7 +17,7 @@ public class ApiExceptionHandler {
 
     private static final Logger log = LoggerFactory.getLogger(ApiExceptionHandler.class);
 
-    private static final Set<String> NOT_FOUND_CODES = Set.of("ACC-404", "INS-404");
+    private static final Set<String> NOT_FOUND_CODES = Set.of("ACC-404", "INS-404", "WTL-404");
 
     @ExceptionHandler(DomainException.class)
     public ResponseEntity<ErrorResponse> handleDomainException(DomainException exception) {
@@ -63,6 +63,9 @@ public class ApiExceptionHandler {
             return HttpStatus.BAD_REQUEST;
         }
         if ("ORD-409".equals(errorCode)) {
+            return HttpStatus.CONFLICT;
+        }
+        if ("WTL-409".equals(errorCode)) {
             return HttpStatus.CONFLICT;
         }
         log.error("Unmapped domain error code reached ApiExceptionHandler: {}", errorCode);
