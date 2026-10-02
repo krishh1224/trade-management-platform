@@ -32,6 +32,9 @@ public interface AccountQueryMapper {
 
     Map<String, Object> findAccountForOrder(@Param("accountId") Long accountId);
 
+    // total of BUY orders still in NEW, this cash can't be withdrawn
+    BigDecimal sumHeldForNewBuyOrders(@Param("accountId") Long accountId);
+
     int updateBalanceWithVersion(
         @Param("accountId") Long accountId,
         @Param("newBalance") BigDecimal newBalance,

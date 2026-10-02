@@ -2,19 +2,29 @@ package com.team5.mapper;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.team5.domain.enums.OrderSide;
+import com.team5.domain.enums.TransactionType;
 import com.team5.domain.exception.AccountAccessDeniedException;
+import com.team5.domain.exception.CashMovementConflictException;
 import com.team5.domain.exception.DuplicateOrderException;
 import com.team5.domain.exception.OrderConflictException;
 import com.team5.domain.exception.OrderNotFoundException;
+import com.team5.domain.exception.WithdrawalExceedsAvailableException;
+import com.team5.dto.request.CashMovementRequest;
 import com.team5.dto.request.PlaceOrderRequest;
+import com.team5.dto.response.BalanceResponse;
+import com.team5.dto.response.CashTransactionResponse;
 import com.team5.dto.response.OrderResponse;
+import com.team5.service.AccountService;
 import com.team5.service.OrderService;
 import java.math.BigDecimal;
 import java.time.OffsetDateTime;
+import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -32,6 +42,9 @@ class MyBatisMapperIntegrationTest {
 
     @Autowired
     private OrderService orderService;
+
+    @Autowired
+    private AccountService accountService;
 
     @BeforeEach
     void setUpSchemaAndData() {
@@ -300,6 +313,88 @@ class MyBatisMapperIntegrationTest {
         OrderResponse response = orderService.cancelOrder(101L, orderUuid);
 
         assertEquals("CANCELLED", response.status().name());
+    }
+
+    @Test
+    void depositUpdatesBalanceAndWritesOneLedgerRow() {
+        CashTransactionResponse response = accountService.deposit(101L, 101L, cashRequest("2500.50", "cash-deposit-1"));
+
+        assertEquals(new BigDecimal("52500.50"), response.balanceAfter());
+        assertEquals(new BigDecimal("52500.50"), balanceOf101());
+        assertEquals(2L, jdbcTemplate.queryForObject("SELECT version FROM accounts WHERE acc_id = 101", Long.class));
+
+        Map<String, Object> row = jdbcTemplate.queryForMap(
+            "SELECT transaction_type, amount, balance_before, balance_after, order_id FROM transactions WHERE idempotency_key = 'cash-deposit-1'");
+        assertEquals("DEPOSIT", row.get("transaction_type"));
+        assertEquals(0, new BigDecimal("2500.50").compareTo((BigDecimal) row.get("amount")));
+        assertEquals(0, new BigDecimal("50000.00").compareTo((BigDecimal) row.get("balance_before")));
+        assertEquals(0, new BigDecimal("52500.50").compareTo((BigDecimal) row.get("balance_after")));
+        assertNull(row.get("order_id"));
+    }
+
+    @Test
+    void withdrawalCannotTouchCashHeldForNewBuyOrders() {
+        // NEW buy of 10 x 1200 holds 12000, so only 38000 can be withdrawn
+        insertOrder(910001L, "NEW", "held-buy-key");
+
+        BalanceResponse balance = accountService.getBalance(101L, 101L);
+        assertEquals(0, new BigDecimal("12000.00").compareTo(balance.heldForOrders()));
+        assertEquals(0, new BigDecimal("38000.00").compareTo(balance.availableToWithdraw()));
+
+        assertThrows(
+            WithdrawalExceedsAvailableException.class,
+            () -> accountService.withdraw(101L, 101L, cashRequest("38000.01", "cash-withdraw-too-much"))
+        );
+        assertEquals(new BigDecimal("50000.00"), balanceOf101());
+
+        CashTransactionResponse response = accountService.withdraw(101L, 101L, cashRequest("38000.00", "cash-withdraw-max"));
+        assertEquals(new BigDecimal("12000.00"), response.balanceAfter());
+        assertEquals(new BigDecimal("12000.00"), balanceOf101());
+    }
+
+    @Test
+    void reusedCashIdempotencyKeyMovesNoMoney() {
+        accountService.deposit(101L, 101L, cashRequest("100.00", "cash-reused-key"));
+
+        assertThrows(
+            CashMovementConflictException.class,
+            () -> accountService.deposit(101L, 101L, cashRequest("100.00", "cash-reused-key"))
+        );
+
+        assertEquals(new BigDecimal("50100.00"), balanceOf101());
+        assertEquals(1, jdbcTemplate.queryForObject(
+            "SELECT COUNT(*) FROM transactions WHERE idempotency_key = 'cash-reused-key'", Integer.class));
+    }
+
+    @Test
+    void cashHistoryIsNewestFirstAndExcludesTrades() {
+        accountService.deposit(101L, 101L, cashRequest("1000.00", "cash-history-1"));
+        accountService.withdraw(101L, 101L, cashRequest("400.00", "cash-history-2"));
+        jdbcTemplate.update(
+            """
+            INSERT INTO transactions (transaction_id, account_id, transaction_type, amount, currency, balance_before, balance_after, idempotency_key, created_at)
+            VALUES (777001, 101, 'BUY', 10, 'INR', 50600, 50590, 'trade-settlement-1', ?)
+            """,
+            OffsetDateTime.now().plusMinutes(1)
+        );
+
+        List<CashTransactionResponse> history = accountService.getCashTransactions(101L, 101L, 20);
+
+        assertEquals(2, history.size());
+        assertEquals(TransactionType.WITHDRAWAL, history.get(0).type());
+        assertEquals(TransactionType.DEPOSIT, history.get(1).type());
+        assertEquals(new BigDecimal("50600.00"), history.get(0).balanceAfter());
+    }
+
+    private CashMovementRequest cashRequest(String amount, String idempotencyKey) {
+        CashMovementRequest request = new CashMovementRequest();
+        request.setAmount(new BigDecimal(amount));
+        request.setIdempotencyKey(idempotencyKey);
+        return request;
+    }
+
+    private BigDecimal balanceOf101() {
+        return jdbcTemplate.queryForObject("SELECT balance FROM accounts WHERE acc_id = 101", BigDecimal.class);
     }
 
     private void insertOrder(Long orderId, String status, String idempotencyKey) {

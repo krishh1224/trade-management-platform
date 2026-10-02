@@ -18,15 +18,42 @@
     WHERE a.acc_id = #{accountId}
   </select>
 
+  <!-- keep columns in the same order as BalanceResponse -->
   <select id="getBalance" resultType="com.team5.dto.response.BalanceResponse">
     SELECT
       a.acc_id AS accountId,
       a.balance AS cashBalance,
+      ROUND(COALESCE(held.amount, 0), 2) AS heldForOrders,
+      ROUND(GREATEST(a.balance - COALESCE(held.amount, 0), 0), 2) AS availableToWithdraw,
       a.base_currency AS currency,
       a.updated_at AS asOf
     FROM accounts a
+    LEFT JOIN (
+      <include refid="heldForNewBuyOrders"/>
+    ) held ON held.account_id = a.acc_id
     WHERE a.acc_id = #{accountId}
   </select>
+
+  <select id="sumHeldForNewBuyOrders" resultType="java.math.BigDecimal">
+    SELECT ROUND(COALESCE(SUM(held.amount), 0), 2)
+    FROM (
+      <include refid="heldForNewBuyOrders"/>
+    ) held
+    WHERE held.account_id = #{accountId}
+  </select>
+
+  <!-- BUY orders still in NEW, grouped by account -->
+  <sql id="heldForNewBuyOrders">
+    SELECT
+      p.account_id AS account_id,
+      SUM(o.quantity * o.price) AS amount
+    FROM orders o
+    INNER JOIN portfolio p ON p.portfolio_id = o.portfolio_id
+    WHERE p.account_id = #{accountId}
+      AND o.side = 'BUY'
+      AND o.status = 'NEW'
+    GROUP BY p.account_id
+  </sql>
 
   <select id="getPositions" resultType="com.team5.dto.response.PositionResponse">
     SELECT

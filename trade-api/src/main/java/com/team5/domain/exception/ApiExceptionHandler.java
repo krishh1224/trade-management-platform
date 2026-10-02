@@ -59,10 +59,10 @@ public class ApiExceptionHandler {
         if (NOT_FOUND_CODES.contains(errorCode)) {
             return HttpStatus.NOT_FOUND;
         }
-        if ("ORD-400".equals(errorCode)) {
+        if ("ORD-400".equals(errorCode) || "CSH-400".equals(errorCode)) {
             return HttpStatus.BAD_REQUEST;
         }
-        if ("ORD-409".equals(errorCode)) {
+        if ("ORD-409".equals(errorCode) || "CSH-409".equals(errorCode)) {
             return HttpStatus.CONFLICT;
         }
         log.error("Unmapped domain error code reached ApiExceptionHandler: {}", errorCode);

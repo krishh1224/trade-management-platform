@@ -1,7 +1,9 @@
 package com.team5.mapper;
 
+import com.team5.dto.response.CashTransactionResponse;
 import java.math.BigDecimal;
 import java.time.OffsetDateTime;
+import java.util.List;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 
@@ -22,5 +24,11 @@ public interface TransactionMapper {
         @Param("balanceAfter") BigDecimal balanceAfter,
         @Param("idempotencyKey") String idempotencyKey,
         @Param("createdAt") OffsetDateTime createdAt
+    );
+
+    // only DEPOSIT and WITHDRAWAL rows, latest first
+    List<CashTransactionResponse> selectCashTransactions(
+        @Param("accountId") Long accountId,
+        @Param("limit") int limit
     );
 }

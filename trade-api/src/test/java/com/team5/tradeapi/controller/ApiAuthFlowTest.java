@@ -15,6 +15,7 @@ import com.team5.controller.AccountController;
 import com.team5.domain.enums.AccountStatus;
 import com.team5.dto.response.AccountResponse;
 import com.team5.mapper.AccountQueryMapper;
+import com.team5.mapper.TransactionMapper;
 import com.team5.service.AccountServiceImpl;
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
@@ -49,6 +50,9 @@ class ApiAuthFlowTest {
 
     @MockBean
     private AccountQueryMapper accountQueryMapper;
+
+    @MockBean
+    private TransactionMapper transactionMapper;
 
     @Test
     void missingAuthorisationHeader_shouldReturn401WithUniformBody() throws Exception {

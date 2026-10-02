@@ -1,10 +1,15 @@
 package com.team5.tradeapi.controller;
 
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.options;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -14,10 +19,15 @@ import com.team5.auth.SecurityConfig;
 import com.team5.domain.enums.AccountStatus;
 import com.team5.domain.enums.OrderSide;
 import com.team5.domain.enums.OrderStatus;
+import com.team5.domain.enums.TransactionType;
 import com.team5.domain.exception.AccountNotActiveException;
 import com.team5.domain.exception.AccountNotFoundException;
+import com.team5.domain.exception.CashMovementConflictException;
+import com.team5.domain.exception.WithdrawalExceedsAvailableException;
+import com.team5.dto.request.CashMovementRequest;
 import com.team5.dto.response.AccountResponse;
 import com.team5.dto.response.BalanceResponse;
+import com.team5.dto.response.CashTransactionResponse;
 import com.team5.dto.response.OrderHistoryEntry;
 import com.team5.dto.response.PositionResponse;
 import com.team5.service.AccountService;
@@ -29,6 +39,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Import;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.http.MediaType;
 import org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.JwtRequestPostProcessor;
 import org.springframework.test.web.servlet.MockMvc;
 
@@ -71,6 +82,8 @@ class AccountControllerTest {
         when(accountService.getBalance(101L, 101L)).thenReturn(new BalanceResponse(
             101L,
             BigDecimal.valueOf(95000.00),
+            BigDecimal.valueOf(5000.00),
+            BigDecimal.valueOf(90000.00),
             "INR",
             OffsetDateTime.parse("2026-09-09T14:00:00Z")
         ));
@@ -80,6 +93,8 @@ class AccountControllerTest {
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.accountId").value(101))
             .andExpect(jsonPath("$.cashBalance").value(95000.0))
+            .andExpect(jsonPath("$.heldForOrders").value(5000.0))
+            .andExpect(jsonPath("$.availableToWithdraw").value(90000.0))
             .andExpect(jsonPath("$.currency").value("INR"))
             .andExpect(jsonPath("$.asOf").value("2026-09-09T14:00:00Z"));
     }
@@ -162,6 +177,118 @@ class AccountControllerTest {
             .andExpect(status().isForbidden())
             .andExpect(jsonPath("$.errorCode").value("ACC-403"))
             .andExpect(jsonPath("$.message").value("Account not active"));
+    }
+
+    @Test
+    void deposit_shouldReturn201WithLedgerEntry() throws Exception {
+        when(accountService.deposit(eq(101L), eq(101L), any(CashMovementRequest.class))).thenReturn(
+            cashTransaction(TransactionType.DEPOSIT, "50000.00", "200000.00", "250000.00"));
+
+        mockMvc.perform(post("/api/v1/accounts/{id}/deposits", 101L)
+                .with(authenticatedAs(101L))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"amount\":50000.00,\"idempotencyKey\":\"deposit-key-1\"}"))
+            .andExpect(status().isCreated())
+            .andExpect(jsonPath("$.type").value("DEPOSIT"))
+            .andExpect(jsonPath("$.amount").value(50000.0))
+            .andExpect(jsonPath("$.balanceBefore").value(200000.0))
+            .andExpect(jsonPath("$.balanceAfter").value(250000.0))
+            .andExpect(jsonPath("$.currency").value("INR"));
+    }
+
+    @Test
+    void withdraw_shouldReturn400WhenAmountExceedsAvailable() throws Exception {
+        when(accountService.withdraw(eq(101L), eq(101L), any(CashMovementRequest.class)))
+            .thenThrow(new WithdrawalExceedsAvailableException());
+
+        mockMvc.perform(post("/api/v1/accounts/{id}/withdrawals", 101L)
+                .with(authenticatedAs(101L))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"amount\":999999.00,\"idempotencyKey\":\"withdraw-key-1\"}"))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.errorCode").value("CSH-400"));
+    }
+
+    @Test
+    void deposit_shouldReturn409WhenIdempotencyKeyWasUsed() throws Exception {
+        when(accountService.deposit(eq(101L), eq(101L), any(CashMovementRequest.class)))
+            .thenThrow(new CashMovementConflictException("Duplicate cash movement"));
+
+        mockMvc.perform(post("/api/v1/accounts/{id}/deposits", 101L)
+                .with(authenticatedAs(101L))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"amount\":10.00,\"idempotencyKey\":\"used-key-1\"}"))
+            .andExpect(status().isConflict())
+            .andExpect(jsonPath("$.errorCode").value("CSH-409"));
+    }
+
+    @Test
+    void deposit_shouldReturn422ForInvalidAmounts() throws Exception {
+        for (String amount : new String[] {"0", "-5", "10.005"}) {
+            mockMvc.perform(post("/api/v1/accounts/{id}/deposits", 101L)
+                    .with(authenticatedAs(101L))
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content("{\"amount\":" + amount + ",\"idempotencyKey\":\"deposit-key-2\"}"))
+                .andExpect(status().isUnprocessableEntity())
+                .andExpect(jsonPath("$.errorCode").value("VAL-422"));
+        }
+        verifyNoInteractions(accountService);
+    }
+
+    @Test
+    void getCashTransactions_shouldUseDefaultLimit() throws Exception {
+        when(accountService.getCashTransactions(101L, 101L, 20)).thenReturn(List.of(
+            cashTransaction(TransactionType.WITHDRAWAL, "20000.00", "270000.00", "250000.00")));
+
+        mockMvc.perform(get("/api/v1/accounts/{id}/transactions", 101L)
+                .with(authenticatedAs(101L)))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$[0].type").value("WITHDRAWAL"))
+            .andExpect(jsonPath("$[0].balanceAfter").value(250000.0));
+    }
+
+    @Test
+    void getCashTransactions_shouldReturn422WhenLimitIsOutOfRange() throws Exception {
+        mockMvc.perform(get("/api/v1/accounts/{id}/transactions", 101L)
+                .with(authenticatedAs(101L))
+                .queryParam("limit", "101"))
+            .andExpect(status().isUnprocessableEntity())
+            .andExpect(jsonPath("$.errorCode").value("VAL-422"));
+    }
+
+    @Test
+    void preflightFromTheAngularDevServer_shouldBeAllowed() throws Exception {
+        mockMvc.perform(options("/api/v1/accounts/{id}/deposits", 101L)
+                .header("Origin", "http://localhost:4200")
+                .header("Access-Control-Request-Method", "POST")
+                .header("Access-Control-Request-Headers", "authorization,content-type"))
+            .andExpect(status().isOk())
+            .andExpect(header().string("Access-Control-Allow-Origin", "http://localhost:4200"));
+        verifyNoInteractions(accountService);
+    }
+
+    @Test
+    void preflightFromAnUnlistedOrigin_shouldBeRefused() throws Exception {
+        mockMvc.perform(options("/api/v1/accounts/{id}/deposits", 101L)
+                .header("Origin", "https://evil.example")
+                .header("Access-Control-Request-Method", "POST"))
+            .andExpect(status().isForbidden())
+            .andExpect(header().doesNotExist("Access-Control-Allow-Origin"));
+    }
+
+    private static CashTransactionResponse cashTransaction(
+        TransactionType type, String amount, String before, String after
+    ) {
+        return new CashTransactionResponse(
+            4821937465L,
+            101L,
+            type,
+            new BigDecimal(amount),
+            "INR",
+            new BigDecimal(before),
+            new BigDecimal(after),
+            OffsetDateTime.parse("2026-10-02T10:14:22Z")
+        );
     }
 
     private static JwtRequestPostProcessor authenticatedAs(long accountId) {
