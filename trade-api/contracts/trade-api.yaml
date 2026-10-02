@@ -57,6 +57,20 @@ info:
     malformed, expired or wrongly signed token is `AUTH-401`, 401. A valid token whose `accountId`
     claim does not match the account being addressed is `ACC-403`, 403: a token proves who you are,
     not what you may reach.
+
+    ## Funds: deposits and withdrawals
+
+    A customer moves cash into or out of their own account with `POST .../deposits` and
+    `POST .../withdrawals`. Each movement updates `accounts.balance` and writes one `transactions`
+    row (`DEPOSIT` or `WITHDRAWAL`) with the balance before and after, in one database transaction.
+
+    Cash committed to BUY orders that are still `NEW` is held: it stays in the balance but cannot be
+    withdrawn, because the Trade Executor needs it when it fills the order. A withdrawal larger than
+    `balance - held` is `CSH-400`, 400. The balance can never go below zero.
+
+    The idempotency key is enforced by the unique constraint on `transactions.idempotency_key`.
+    Reusing a key is `CSH-409`, 409, and moves no money. So is losing a race with a concurrent write
+    to the same account.
   contact:
     name: Enterprise Trading Platform, programme materials
   license:
@@ -73,6 +87,8 @@ tags:
     description: Placing and cancelling orders.
   - name: Accounts
     description: Account details, cash balance, holdings and order history.
+  - name: Funds
+    description: Depositing cash into and withdrawing cash from an account, and the cash ledger.
 
 security:
   - bearerAuth: []
@@ -263,8 +279,11 @@ paths:
       operationId: getBalance
       summary: Get cash balance
       description: |
-        Returns available cash only. It does not include the market value of holdings. Portfolio
+        Returns cash only. It does not include the market value of holdings. Portfolio
         valuation is the Sprint 10 Portfolio and P&L extension, contracted separately.
+
+        `heldForOrders` is the value of BUY orders still `NEW`, and `availableToWithdraw` is
+        `cashBalance - heldForOrders`, never below zero.
       parameters:
         - $ref: '#/components/parameters/AccountIdPath'
       responses:
@@ -365,6 +384,114 @@ paths:
         '404':
           $ref: '#/components/responses/AccountNotFound'
 
+  /api/v1/accounts/{id}/deposits:
+    post:
+      tags: [Funds]
+      operationId: deposit
+      summary: Deposit cash into the account
+      parameters:
+        - $ref: '#/components/parameters/AccountIdPath'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CashMovementRequest'
+            examples:
+              deposit:
+                value:
+                  amount: 50000.00
+                  idempotencyKey: 3b9e7f0c-1d2a-4c5b-8e6f-7a8b9c0d1e2f
+      responses:
+        '201':
+          description: Cash deposited and recorded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CashTransactionResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorised'
+        '403':
+          $ref: '#/components/responses/AccountNotActive'
+        '404':
+          $ref: '#/components/responses/AccountNotFound'
+        '409':
+          $ref: '#/components/responses/CashMovementConflict'
+        '422':
+          $ref: '#/components/responses/InvalidInput'
+
+  /api/v1/accounts/{id}/withdrawals:
+    post:
+      tags: [Funds]
+      operationId: withdraw
+      summary: Withdraw cash from the account
+      description: |
+        The amount must not exceed `availableToWithdraw` from `GET /api/v1/accounts/{id}/balance`,
+        which is the cash balance less the value of BUY orders still `NEW`.
+      parameters:
+        - $ref: '#/components/parameters/AccountIdPath'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CashMovementRequest'
+      responses:
+        '201':
+          description: Cash withdrawn and recorded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CashTransactionResponse'
+        '400':
+          $ref: '#/components/responses/WithdrawalExceedsAvailable'
+        '401':
+          $ref: '#/components/responses/Unauthorised'
+        '403':
+          $ref: '#/components/responses/AccountNotActive'
+        '404':
+          $ref: '#/components/responses/AccountNotFound'
+        '409':
+          $ref: '#/components/responses/CashMovementConflict'
+        '422':
+          $ref: '#/components/responses/InvalidInput'
+
+  /api/v1/accounts/{id}/transactions:
+    get:
+      tags: [Funds]
+      operationId: getCashTransactions
+      summary: Get deposits and withdrawals
+      description: The cash ledger for the account, newest first. Trade settlements are not included.
+      parameters:
+        - $ref: '#/components/parameters/AccountIdPath'
+        - name: limit
+          in: query
+          required: false
+          description: Maximum number of entries to return.
+          schema:
+            type: integer
+            format: int32
+            minimum: 1
+            maximum: 100
+            default: 20
+      responses:
+        '200':
+          description: Deposits and withdrawals for the account.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/CashTransactionResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorised'
+        '403':
+          $ref: '#/components/responses/AccountNotActive'
+        '404':
+          $ref: '#/components/responses/AccountNotFound'
+        '422':
+          $ref: '#/components/responses/InvalidInput'
+
 components:
 
   securitySchemes:
@@ -443,6 +570,28 @@ components:
               value:
                 errorCode: VAL-422
                 message: Invalid input
+    WithdrawalExceedsAvailable:
+      description: The withdrawal is larger than the cash available to withdraw.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          examples:
+            exceeds:
+              value:
+                errorCode: CSH-400
+                message: Withdrawal exceeds available funds
+    CashMovementConflict:
+      description: The idempotency key has been used, or the balance changed concurrently.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          examples:
+            duplicate:
+              value:
+                errorCode: CSH-409
+                message: Duplicate cash movement
 
   schemas:
 
@@ -622,7 +771,7 @@ components:
     BalanceResponse:
       type: object
       additionalProperties: false
-      required: [accountId, cashBalance, currency, asOf]
+      required: [accountId, cashBalance, heldForOrders, availableToWithdraw, currency, asOf]
       properties:
         accountId:
           type: integer
@@ -632,6 +781,16 @@ components:
           type: number
           format: double
           example: 24500.75
+        heldForOrders:
+          type: number
+          format: double
+          description: Value of BUY orders still `NEW`. Part of `cashBalance`, but not withdrawable.
+          example: 1500.00
+        availableToWithdraw:
+          type: number
+          format: double
+          description: '`cashBalance - heldForOrders`, never below zero.'
+          example: 23000.75
         currency:
           type: string
           minLength: 3
@@ -669,6 +828,72 @@ components:
             leaves it unchanged, which is what makes realised profit and loss computable later.
           example: 25.50
 
+    CashMovementType:
+      type: string
+      enum: [DEPOSIT, WITHDRAWAL]
+      description: Direction of a cash movement.
+
+    CashMovementRequest:
+      type: object
+      additionalProperties: false
+      required: [amount, idempotencyKey]
+      properties:
+        amount:
+          type: number
+          format: double
+          exclusiveMinimum: 0
+          maximum: 9999999999.99
+          multipleOf: 0.01
+          description: |
+            Amount in the account currency, to two decimal places. Must be greater than zero.
+            Hold it as `BigDecimal` in Java.
+          example: 50000.00
+        idempotencyKey:
+          type: string
+          minLength: 8
+          maxLength: 100
+          description: |
+            Client-generated unique request identifier, normally a UUID. Enforced by a unique
+            constraint on `transactions.idempotency_key`. Reuse returns `CSH-409`.
+          example: 3b9e7f0c-1d2a-4c5b-8e6f-7a8b9c0d1e2f
+
+    CashTransactionResponse:
+      type: object
+      additionalProperties: false
+      required: [transactionId, accountId, type, amount, currency, balanceBefore, balanceAfter, createdAt]
+      properties:
+        transactionId:
+          type: integer
+          format: int64
+          example: 4821937465
+        accountId:
+          type: integer
+          format: int64
+          example: 1
+        type:
+          $ref: '#/components/schemas/CashMovementType'
+        amount:
+          type: number
+          format: double
+          example: 50000.00
+        currency:
+          type: string
+          minLength: 3
+          maxLength: 3
+          example: INR
+        balanceBefore:
+          type: number
+          format: double
+          example: 200000.00
+        balanceAfter:
+          type: number
+          format: double
+          example: 250000.00
+        createdAt:
+          type: string
+          format: date-time
+          example: '2026-10-02T10:14:22Z'
+
     ErrorResponse:
       type: object
       additionalProperties: false
@@ -679,7 +904,7 @@ components:
       properties:
         errorCode:
           type: string
-          enum: [ACC-404, ACC-403, INS-404, ORD-400, ORD-409, VAL-422, AUTH-401]
+          enum: [ACC-404, ACC-403, INS-404, ORD-400, ORD-409, CSH-400, CSH-409, VAL-422, AUTH-401]
           description: |
             | Code | HTTP | Meaning |
             |---|---|---|
@@ -688,6 +913,8 @@ components:
             | `INS-404` | 404 | Instrument not found or not tradable |
             | `ORD-400` | 400 | Insufficient funds |
             | `ORD-409` | 409 | Insufficient holdings, duplicate order, or order not cancellable |
+            | `CSH-400` | 400 | Withdrawal exceeds the cash available to withdraw |
+            | `CSH-409` | 409 | Duplicate cash movement, or the balance changed concurrently |
             | `VAL-422` | 422 | Invalid input |
             | `AUTH-401` | 401 | Unauthorised or invalid token |
           example: ORD-409
