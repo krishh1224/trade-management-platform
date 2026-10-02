@@ -12,7 +12,7 @@ export interface ApiUrls {
 
 /** Defaults match the `servers` entries in the two contracts. */
 const DEFAULT_URLS: ApiUrls = {
-  tradeApi: 'http://localhost:8080',
+  tradeApi: 'http://localhost:8081',
   authApi: 'http://localhost:3000'
 };
 

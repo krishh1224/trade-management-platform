@@ -1,10 +1,12 @@
 import { Component, DestroyRef, computed, inject, signal } from '@angular/core';
+import { RouterLink } from '@angular/router';
 import { Router } from '@angular/router';
 
 import { AuthSessionService } from '../auth/auth-session.service';
 
 @Component({
   selector: 'app-home',
+  imports: [RouterLink],
   templateUrl: './home.component.html',
   styleUrl: './home.component.css'
 })
