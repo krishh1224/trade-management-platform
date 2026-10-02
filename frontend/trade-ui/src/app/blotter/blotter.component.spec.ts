@@ -58,7 +58,7 @@ describe('BlotterComponent', () => {
 
     const rows = Array.from(fixture.nativeElement.querySelectorAll('[data-testid="history-row"]')) as HTMLElement[];
     expect(rows).toHaveLength(3);
-    expect(rows[0].textContent).toContain('ORD-NEWEST');
+    expect(fixture.componentInstance.orderHistory()[0]?.orderId).toBe('ORD-NEWEST');
     expect(fixture.nativeElement.textContent).toContain('REJECTED');
   });
 

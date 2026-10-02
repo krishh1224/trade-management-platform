@@ -1,9 +1,9 @@
-import { HttpErrorResponse } from '@angular/common/http';
 import { Component, computed, inject, signal } from '@angular/core';
 import { AbstractControl, FormBuilder, ReactiveFormsModule, ValidationErrors, Validators } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
 import { finalize } from 'rxjs';
 
+import { toUserFacingErrorMessage } from '../api/error-catalogue';
 import { TradeService } from '../api/trade.service';
 import { AuthSessionService } from '../auth/auth-session.service';
 
@@ -102,46 +102,10 @@ export class OrdersComponent {
   }
 
   private toReadableOrderError(error: unknown): string {
-    const fallback = 'Order placement failed. Please try again.';
-
-    if (!(error instanceof HttpErrorResponse)) {
-      return fallback;
-    }
-
-    if (error.status === 0) {
-      return 'The service could not be reached. Check whether Trade API is running and CORS allows this UI origin.';
-    }
-
-    const errorCode = this.readErrorCode(error.error);
-
-    if (!errorCode) {
-      return fallback;
-    }
-
-    return ORDER_ERROR_MESSAGES[errorCode] ?? 'An unexpected platform error was returned. Please retry or contact support.';
-  }
-
-  private readErrorCode(body: unknown): string | null {
-    if (typeof body !== 'object' || body === null || !('errorCode' in body)) {
-      return null;
-    }
-
-    const errorCode = (body as { errorCode?: unknown }).errorCode;
-    return typeof errorCode === 'string' ? errorCode : null;
+    return toUserFacingErrorMessage(error, { fallbackMessage: 'Order placement failed. Please try again.' });
   }
 }
 
 const SYMBOL_PATTERN = /^(?:[A-Z]{1,10}(?:\.(?:NS|BO))?|FX:[A-Z]{6}|X:[A-Z0-9]{2,15})$/;
 const POSITIVE_INTEGER_PATTERN = /^[1-9]\d*$/;
 const PRICE_PATTERN = /^(?:0|[1-9]\d*)(?:\.\d{1,2})?$/;
-
-const ORDER_ERROR_MESSAGES: Record<string, string> = {
-  'ACC-404': 'The account could not be found.',
-  'ACC-403': 'This account is not active, or it is not the account this sign-in may trade.',
-  'INS-404': 'That instrument is not available for trading.',
-  'ORD-400': 'This order could not be placed because there is not enough cash.',
-  'ORD-409': 'This order conflicts with your holdings or a duplicate request was received.',
-  'VAL-422': 'One or more fields are not acceptable. Check symbol, side, quantity and price.',
-  'AUTH-401': 'Your session is not authorised. Sign in again and retry.',
-  'AUTH-409': 'That username already exists.'
-};

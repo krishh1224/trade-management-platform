@@ -1,26 +1,15 @@
-import { HttpErrorResponse } from '@angular/common/http';
 import { DatePipe, DecimalPipe } from '@angular/common';
 import { Component, DestroyRef, Input, OnChanges, OnInit, SimpleChanges, computed, inject, signal } from '@angular/core';
 import { Router, RouterLink } from '@angular/router';
 import { finalize } from 'rxjs';
 
+import { toUserFacingErrorMessage } from '../api/error-catalogue';
 import { OrderHistoryEntry, OrderStatus } from '../api/generated/trade-api/models';
 import { TradeService } from '../api/trade.service';
 import { AuthSessionService } from '../auth/auth-session.service';
 
 export const BLOTTER_POLL_INTERVAL_MS = 3_000;
 export const BLOTTER_MAX_POLL_ATTEMPTS = 10;
-
-const ORDER_ERROR_MESSAGES: Record<string, string> = {
-  'ACC-404': 'The account could not be found.',
-  'ACC-403': 'This account is not active, or it is not the account this sign-in may trade.',
-  'INS-404': 'That instrument is not available for trading.',
-  'ORD-400': 'This order could not be placed because there is not enough cash.',
-  'ORD-409': 'This order conflicts with your holdings or a duplicate request was received.',
-  'VAL-422': 'One or more fields are not acceptable. Check symbol, side, quantity and price.',
-  'AUTH-401': 'Your session is not authorised. Sign in again and retry.',
-  'AUTH-409': 'That username already exists.'
-};
 
 @Component({
   selector: 'app-blotter',
@@ -193,30 +182,6 @@ export class BlotterComponent implements OnInit, OnChanges {
   }
 
   private toReadableHistoryError(error: unknown): string {
-    const fallback = 'Order history could not be loaded. Please try again.';
-
-    if (!(error instanceof HttpErrorResponse)) {
-      return fallback;
-    }
-
-    if (error.status === 0) {
-      return 'The service could not be reached. Check whether Trade API is running and CORS allows this UI origin.';
-    }
-
-    const errorCode = this.readErrorCode(error.error);
-    if (!errorCode) {
-      return fallback;
-    }
-
-    return ORDER_ERROR_MESSAGES[errorCode] ?? fallback;
-  }
-
-  private readErrorCode(body: unknown): string | null {
-    if (typeof body !== 'object' || body === null || !('errorCode' in body)) {
-      return null;
-    }
-
-    const errorCode = (body as { errorCode?: unknown }).errorCode;
-    return typeof errorCode === 'string' ? errorCode : null;
+    return toUserFacingErrorMessage(error, { fallbackMessage: 'Order history could not be loaded. Please try again.' });
   }
 }

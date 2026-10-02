@@ -108,7 +108,7 @@ describe('SignInComponent', () => {
     fixture.detectChanges();
 
     const compiled = fixture.nativeElement as HTMLElement;
-    expect(compiled.querySelector('[role="alert"]')?.textContent).toContain('Invalid username or password.');
+    expect(compiled.querySelector('[role="alert"]')?.textContent).toContain('Authentication failed. Sign in again and retry.');
   });
 
   it('empty fields are blocked by validation', () => {

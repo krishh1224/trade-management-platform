@@ -1,9 +1,9 @@
-import { HttpErrorResponse } from '@angular/common/http';
 import { Component, inject, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
 import { finalize } from 'rxjs';
 
+import { toUserFacingErrorMessage } from '../api/error-catalogue';
 import { AuthSessionService } from '../auth/auth-session.service';
 import { isSafeReturnUrl, safeReturnUrl } from '../auth/return-url';
 
@@ -91,20 +91,6 @@ export class SignInComponent {
   }
 
   private toReadableError(error: unknown): string {
-    if (error instanceof HttpErrorResponse) {
-      if (error.status === 401) {
-        return 'Invalid username or password.';
-      }
-    }
-
-    if (this.isUnauthorizedError(error)) {
-      return 'Invalid username or password.';
-    }
-
-    return 'Sign-in failed. Please try again.';
-  }
-
-  private isUnauthorizedError(error: unknown): error is { status: number } {
-    return typeof error === 'object' && error !== null && 'status' in error && error.status === 401;
+    return toUserFacingErrorMessage(error, { fallbackMessage: 'Sign-in failed. Please try again.' });
   }
 }
