@@ -9,9 +9,14 @@ import { getAccount } from './generated/trade-api/fn/accounts/get-account';
 import { getBalance } from './generated/trade-api/fn/accounts/get-balance';
 import { getOrders, GetOrders$Params } from './generated/trade-api/fn/accounts/get-orders';
 import { getPositions } from './generated/trade-api/fn/accounts/get-positions';
+import { deposit } from './generated/trade-api/fn/funds/deposit';
+import { getCashTransactions } from './generated/trade-api/fn/funds/get-cash-transactions';
+import { withdraw } from './generated/trade-api/fn/funds/withdraw';
 import {
   AccountResponse,
   BalanceResponse,
+  CashMovementRequest,
+  CashTransactionResponse,
   OrderHistoryEntry,
   OrderResponse,
   PlaceOrderRequest,
@@ -47,5 +52,17 @@ export class TradeService {
 
   getOrders(accountId: number, filter: Omit<GetOrders$Params, 'id'> = {}): Observable<OrderHistoryEntry[]> {
     return getOrders(this.http, this.config.rootUrl, { id: accountId, ...filter }).pipe(map((r) => r.body));
+  }
+
+  deposit(accountId: number, body: CashMovementRequest): Observable<CashTransactionResponse> {
+    return deposit(this.http, this.config.rootUrl, { id: accountId, body }).pipe(map((r) => r.body));
+  }
+
+  withdraw(accountId: number, body: CashMovementRequest): Observable<CashTransactionResponse> {
+    return withdraw(this.http, this.config.rootUrl, { id: accountId, body }).pipe(map((r) => r.body));
+  }
+
+  getCashTransactions(accountId: number, limit?: number): Observable<CashTransactionResponse[]> {
+    return getCashTransactions(this.http, this.config.rootUrl, { id: accountId, limit }).pipe(map((r) => r.body));
   }
 }

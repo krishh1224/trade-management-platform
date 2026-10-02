@@ -61,6 +61,24 @@ describe('bearer token interceptor', () => {
     refreshReq.flush({});
   });
 
+  it('the funds routes carry the bearer token', () => {
+    const { http, httpMock } = setup('jwt-token');
+
+    http.post('http://trade/api/v1/accounts/101/deposits', {}).subscribe();
+    http.post('http://trade/api/v1/accounts/101/withdrawals', {}).subscribe();
+    http.get('http://trade/api/v1/accounts/101/transactions?limit=10').subscribe();
+
+    for (const url of [
+      'http://trade/api/v1/accounts/101/deposits',
+      'http://trade/api/v1/accounts/101/withdrawals',
+      'http://trade/api/v1/accounts/101/transactions?limit=10'
+    ]) {
+      const req = httpMock.expectOne(url);
+      expect(req.request.headers.get('Authorization')).toBe('Bearer jwt-token');
+      req.flush({});
+    }
+  });
+
   it('the protected auth route carries the bearer token', () => {
     const { http, httpMock } = setup('jwt-token');
 
