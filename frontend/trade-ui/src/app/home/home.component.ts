@@ -2,9 +2,11 @@ import { Component, DestroyRef, computed, inject, signal } from '@angular/core';
 import { Router } from '@angular/router';
 
 import { AuthSessionService } from '../auth/auth-session.service';
+import { FundsDialogComponent } from '../funds/funds-dialog.component';
 
 @Component({
   selector: 'app-home',
+  imports: [FundsDialogComponent],
   templateUrl: './home.component.html',
   styleUrl: './home.component.css'
 })
@@ -14,6 +16,7 @@ export class HomeComponent {
   private readonly now = signal(Date.now());
 
   readonly claims = this.authSession.claims;
+  readonly fundsOpen = signal(false);
   readonly role = computed(() => this.claims()?.roles[0] ?? 'USER');
 
   readonly greeting = computed(() => {

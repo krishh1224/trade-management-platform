@@ -14,6 +14,19 @@
     </div>
 
     <div class="topbar-right">
+      <button
+        class="funds-button"
+        type="button"
+        data-testid="funds-open"
+        aria-haspopup="dialog"
+        aria-label="Add or withdraw funds"
+        [attr.aria-expanded]="fundsOpen()"
+        (click)="fundsOpen.set(true)"
+      >
+        <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M4 7a2 2 0 012-2h11v4M4 7v11a2 2 0 002 2h13a1 1 0 001-1v-9a1 1 0 00-1-1H6a2 2 0 01-2-2zM16 14.5h.01" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" /></svg>
+        <span>Add / Withdraw funds</span>
+      </button>
+
       <div class="account-chip">
         <span class="avatar" aria-hidden="true">
           <svg viewBox="0 0 24 24" width="16" height="16"><circle cx="12" cy="8" r="4" fill="none" stroke="currentColor" stroke-width="2" /><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" /></svg>
@@ -132,4 +145,8 @@
       </article>
     </section>
   </main>
+
+  @if (fundsOpen()) {
+    <app-funds-dialog (closed)="fundsOpen.set(false)" />
+  }
 </div>
