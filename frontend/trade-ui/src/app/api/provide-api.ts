@@ -10,9 +10,9 @@ export interface ApiUrls {
   authApi: string;
 }
 
-/** Defaults match the `servers` entries in the two contracts. */
+// trade-api runs on 8081 locally (server.port in trade-api), not 8080
 const DEFAULT_URLS: ApiUrls = {
-  tradeApi: 'http://localhost:8080',
+  tradeApi: 'http://localhost:8081',
   authApi: 'http://localhost:3000'
 };
 
