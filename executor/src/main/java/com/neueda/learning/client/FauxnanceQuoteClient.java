@@ -33,7 +33,7 @@ public class FauxnanceQuoteClient {
                                 @Value("${fauxnance.quote.max-retries:3}") int maxRetries,
                                 @Value("${fauxnance.quote.initial-backoff-ms:100}") long initialBackoffMs,
                                 @Value("${fauxnance.quote.max-backoff-ms:2000}") long maxBackoffMs,
-                                @Value("${fauxnance.api-key:}") String fauxnanceApiKey) {
+                                @Value("${fauxnance.api-key}") String fauxnanceApiKey) {
         this.restTemplate = restTemplate;
         this.fauxnanceBaseUrl = fauxnanceBaseUrl;
         this.maxRetries = maxRetries;

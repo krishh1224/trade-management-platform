@@ -1,6 +1,7 @@
 import { Routes } from '@angular/router';
 
 import { authGuard, guestGuard } from './auth/auth.guards';
+import { BlotterComponent } from './blotter/blotter.component';
 import { HomeComponent } from './home/home.component';
 import { OrdersComponent } from './orders/orders.component';
 import { SignInComponent } from './sign-in/sign-in.component';
@@ -19,6 +20,7 @@ export const routes: Routes = [
     children: [
       { path: '', pathMatch: 'full', component: HomeComponent },
       { path: 'orders', component: OrdersComponent },
+      { path: 'blotter', component: BlotterComponent },
       { path: '**', redirectTo: '' }
     ]
   }

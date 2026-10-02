@@ -34,6 +34,8 @@ export class OrdersComponent {
     price: ['', [Validators.required, this.priceValidator]]
   });
 
+  constructor() {}
+
   signOut(): void {
     this.authSession.signOut();
     void this.router.navigateByUrl('/sign-in');

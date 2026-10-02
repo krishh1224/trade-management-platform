@@ -10,6 +10,7 @@
         <span class="nav-link active" aria-current="page">Dashboard</span>
         <span class="nav-link disabled" aria-disabled="true">Portfolio</span>
         <a class="nav-link" routerLink="/orders">Orders</a>
+        <a class="nav-link" routerLink="/blotter">Blotter</a>
       </nav>
     </div>
 
@@ -104,30 +105,65 @@
         <header class="panel-header">
           <div>
             <h2>Recent orders</h2>
-            <p>Your latest buy and sell activity</p>
+            <p>Latest history from your blotter</p>
           </div>
-          <span class="soon-badge">Not connected</span>
+          <a class="panel-link" routerLink="/blotter">View full blotter</a>
         </header>
 
         <div class="table-wrap">
-          <table>
+          <table class="recent-orders-table">
             <thead>
               <tr>
                 <th scope="col">Symbol</th>
                 <th scope="col">Side</th>
                 <th scope="col" class="num">Qty</th>
-                <th scope="col" class="num">Price</th>
-                <th scope="col">Status</th>
+                <th scope="col" class="num">Requested</th>
+                <th scope="col" class="col-status">Status</th>
               </tr>
             </thead>
+            @if (!ordersLoading() && !ordersError() && recentOrders().length > 0) {
+              <tbody>
+                @for (entry of recentOrders(); track entry.orderId) {
+                  <tr>
+                    <td>{{ entry.symbol }}</td>
+                    <td>{{ entry.side }}</td>
+                    <td class="num">{{ entry.quantity | number: '1.0-0' }}</td>
+                    <td class="num">{{ entry.price | number: '1.2-2' }}</td>
+                    <td class="col-status">
+                      <span
+                        class="status-badge"
+                        [class.status-new]="entry.status === 'NEW'"
+                        [class.status-filled]="entry.status === 'FILLED'"
+                        [class.status-rejected]="entry.status === 'REJECTED'"
+                        [class.status-cancelled]="entry.status === 'CANCELLED'"
+                      >
+                        {{ statusLabel(entry.status) }}
+                      </span>
+                    </td>
+                  </tr>
+                }
+              </tbody>
+            }
           </table>
-          <div class="empty">
+          @if (ordersLoading()) {
+            <div class="empty">
+              <strong>Loading recent orders</strong>
+              <span>Please wait while history is fetched.</span>
+            </div>
+          } @else if (ordersError()) {
+            <div class="empty">
+              <strong>Unable to load recent orders</strong>
+              <span>{{ ordersError() }}</span>
+            </div>
+          } @else if (recentOrders().length === 0) {
+            <div class="empty">
             <span class="empty-icon" aria-hidden="true">
               <svg viewBox="0 0 24 24" width="22" height="22"><path d="M7 4h10a2 2 0 012 2v14l-3-2-2 2-2-2-2 2-2-2-3 2V6a2 2 0 012-2zM9 9h6M9 13h4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" /></svg>
             </span>
             <strong>No orders yet</strong>
-            <span>Order history will appear here once the trade API is connected.</span>
+            <span>Place an order, then open Blotter for complete history.</span>
           </div>
+          }
         </div>
       </article>
     </section>

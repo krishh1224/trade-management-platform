@@ -1,0 +1,112 @@
+<div class="shell">
+  <header class="topbar">
+    <div class="topbar-left">
+      <div class="brand">
+        <svg class="brand-mark" viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M2 20L12 3l10 17h-5.2L12 11.6 7.2 20z" fill="currentColor" /></svg>
+        <span class="brand-name">Artha</span>
+      </div>
+
+      <nav class="nav" aria-label="Primary">
+        <a class="nav-link" routerLink="/">Dashboard</a>
+        <span class="nav-link disabled" aria-disabled="true">Portfolio</span>
+        <a class="nav-link" routerLink="/orders">Orders</a>
+        <span class="nav-link active" aria-current="page">Blotter</span>
+      </nav>
+    </div>
+
+    <div class="topbar-right">
+      <div class="account-chip">
+        <span class="avatar" aria-hidden="true">
+          <svg viewBox="0 0 24 24" width="16" height="16"><circle cx="12" cy="8" r="4" fill="none" stroke="currentColor" stroke-width="2" /><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" /></svg>
+        </span>
+        <span class="account-meta">
+          <strong>{{ claims() ? 'Account #' + claims()!.accountId : 'Signed in' }}</strong>
+          <small>{{ role() }}</small>
+        </span>
+      </div>
+
+      <button class="signout-button" type="button" (click)="signOut()" data-testid="signout-button" aria-label="Sign out">
+        <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M15 4h3a2 2 0 012 2v12a2 2 0 01-2 2h-3M10 17l5-5-5-5M15 12H4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" /></svg>
+        <span>Sign out</span>
+      </button>
+    </div>
+  </header>
+
+  <main class="content">
+    <section class="welcome">
+      <p class="eyebrow">Blotter</p>
+      <h1>Order history</h1>
+      <p class="subtitle">Latest orders across all states.</p>
+    </section>
+
+    <section class="blotter" aria-label="Order history">
+      <header class="blotter-header">
+        <div>
+          <h2>History</h2>
+        </div>
+        <button
+          class="refresh-history-button"
+          type="button"
+          (click)="refreshOrderHistory()"
+          [disabled]="historyLoading()"
+          data-testid="refresh-history-button"
+        >
+          {{ historyLoading() ? 'Refreshing…' : 'Refresh' }}
+        </button>
+      </header>
+
+      @if (pollingActive()) {
+        <p class="polling-hint" role="status">
+          Auto-refreshing while NEW orders are still working (attempt {{ pollAttemptsUsed() }} of {{ maxPollAttempts }}).
+        </p>
+      }
+
+      @if (historyLoading()) {
+        <div class="history-state" role="status">Loading order history…</div>
+      } @else if (historyErrorMessage()) {
+        <div class="history-state error" role="alert">{{ historyErrorMessage() }}</div>
+      } @else if (orderHistory().length === 0) {
+        <div class="history-state" role="status">No orders yet for this account.</div>
+      } @else {
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th scope="col">Created</th>
+                <th scope="col">Symbol</th>
+                <th scope="col">Side</th>
+                <th scope="col" class="num">Qty</th>
+                <th scope="col" class="num">Requested</th>
+                <th scope="col" class="num col-filled">Filled At</th>
+                <th scope="col" class="col-status">Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (entry of orderHistory(); track entry.orderId) {
+                <tr data-testid="history-row">
+                  <td>{{ entry.createdOn | date: 'short' }}</td>
+                  <td>{{ entry.symbol }}</td>
+                  <td>{{ entry.side }}</td>
+                  <td class="num">{{ entry.quantity | number: '1.0-0' }}</td>
+                  <td class="num">{{ entry.price | number: '1.2-2' }}</td>
+                  <td class="num col-filled">{{ entry.executedPrice === null || entry.executedPrice === undefined ? '—' : (entry.executedPrice | number: '1.2-2') }}</td>
+                  <td class="col-status">
+                    <span
+                      class="status-badge"
+                      [class.status-new]="entry.status === 'NEW'"
+                      [class.status-filled]="entry.status === 'FILLED'"
+                      [class.status-rejected]="entry.status === 'REJECTED'"
+                      [class.status-cancelled]="entry.status === 'CANCELLED'"
+                    >
+                      {{ statusBadgeText(entry.status) }}
+                    </span>
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      }
+    </section>
+  </main>
+</div>

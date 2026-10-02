@@ -406,6 +406,17 @@
   font-weight: 500;
 }
 
+.panel-link {
+  color: var(--accent-hover);
+  font-size: 0.8rem;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.panel-link:hover {
+  text-decoration: underline;
+}
+
 .table-wrap {
   display: grid;
   grid-template-rows: auto 1fr;
@@ -415,6 +426,62 @@
 table {
   width: 100%;
   border-collapse: collapse;
+}
+
+td {
+  padding: 10px 20px;
+  border-bottom: 1px solid var(--border);
+  color: var(--text);
+  font-size: 0.84rem;
+  white-space: nowrap;
+}
+
+td.num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.recent-orders-table th.col-status,
+.recent-orders-table td.col-status {
+  min-width: 140px;
+  padding-left: 14px;
+}
+
+.status-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 8px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--bg-raised);
+  color: var(--text);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+.status-new {
+  color: #1d4ed8;
+  border-color: rgba(29, 78, 216, 0.4);
+  background: rgba(29, 78, 216, 0.14);
+}
+
+.status-filled {
+  color: var(--up);
+  border-color: rgba(22, 199, 132, 0.4);
+  background: var(--up-soft);
+}
+
+.status-rejected {
+  color: var(--down);
+  border-color: rgba(240, 82, 82, 0.4);
+  background: var(--down-soft);
+}
+
+.status-cancelled {
+  color: #6b7280;
+  border-color: rgba(107, 114, 128, 0.4);
+  background: rgba(107, 114, 128, 0.16);
 }
 
 th {
@@ -506,6 +573,10 @@ th.num {
   }
 
   th {
+    padding: 10px 12px;
+  }
+
+  td {
     padding: 10px 12px;
   }
 
