@@ -13,3 +13,9 @@ export type { GetPositions$Params as GetPositions$Params } from './fn/accounts/g
 export { getPositions as getPositions } from './fn/accounts/get-positions';
 export type { GetOrders$Params as GetOrders$Params } from './fn/accounts/get-orders';
 export { getOrders as getOrders } from './fn/accounts/get-orders';
+export type { Deposit$Params as Deposit$Params } from './fn/funds/deposit';
+export { deposit as deposit } from './fn/funds/deposit';
+export type { Withdraw$Params as Withdraw$Params } from './fn/funds/withdraw';
+export { withdraw as withdraw } from './fn/funds/withdraw';
+export type { GetCashTransactions$Params as GetCashTransactions$Params } from './fn/funds/get-cash-transactions';
+export { getCashTransactions as getCashTransactions } from './fn/funds/get-cash-transactions';

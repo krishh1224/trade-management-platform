@@ -4,6 +4,9 @@
 export type { AccountResponse } from './models/account-response';
 export type { AccountStatus } from './models/account-status';
 export type { BalanceResponse } from './models/balance-response';
+export type { CashMovementRequest } from './models/cash-movement-request';
+export type { CashMovementType } from './models/cash-movement-type';
+export type { CashTransactionResponse } from './models/cash-transaction-response';
 export type { ErrorResponse } from './models/error-response';
 export type { OrderHistoryEntry } from './models/order-history-entry';
 export type { OrderResponse } from './models/order-response';
