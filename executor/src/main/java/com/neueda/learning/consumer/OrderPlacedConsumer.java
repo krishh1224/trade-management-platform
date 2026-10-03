@@ -26,12 +26,12 @@ import org.springframework.stereotype.Component;
 
 /**
  * Kafka consumer for ORDER_PLACED events from the orders topic.
- * 
+ *
  * Implements comprehensive failure classification and handling:
  * - PERMANENT failures (malformed JSON, missing orderId, order not found) → DLT immediately, no retry
  * - TRANSIENT failures (database connectivity, settlement conflicts) → retry with bounded backoff, then DLT
  * - Fauxnance outage is NOT classified as permanent (returns REJECTED execution safely)
- * 
+ *
  * Flow:
  * 1. Deserialize and validate ORDER_PLACED event (PermanentFailureException if validation fails)
  * 2. Execute the order (get quote, apply decision logic)
@@ -80,7 +80,7 @@ public class OrderPlacedConsumer {
      * Consumer group: trade-executor
      * Key: accountId (not used in handler, but ensures ordering per account)
      * Acknowledgment: MANUAL (acknowledge only after successful settlement and event publishing)
-     * 
+     *
      * The message format is: KafkaEnvelope<OrderPlacedPayload> as JSON
      *
      * Throws:

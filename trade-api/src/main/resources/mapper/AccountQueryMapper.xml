@@ -70,6 +70,19 @@
     ORDER BY o.created_at DESC
   </select>
 
+  <select id="getInstruments" resultType="com.team5.dto.response.InstrumentOptionResponse">
+    SELECT
+      i.ticker AS symbol,
+      i.name AS name,
+      i.currency AS currency
+    FROM instruments i
+    WHERE i.tradable = TRUE
+    <if test="prefix != null and prefix != ''">
+      AND UPPER(i.name) LIKE CONCAT(UPPER(#{prefix}), '%')
+    </if>
+    ORDER BY i.name ASC, i.ticker ASC
+  </select>
+
   <select id="findAccountForOrder" resultType="map">
     SELECT
       acc_id,

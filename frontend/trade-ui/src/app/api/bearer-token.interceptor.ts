@@ -1,0 +1,87 @@
+import { HttpInterceptorFn } from '@angular/common/http';
+import { inject } from '@angular/core';
+
+import { AuthSessionService } from '../auth/auth-session.service';
+import { ApiUrls } from './provide-api';
+
+const TRADE_PROTECTED_PATH_PATTERNS: readonly RegExp[] = [
+  /^\/api\/v1\/orders$/,
+  /^\/api\/v1\/orders\/[^/]+$/,
+  /^\/api\/v1\/accounts\/[^/]+$/,
+  /^\/api\/v1\/accounts\/[^/]+\/balance$/,
+  /^\/api\/v1\/accounts\/[^/]+\/positions$/,
+  /^\/api\/v1\/accounts\/[^/]+\/orders$/,
+  /^\/api\/v1\/accounts\/[^/]+\/instruments$/
+];
+
+const AUTH_ME_PATH = '/auth/me';
+const AUTH_PUBLIC_PATHS = new Set(['/auth/login', '/auth/register', '/auth/refresh']);
+
+/**
+ * Factory for a functional interceptor that conditionally attaches bearer tokens
+ * only to allow-listed platform origins and protected API paths.
+ */
+export function bearerTokenInterceptor(urls: ApiUrls): HttpInterceptorFn {
+  const tradeOrigin = parseOrigin(urls.tradeApi);
+  const authOrigin = parseOrigin(urls.authApi);
+
+  return (request, next) => {
+    const authSession = inject(AuthSessionService);
+    const token = authSession.token();
+
+    if (!token) {
+      return next(request);
+    }
+
+    const requestUrl = parseAbsoluteUrl(request.url);
+    if (!requestUrl) {
+      return next(request);
+    }
+
+    if (shouldAttachToken(requestUrl, tradeOrigin, authOrigin)) {
+      return next(
+        request.clone({
+          setHeaders: { Authorization: `Bearer ${token}` }
+        })
+      );
+    }
+
+    return next(request);
+  };
+}
+
+function shouldAttachToken(requestUrl: URL, tradeOrigin: string | null, authOrigin: string | null): boolean {
+  if (tradeOrigin && requestUrl.origin === tradeOrigin) {
+    return TRADE_PROTECTED_PATH_PATTERNS.some((pattern) => pattern.test(requestUrl.pathname));
+  }
+
+  if (authOrigin && requestUrl.origin === authOrigin) {
+    if (requestUrl.pathname === AUTH_ME_PATH) {
+      return true;
+    }
+
+    if (AUTH_PUBLIC_PATHS.has(requestUrl.pathname)) {
+      return false;
+    }
+
+    return false;
+  }
+
+  return false;
+}
+
+function parseOrigin(rawUrl: string): string | null {
+  try {
+    return new URL(rawUrl).origin;
+  } catch {
+    return null;
+  }
+}
+
+function parseAbsoluteUrl(rawUrl: string): URL | null {
+  try {
+    return new URL(rawUrl);
+  } catch {
+    return null;
+  }
+}

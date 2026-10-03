@@ -6,6 +6,7 @@ import com.team5.domain.exception.AccountNotActiveException;
 import com.team5.domain.exception.AccountNotFoundException;
 import com.team5.dto.response.AccountResponse;
 import com.team5.dto.response.BalanceResponse;
+import com.team5.dto.response.InstrumentOptionResponse;
 import com.team5.dto.response.OrderHistoryEntry;
 import com.team5.dto.response.PositionResponse;
 import com.team5.mapper.AccountQueryMapper;
@@ -54,6 +55,12 @@ public class AccountServiceImpl implements AccountService {
         assertAccountIsReadable(authenticatedAccountId, accountId);
         String statusName = status == null ? null : status.name();
         return accountQueryMapper.getOrders(accountId, statusName, from, to);
+    }
+
+    @Override
+    public List<InstrumentOptionResponse> getInstruments(long authenticatedAccountId, Long accountId, String prefix) {
+        assertAccountIsReadable(authenticatedAccountId, accountId);
+        return accountQueryMapper.getInstruments(prefix);
     }
 
     private void assertAccountIsReadable(long authenticatedAccountId, Long accountId) {
