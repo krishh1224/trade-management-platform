@@ -7,10 +7,11 @@ import { toUserFacingErrorMessage } from '../api/error-catalogue';
 import { AuthSessionService } from '../auth/auth-session.service';
 import { isSafeReturnUrl } from '../auth/return-url';
 import { currencyForSymbol } from '../instruments/instrument-currency';
+import { FooterComponent } from '../shared/footer.component';
 
 @Component({
   selector: 'app-sign-in',
-  imports: [ReactiveFormsModule],
+  imports: [ReactiveFormsModule, FooterComponent],
   templateUrl: './sign-in.component.html',
   styleUrl: './sign-in.component.css'
 })

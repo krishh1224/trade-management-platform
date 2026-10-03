@@ -24,6 +24,14 @@ export interface InstrumentOption {
   currency: string;
 }
 
+export interface ClientProfile {
+  accountId: number;
+  name: string;
+  email: string;
+  phone: string;
+  dob: string;
+}
+
 /** Hand-written facade over the generated Trade REST API client. Unwraps the HTTP envelope. */
 @Injectable({ providedIn: 'root' })
 export class TradeService {
@@ -58,5 +66,9 @@ export class TradeService {
   getInstruments(accountId: number, prefix = ''): Observable<InstrumentOption[]> {
     const params = new HttpParams({ fromObject: prefix ? { prefix } : {} });
     return this.http.get<InstrumentOption[]>(`${this.config.rootUrl}/api/v1/accounts/${accountId}/instruments`, { params });
+  }
+
+  getClientProfile(accountId: number): Observable<ClientProfile> {
+    return this.http.get<ClientProfile>(`${this.config.rootUrl}/api/v1/accounts/${accountId}/profile`);
   }
 }

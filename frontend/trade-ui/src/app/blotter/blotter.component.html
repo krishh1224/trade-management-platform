@@ -15,20 +15,25 @@
     </div>
 
     <div class="topbar-right">
-      <div class="account-chip">
-        <span class="avatar" aria-hidden="true">
-          <svg viewBox="0 0 24 24" width="16" height="16"><circle cx="12" cy="8" r="4" fill="none" stroke="currentColor" stroke-width="2" /><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" /></svg>
-        </span>
-        <span class="account-meta">
-          <strong>{{ claims() ? 'Account ' + claims()!.accountId : 'Signed in' }}</strong>
-          <small>{{ role() }}</small>
-        </span>
-      </div>
+      <div class="profile-menu-wrap">
+        <button class="account-chip profile-trigger" type="button" (click)="toggleProfileMenu()" [attr.aria-expanded]="profileMenuOpen()" aria-haspopup="menu">
+          <span class="avatar" aria-hidden="true">
+            <svg viewBox="0 0 24 24" width="16" height="16"><circle cx="12" cy="8" r="4" fill="none" stroke="currentColor" stroke-width="2" /><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" /></svg>
+          </span>
+          <span class="account-meta">
+            <strong>{{ claims() ? 'Account ' + claims()!.accountId : 'Signed in' }}</strong>
+            <small>{{ role() }}</small>
+          </span>
+          <svg class="caret" viewBox="0 0 24 24" width="14" height="14" aria-hidden="true"><path d="M6 9l6 6 6-6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" /></svg>
+        </button>
 
-      <button class="signout-button" type="button" (click)="signOut()" data-testid="signout-button" aria-label="Sign out">
-        <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M15 4h3a2 2 0 012 2v12a2 2 0 01-2 2h-3M10 17l5-5-5-5M15 12H4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" /></svg>
-        <span>Sign out</span>
-      </button>
+        @if (profileMenuOpen()) {
+          <div class="profile-menu" role="menu">
+            <a role="menuitem" routerLink="/profile" (click)="closeProfileMenu()">Profile</a>
+            <button role="menuitem" type="button" (click)="signOut()">Logout</button>
+          </div>
+        }
+      </div>
 
       <button class="theme-toggle" type="button" (click)="toggleTheme()" [attr.aria-label]="theme() === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'">
         @if (theme() === 'dark') {
@@ -202,4 +207,5 @@
       }
     </section>
   </main>
+  <app-footer></app-footer>
 </div>

@@ -4,14 +4,16 @@ import { Router, RouterLink } from '@angular/router';
 import { finalize } from 'rxjs';
 
 import { toUserFacingErrorMessage } from '../api/error-catalogue';
+import { AccountStatus } from '../api/generated/trade-api/models';
 import { InstrumentOption, TradeService } from '../api/trade.service';
 import { AuthSessionService } from '../auth/auth-session.service';
 import { currencyForSymbol } from '../instruments/instrument-currency';
 import { ThemeService } from '../theme/theme.service';
+import { FooterComponent } from '../shared/footer.component';
 
 @Component({
   selector: 'app-orders',
-  imports: [ReactiveFormsModule, RouterLink],
+  imports: [ReactiveFormsModule, RouterLink, FooterComponent],
   templateUrl: './orders.component.html',
   styleUrl: './orders.component.css'
 })
@@ -24,8 +26,12 @@ export class OrdersComponent {
 
   readonly claims = this.authSession.claims;
   readonly role = computed(() => this.claims()?.roles[0] ?? 'USER');
+  readonly profileMenuOpen = signal(false);
   readonly theme = this.themeService.theme;
   readonly accountId = computed(() => this.claims()?.accountId ?? null);
+  readonly accountStatus = signal<AccountStatus | null>(null);
+  readonly accountStatusError = signal('');
+  readonly canPlaceOrder = computed(() => this.accountStatus() === 'ACTIVE');
   readonly orderSubmitting = signal(false);
   readonly orderErrorMessage = signal('');
   readonly orderSuccessMessage = signal('');
@@ -55,11 +61,20 @@ export class OrdersComponent {
 
   constructor() {
     this.themeService.initialize();
+    this.loadAccountStatus();
     this.loadInstruments();
   }
 
   toggleTheme(): void {
     this.themeService.toggleTheme();
+  }
+
+  toggleProfileMenu(): void {
+    this.profileMenuOpen.update((open) => !open);
+  }
+
+  closeProfileMenu(): void {
+    this.profileMenuOpen.set(false);
   }
 
   currentSymbolCurrency(): string {
@@ -155,6 +170,31 @@ export class OrdersComponent {
         error: () => {
           this.instrumentOptions.set([]);
           this.instrumentsError.set('Unable to load instruments right now.');
+        }
+      });
+  }
+
+  private loadAccountStatus(): void {
+    const accountId = this.accountId();
+    if (accountId === null) {
+      this.accountStatus.set(null);
+      this.accountStatusError.set('Unable to determine account status.');
+      return;
+    }
+
+    this.tradeService
+      .getAccount(accountId)
+      .pipe(finalize(() => {}))
+      .subscribe({
+        next: (account) => {
+          this.accountStatus.set(account.status);
+          if (account.status !== 'ACTIVE') {
+            this.accountStatusError.set('Only active accounts can place orders.');
+          }
+        },
+        error: () => {
+          this.accountStatus.set(null);
+          this.accountStatusError.set('Unable to load account status.');
         }
       });
   }

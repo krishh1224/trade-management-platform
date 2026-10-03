@@ -12,5 +12,4 @@ public record AccountResponse(
     AccountStatus status,
     Integer version,
     OffsetDateTime lastUpdated
-) {
-}
+) {}

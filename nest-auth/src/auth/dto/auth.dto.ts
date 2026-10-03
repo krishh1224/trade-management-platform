@@ -84,6 +84,31 @@ export class LoginRequest {
   password!: string;
 }
 
+export class ChangePasswordRequest {
+  @ApiProperty({ maxLength: 128, writeOnly: true, example: 'OldPassword!123' })
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(128)
+  currentPassword!: string;
+
+  @ApiProperty({
+    minLength: 12,
+    maxLength: 128,
+    writeOnly: true,
+    description:
+      'Password must be at least 12 characters and contain uppercase, lowercase, digit, and special character (!@#$%^&*()_+-=[]{}|;:,.<>?).',
+    example: 'MyUpdated!Pass123',
+  })
+  @IsString()
+  @MinLength(12)
+  @MaxLength(128)
+  @IsStrongPassword({
+    message:
+      'Password must be at least 12 characters and contain uppercase, lowercase, digit, and special character',
+  })
+  newPassword!: string;
+}
+
 export class UserResponse {
   @ApiProperty({
     format: 'uuid',
@@ -108,6 +133,11 @@ export class UserResponse {
 
   @ApiPropertyOptional({ format: 'date-time', example: '2026-10-05T08:00:00Z' })
   createdOn!: string;
+}
+
+export class PasswordUpdateResponse {
+  @ApiProperty({ example: 'Password updated successfully.' })
+  message!: string;
 }
 
 export class ErrorResponse {

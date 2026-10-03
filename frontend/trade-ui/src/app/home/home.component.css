@@ -1,6 +1,8 @@
 .shell {
   min-height: 100dvh;
   background: var(--bg-raised);
+  display: flex;
+  flex-direction: column;
 }
 
 .mono {
@@ -89,6 +91,10 @@
   cursor: not-allowed;
 }
 
+.profile-menu-wrap {
+  position: relative;
+}
+
 .account-chip {
   display: flex;
   align-items: center;
@@ -126,26 +132,44 @@
   letter-spacing: 0.06em;
 }
 
-.signout-button {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  height: 38px;
-  padding: 0 14px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  background: transparent;
-  color: var(--text-muted);
-  font-size: 0.88rem;
-  font-weight: 500;
+.profile-trigger {
   cursor: pointer;
-  transition: color 150ms ease, border-color 150ms ease, background 150ms ease;
+  color: inherit;
 }
 
-.signout-button:hover {
-  border-color: var(--down);
-  background: var(--down-soft);
-  color: var(--down);
+.caret {
+  color: var(--text-faint);
+}
+
+.profile-menu {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 8px);
+  min-width: 150px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  box-shadow: var(--shadow);
+  display: grid;
+  overflow: hidden;
+  z-index: 20;
+}
+
+.profile-menu a,
+.profile-menu button {
+  border: 0;
+  background: transparent;
+  color: var(--text);
+  text-align: left;
+  text-decoration: none;
+  font-size: 0.85rem;
+  padding: 10px 12px;
+  cursor: pointer;
+}
+
+.profile-menu a:hover,
+.profile-menu button:hover {
+  background: var(--surface-2);
 }
 
 .theme-toggle {
@@ -361,19 +385,23 @@
 }
 
 .view-balance-button {
-  height: 26px;
-  padding: 0 10px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 28px;
+  width: 28px;
+  padding: 0;
   border: 1px solid var(--border);
-  border-radius: 999px;
+  border-radius: var(--radius-sm);
   background: var(--bg-raised);
   color: var(--text-muted);
-  font-size: 0.75rem;
-  font-weight: 700;
   cursor: pointer;
+  transition: all 150ms ease;
 }
 
 .view-balance-button:hover {
   border-color: var(--accent);
+  background: var(--accent-soft);
   color: var(--accent-hover);
 }
 
@@ -603,6 +631,41 @@ th.num {
   font-size: 0.85rem;
 }
 
+/* Status badge styles for account status (distinct from order status badges) */
+.stat .status-badge {
+  display: inline-block;
+  padding: 4px 12px;
+  border-radius: 6px;
+  background: var(--accent-soft);
+  color: var(--accent-hover);
+  font-size: 0.85rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.stat .status-active {
+  background: var(--up-soft);
+  color: var(--up);
+  border: none;
+}
+
+.stat .status-suspended {
+  background: var(--warn-soft);
+  color: var(--warn);
+  border: none;
+}
+
+.stat .status-closed {
+  background: var(--down-soft);
+  color: var(--down);
+  border: none;
+}
+
+.masked-dots {
+  letter-spacing: 2px;
+}
+
 /* ---------- Responsive ---------- */
 
 @media (max-width: 1024px) {
@@ -627,16 +690,6 @@ th.num {
 
   .account-chip {
     padding: 4px;
-  }
-
-  .signout-button span {
-    display: none;
-  }
-
-  .signout-button {
-    width: 38px;
-    padding: 0;
-    justify-content: center;
   }
 
   .theme-toggle {
