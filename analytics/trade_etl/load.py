@@ -124,11 +124,11 @@ def load_dimensions(
             """
             INSERT INTO dim_instrument (
                 instrument_key, symbol, name, asset_class, currency,
-                exchange, tradable, loaded_at
+                tradable, loaded_at
             )
             SELECT
                 instrument_key, symbol, name, asset_class, currency,
-                exchange, tradable, loaded_at
+                tradable, loaded_at
             FROM tmp_dim_instrument
             ON CONFLICT (instrument_key)
             DO UPDATE SET
@@ -136,7 +136,6 @@ def load_dimensions(
                 name = EXCLUDED.name,
                 asset_class = EXCLUDED.asset_class,
                 currency = EXCLUDED.currency,
-                exchange = EXCLUDED.exchange,
                 tradable = EXCLUDED.tradable,
                 loaded_at = EXCLUDED.loaded_at
             """

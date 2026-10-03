@@ -22,7 +22,6 @@ def _order_rows() -> list[dict]:
         "instrument_name": "Infosys Limited",
         "asset_class": "EQUITY",
         "instrument_currency": "INR",
-        "exchange": "NSE",
         "tradable": True,
         "account_id": 101,
         "account_number": "1000000001",

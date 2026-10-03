@@ -28,7 +28,6 @@ SELECT
     i.name AS instrument_name,
     i.asset_class,
     i.currency AS instrument_currency,
-    i.exchange,
     i.tradable,
     p.account_id,
     a.account_number,
