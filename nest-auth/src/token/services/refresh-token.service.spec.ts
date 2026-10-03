@@ -1,7 +1,7 @@
 import { ConfigService } from '@nestjs/config';
 import { RefreshTokenService } from './refresh-token.service';
-import { RefreshTokensRepository } from '../credentials/refresh-tokens.repository';
-import { RedactingLogger } from '../logging/redacting-logger.service';
+import { RefreshTokensRepository } from '../../credentials/refresh-tokens.repository';
+import { RedactingLogger } from '../../logging/redacting-logger.service';
 
 describe('RefreshTokenService', () => {
   let service: RefreshTokenService;

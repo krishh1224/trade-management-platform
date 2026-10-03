@@ -13,7 +13,9 @@ const authServiceMock = {
 };
 
 const tradeServiceMock = {
-  placeOrder: vi.fn()
+  placeOrder: vi.fn(),
+  getAccount: vi.fn(),
+  getInstruments: vi.fn()
 };
 
 describe('OrdersComponent', () => {
@@ -25,6 +27,10 @@ describe('OrdersComponent', () => {
     );
 
     tradeServiceMock.placeOrder.mockReset();
+    tradeServiceMock.getAccount.mockReset();
+    tradeServiceMock.getInstruments.mockReset();
+    tradeServiceMock.getAccount.mockReturnValue(of({ accountId: 101, status: 'ACTIVE' }));
+    tradeServiceMock.getInstruments.mockReturnValue(of([]));
 
     await TestBed.configureTestingModule({
       imports: [OrdersComponent],

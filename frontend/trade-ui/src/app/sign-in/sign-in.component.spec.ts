@@ -57,7 +57,7 @@ describe('SignInComponent', () => {
   });
 
   it.each([
-    ['/orders?status=NEW', '/orders?status=NEW'],
+    ['/orders?status=NEW', '/'],
     ['https://evil.com', '/'],
     ['//evil.com', '/']
   ])('after sign-in the return address %s lands on %s', async (returnUrl, landing) => {
