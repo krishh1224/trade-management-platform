@@ -1,4 +1,4 @@
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpParams } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable, map } from 'rxjs';
 
@@ -17,6 +17,12 @@ import {
   PlaceOrderRequest,
   PositionResponse
 } from './generated/trade-api/models';
+
+export interface InstrumentOption {
+  symbol: string;
+  name: string;
+  currency: string;
+}
 
 /** Hand-written facade over the generated Trade REST API client. Unwraps the HTTP envelope. */
 @Injectable({ providedIn: 'root' })
@@ -47,5 +53,10 @@ export class TradeService {
 
   getOrders(accountId: number, filter: Omit<GetOrders$Params, 'id'> = {}): Observable<OrderHistoryEntry[]> {
     return getOrders(this.http, this.config.rootUrl, { id: accountId, ...filter }).pipe(map((r) => r.body));
+  }
+
+  getInstruments(accountId: number, prefix = ''): Observable<InstrumentOption[]> {
+    const params = new HttpParams({ fromObject: prefix ? { prefix } : {} });
+    return this.http.get<InstrumentOption[]>(`${this.config.rootUrl}/api/v1/accounts/${accountId}/instruments`, { params });
   }
 }

@@ -20,7 +20,7 @@
           <svg viewBox="0 0 24 24" width="16" height="16"><circle cx="12" cy="8" r="4" fill="none" stroke="currentColor" stroke-width="2" /><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" /></svg>
         </span>
         <span class="account-meta">
-          <strong>{{ claims() ? 'Account #' + claims()!.accountId : 'Signed in' }}</strong>
+          <strong>{{ claims() ? 'Account ' + claims()!.accountId : 'Signed in' }}</strong>
           <small>{{ role() }}</small>
         </span>
       </div>
@@ -29,6 +29,14 @@
         <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M15 4h3a2 2 0 012 2v12a2 2 0 01-2 2h-3M10 17l5-5-5-5M15 12H4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" /></svg>
         <span>Sign out</span>
       </button>
+
+      <button class="theme-toggle" type="button" (click)="toggleTheme()" [attr.aria-label]="theme() === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'">
+        @if (theme() === 'dark') {
+          <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><circle cx="12" cy="12" r="5" fill="none" stroke="currentColor" stroke-width="2" /><path d="M12 2v2M12 20v2M4.93 4.93l1.42 1.42M17.65 17.65l1.42 1.42M2 12h2M20 12h2M4.93 19.07l1.42-1.42M17.65 6.35l1.42-1.42" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" /></svg>
+        } @else {
+          <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" /></svg>
+        }
+      </button>
     </div>
   </header>
 
@@ -36,7 +44,6 @@
     <section class="welcome">
       <p class="eyebrow">Orders</p>
       <h1>Place order</h1>
-      <p class="subtitle">Validated client-side before submission. Use the Blotter tab to review live order history.</p>
     </section>
 
     <section class="ticket" aria-label="Order ticket">
@@ -52,11 +59,10 @@
             <input
               id="order-account"
               type="text"
-              [value]="accountId() === null ? 'Unavailable' : '#' + accountId()"
+              [value]="accountId() === null ? 'Unavailable' : accountId()"
               readonly
               aria-readonly="true"
             />
-            <small>Locked to your signed-in account.</small>
           </div>
 
           <div class="field-group">
@@ -70,14 +76,36 @@
 
         <div class="field-group">
           <label for="order-symbol">Instrument</label>
-          <input
-            id="order-symbol"
-            type="text"
-            formControlName="symbol"
-            placeholder="INFY.NS"
-            autocomplete="off"
-            [class.invalid]="orderForm.controls.symbol.touched && orderForm.controls.symbol.invalid"
-          />
+          <div class="instrument-autocomplete">
+            <input
+              id="order-symbol"
+              type="text"
+              formControlName="symbol"
+              placeholder="INFY.NS"
+              autocomplete="off"
+              [class.invalid]="orderForm.controls.symbol.touched && orderForm.controls.symbol.invalid"
+              (input)="onInstrumentInput()"
+              (focus)="onInstrumentFocus()"
+              (blur)="onInstrumentBlur()"
+            />
+            @if (showInstrumentDropdown() && filteredInstrumentOptions().length > 0) {
+              <ul class="instrument-dropdown" role="listbox" aria-label="Instrument suggestions">
+                @for (option of filteredInstrumentOptions(); track option.symbol) {
+                  <li>
+                    <button type="button" (click)="selectInstrument(option)">
+                      <span class="instrument-symbol">{{ option.symbol }}</span>
+                      <span class="instrument-meta">{{ option.currency }} • {{ option.name }}</span>
+                    </button>
+                  </li>
+                }
+              </ul>
+            }
+          </div>
+          @if (instrumentsLoading()) {
+            <small>Loading instruments...</small>
+          } @else if (instrumentsError()) {
+            <small class="field-error-text">{{ instrumentsError() }}</small>
+          }
           @if (orderForm.controls.symbol.touched && orderForm.controls.symbol.hasError('required')) {
             <div class="field-error">Instrument symbol is required.</div>
           }
@@ -107,13 +135,13 @@
           </div>
 
           <div class="field-group">
-            <label for="order-price">Price</label>
+            <label for="order-price">Price ({{ currentSymbolCurrency() }})</label>
             <input
               id="order-price"
               type="text"
               inputmode="decimal"
               formControlName="price"
-              placeholder="150.00"
+              [placeholder]="currentSymbolCurrency() + ' 150.00'"
               [class.invalid]="orderForm.controls.price.touched && orderForm.controls.price.invalid"
             />
             @if (orderForm.controls.price.touched && orderForm.controls.price.hasError('required')) {
@@ -134,7 +162,6 @@
 
         @if (orderSuccessMessage()) {
           <div class="form-success" role="status">
-            <strong>Order accepted.</strong>
             <span>{{ orderSuccessMessage() }}</span>
             @if (orderStatus(); as status) {
               <span class="status-chip">{{ status }}</span>

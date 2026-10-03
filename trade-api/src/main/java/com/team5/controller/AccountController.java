@@ -4,6 +4,7 @@ import com.team5.auth.AuthenticatedAccountId;
 import com.team5.domain.enums.OrderStatus;
 import com.team5.dto.response.AccountResponse;
 import com.team5.dto.response.BalanceResponse;
+import com.team5.dto.response.InstrumentOptionResponse;
 import com.team5.dto.response.OrderHistoryEntry;
 import com.team5.dto.response.PositionResponse;
 import com.team5.service.AccountService;
@@ -62,5 +63,14 @@ public class AccountController {
         @AuthenticatedAccountId long authenticatedAccountId
     ) {
         return ResponseEntity.ok(accountService.getOrders(authenticatedAccountId, id, status, from, to));
+    }
+
+    @GetMapping("/{id}/instruments")
+    public ResponseEntity<List<InstrumentOptionResponse>> getInstruments(
+        @PathVariable("id") @Min(1) Long id,
+        @RequestParam(value = "prefix", required = false) String prefix,
+        @AuthenticatedAccountId long authenticatedAccountId
+    ) {
+        return ResponseEntity.ok(accountService.getInstruments(authenticatedAccountId, id, prefix));
     }
 }

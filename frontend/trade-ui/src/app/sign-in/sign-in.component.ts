@@ -5,7 +5,8 @@ import { finalize } from 'rxjs';
 
 import { toUserFacingErrorMessage } from '../api/error-catalogue';
 import { AuthSessionService } from '../auth/auth-session.service';
-import { isSafeReturnUrl, safeReturnUrl } from '../auth/return-url';
+import { isSafeReturnUrl } from '../auth/return-url';
+import { currencyForSymbol } from '../instruments/instrument-currency';
 
 @Component({
   selector: 'app-sign-in',
@@ -29,12 +30,12 @@ export class SignInComponent {
    * Not live prices.
    */
   readonly ticker = [
-    { symbol: 'INFY', price: '1,580.00', change: 8.97 },
-    { symbol: 'RELIANCE', price: '2,800.00', change: 0 },
-    { symbol: 'TATASTEEL', price: '150.00', change: 3.45 },
-    { symbol: 'HDFCBANK', price: '1,700.00', change: 3.03 },
-    { symbol: 'ICICIBANK', price: '1,000.00', change: 5.26 },
-    { symbol: 'ITC', price: '450.00', change: 4.65 }
+    { symbol: 'INFY', currency: currencyForSymbol('INFY.NS'), price: '1,580.00', change: 8.97 },
+    { symbol: 'RELIANCE', currency: currencyForSymbol('RELIANCE.NS'), price: '2,800.00', change: 0 },
+    { symbol: 'TATASTEEL', currency: currencyForSymbol('TATASTEEL.BO'), price: '150.00', change: 3.45 },
+    { symbol: 'HDFCBANK', currency: currencyForSymbol('HDFCBANK.NS'), price: '1,700.00', change: 3.03 },
+    { symbol: 'ICICIBANK', currency: currencyForSymbol('ICICIBANK.NS'), price: '1,000.00', change: 5.26 },
+    { symbol: 'ITC', currency: currencyForSymbol('ITC.NS'), price: '450.00', change: 4.65 }
   ];
 
   readonly signInForm = this.formBuilder.nonNullable.group({
@@ -82,7 +83,7 @@ export class SignInComponent {
       .pipe(finalize(() => this.submitting.set(false)))
       .subscribe({
         next: () => {
-          void this.router.navigateByUrl(safeReturnUrl(this.route.snapshot.queryParamMap.get('returnUrl')));
+          void this.router.navigateByUrl('/');
         },
         error: (error: unknown) => {
           this.errorMessage.set(this.toReadableError(error));

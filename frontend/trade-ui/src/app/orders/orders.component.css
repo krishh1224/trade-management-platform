@@ -141,6 +141,27 @@
   color: var(--down);
 }
 
+.theme-toggle {
+  height: 38px;
+  width: 38px;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+  color: var(--text-muted);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background 150ms ease, border-color 150ms ease, color 150ms ease;
+}
+
+.theme-toggle:hover {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  color: var(--accent-hover);
+}
+
 .content {
   display: grid;
   gap: 20px;
@@ -170,7 +191,8 @@
 }
 
 .ticket {
-  max-width: 720px;
+  width: min(100%, 920px);
+  margin: 0 auto;
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
   background: var(--surface);
@@ -215,11 +237,65 @@
 
 .field-grid-2 {
   grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: start;
 }
 
 .field-group {
   display: grid;
   gap: 6px;
+}
+
+.instrument-autocomplete {
+  position: relative;
+}
+
+.instrument-dropdown {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: calc(100% + 4px);
+  z-index: 20;
+  margin: 0;
+  padding: 6px;
+  list-style: none;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  box-shadow: var(--shadow);
+  max-height: 220px;
+  overflow-y: auto;
+}
+
+.instrument-dropdown li button {
+  width: 100%;
+  display: grid;
+  gap: 2px;
+  text-align: left;
+  padding: 8px 10px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text);
+  cursor: pointer;
+}
+
+.instrument-dropdown li button:hover {
+  background: var(--accent-soft);
+}
+
+.instrument-symbol {
+  font-size: 0.84rem;
+  font-weight: 700;
+}
+
+.instrument-meta {
+  color: var(--text-muted);
+  font-size: 0.74rem;
+}
+
+.field-error-text {
+  color: var(--down);
+  font-size: 0.78rem;
 }
 
 .field-group label {

@@ -4,8 +4,10 @@ import { Router, RouterLink } from '@angular/router';
 import { finalize } from 'rxjs';
 
 import { toUserFacingErrorMessage } from '../api/error-catalogue';
-import { TradeService } from '../api/trade.service';
+import { InstrumentOption, TradeService } from '../api/trade.service';
 import { AuthSessionService } from '../auth/auth-session.service';
+import { currencyForSymbol } from '../instruments/instrument-currency';
+import { ThemeService } from '../theme/theme.service';
 
 @Component({
   selector: 'app-orders',
@@ -18,14 +20,31 @@ export class OrdersComponent {
   private readonly authSession = inject(AuthSessionService);
   private readonly tradeService = inject(TradeService);
   private readonly router = inject(Router);
+  private readonly themeService = inject(ThemeService);
 
   readonly claims = this.authSession.claims;
   readonly role = computed(() => this.claims()?.roles[0] ?? 'USER');
+  readonly theme = this.themeService.theme;
   readonly accountId = computed(() => this.claims()?.accountId ?? null);
   readonly orderSubmitting = signal(false);
   readonly orderErrorMessage = signal('');
   readonly orderSuccessMessage = signal('');
   readonly orderStatus = signal<string | null>(null);
+  readonly instrumentsLoading = signal(false);
+  readonly instrumentsError = signal('');
+  readonly instrumentOptions = signal<InstrumentOption[]>([]);
+  readonly instrumentQuery = signal('');
+  readonly showInstrumentDropdown = signal(false);
+  readonly filteredInstrumentOptions = computed(() => {
+    const query = this.instrumentQuery().trim().toUpperCase();
+    if (query.length === 0) {
+      return [];
+    }
+
+    return this.instrumentOptions()
+      .filter((option) => option.name.toUpperCase().startsWith(query))
+      .sort((a, b) => a.name.localeCompare(b.name) || a.symbol.localeCompare(b.symbol));
+  });
 
   readonly orderForm = this.formBuilder.nonNullable.group({
     symbol: ['', [Validators.required, Validators.pattern(SYMBOL_PATTERN)]],
@@ -34,7 +53,39 @@ export class OrdersComponent {
     price: ['', [Validators.required, this.priceValidator]]
   });
 
-  constructor() {}
+  constructor() {
+    this.themeService.initialize();
+    this.loadInstruments();
+  }
+
+  toggleTheme(): void {
+    this.themeService.toggleTheme();
+  }
+
+  currentSymbolCurrency(): string {
+    return currencyForSymbol(this.orderForm.controls.symbol.value);
+  }
+
+  onInstrumentInput(): void {
+    this.instrumentQuery.set(this.orderForm.controls.symbol.value ?? '');
+    this.showInstrumentDropdown.set(true);
+  }
+
+  onInstrumentFocus(): void {
+    if ((this.orderForm.controls.symbol.value ?? '').trim().length > 0) {
+      this.showInstrumentDropdown.set(true);
+    }
+  }
+
+  onInstrumentBlur(): void {
+    setTimeout(() => this.showInstrumentDropdown.set(false), 120);
+  }
+
+  selectInstrument(option: InstrumentOption): void {
+    this.orderForm.controls.symbol.setValue(option.symbol);
+    this.instrumentQuery.set(option.symbol);
+    this.showInstrumentDropdown.set(false);
+  }
 
   signOut(): void {
     this.authSession.signOut();
@@ -75,10 +126,35 @@ export class OrdersComponent {
       .subscribe({
         next: (response) => {
           this.orderStatus.set(response.status);
-          this.orderSuccessMessage.set(`Order ${response.orderId} returned status ${response.status}. ${response.message}`);
+          this.orderSuccessMessage.set(`Order returned status ${response.status}. ${response.message}`);
         },
         error: (error: unknown) => {
           this.orderErrorMessage.set(this.toReadableOrderError(error));
+        }
+      });
+  }
+
+  private loadInstruments(): void {
+    const accountId = this.accountId();
+    if (accountId === null) {
+      this.instrumentOptions.set([]);
+      this.instrumentsError.set('Instruments are unavailable until account details load.');
+      return;
+    }
+
+    this.instrumentsLoading.set(true);
+    this.instrumentsError.set('');
+    this.tradeService
+      .getInstruments(accountId)
+      .pipe(finalize(() => this.instrumentsLoading.set(false)))
+      .subscribe({
+        next: (options) => {
+          const sorted = [...options].sort((a, b) => a.name.localeCompare(b.name) || a.symbol.localeCompare(b.symbol));
+          this.instrumentOptions.set(sorted);
+        },
+        error: () => {
+          this.instrumentOptions.set([]);
+          this.instrumentsError.set('Unable to load instruments right now.');
         }
       });
   }

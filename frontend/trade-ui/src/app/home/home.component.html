@@ -20,7 +20,7 @@
           <svg viewBox="0 0 24 24" width="16" height="16"><circle cx="12" cy="8" r="4" fill="none" stroke="currentColor" stroke-width="2" /><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" /></svg>
         </span>
         <span class="account-meta">
-          <strong>{{ claims() ? 'Account #' + claims()!.accountId : 'Signed in' }}</strong>
+          <strong>{{ claims() ? 'Account ' + claims()!.accountId : 'Signed in' }}</strong>
           <small>{{ role() }}</small>
         </span>
       </div>
@@ -28,6 +28,14 @@
       <button class="signout-button" type="button" (click)="signOut()" data-testid="signout-button" aria-label="Sign out">
         <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M15 4h3a2 2 0 012 2v12a2 2 0 01-2 2h-3M10 17l5-5-5-5M15 12H4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" /></svg>
         <span>Sign out</span>
+      </button>
+
+      <button class="theme-toggle" type="button" (click)="toggleTheme()" [attr.aria-label]="theme() === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'">
+        @if (theme() === 'dark') {
+          <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><circle cx="12" cy="12" r="5" fill="none" stroke="currentColor" stroke-width="2" /><path d="M12 2v2M12 20v2M4.93 4.93l1.42 1.42M17.65 17.65l1.42 1.42M2 12h2M20 12h2M4.93 19.07l1.42-1.42M17.65 6.35l1.42-1.42" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" /></svg>
+        } @else {
+          <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" /></svg>
+        }
       </button>
     </div>
   </header>
@@ -44,22 +52,33 @@
     <section class="welcome">
       <div>
         <p class="eyebrow">Dashboard</p>
-        <h1>{{ greeting() }}</h1>
-        <p class="subtitle">
-          @if (claims(); as c) {
-            You're signed in to account <span class="mono">#{{ c.accountId }}</span>.
-          } @else {
-            You're signed in.
-          }
-        </p>
+        <h1>
+          {{ greetingSalutation() }},
+          <span class="customer-name">{{ customerName() }}</span>
+        </h1>
       </div>
     </section>
 
     <section class="stats" aria-label="Account overview">
       <article class="stat">
-        <span class="stat-label">Account</span>
-        <strong class="stat-value mono">{{ claims() ? '#' + claims()!.accountId : '—' }}</strong>
-        <span class="stat-hint">Linked trading account</span>
+        <span class="stat-label">Balance</span>
+        <strong class="stat-value mono">
+          @if (balanceLoading()) {
+            Loading...
+          } @else if (balanceAmount() === null) {
+            —
+          } @else if (balanceHidden()) {
+            {{ maskedBalance() }}
+          } @else {
+            {{ balanceCurrency() }} {{ balanceAmount()! | number: '1.2-2' }}
+          }
+        </strong>
+        <div class="balance-actions">
+          <button class="view-balance-button" type="button" (click)="toggleBalanceVisibility()">
+            {{ balanceHidden() ? 'View' : 'Hide' }}
+          </button>
+          <span class="stat-hint">From accounts table</span>
+        </div>
       </article>
 
       <article class="stat">
@@ -128,7 +147,12 @@
                     <td>{{ entry.symbol }}</td>
                     <td>{{ entry.side }}</td>
                     <td class="num">{{ entry.quantity | number: '1.0-0' }}</td>
-                    <td class="num">{{ entry.price | number: '1.2-2' }}</td>
+                    <td class="num">
+                      <span class="price-pack">
+                        <span class="currency-prefix">{{ currencyForSymbol(entry.symbol) }}</span>
+                        <span class="price-value">{{ entry.price | number: '1.2-2' }}</span>
+                      </span>
+                    </td>
                     <td class="col-status">
                       <span
                         class="status-badge"

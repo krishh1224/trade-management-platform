@@ -148,6 +148,27 @@
   color: var(--down);
 }
 
+.theme-toggle {
+  height: 38px;
+  width: 38px;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+  color: var(--text-muted);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background 150ms ease, border-color 150ms ease, color 150ms ease;
+}
+
+.theme-toggle:hover {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  color: var(--accent-hover);
+}
+
 /* ---------- Content ---------- */
 
 .content {
@@ -206,6 +227,13 @@
   font-size: clamp(1.6rem, 3vw, 2.1rem);
   font-weight: 700;
   letter-spacing: -0.03em;
+}
+
+.customer-name {
+  color: var(--accent-hover);
+  font-family: 'Avenir Next', 'Segoe UI', sans-serif;
+  font-weight: 800;
+  letter-spacing: -0.02em;
 }
 
 .subtitle {
@@ -324,6 +352,29 @@
 .stat-hint {
   color: var(--text-faint);
   font-size: 0.8rem;
+}
+
+.balance-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.view-balance-button {
+  height: 26px;
+  padding: 0 10px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--bg-raised);
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.view-balance-button:hover {
+  border-color: var(--accent);
+  color: var(--accent-hover);
 }
 
 .role-badge {
@@ -484,6 +535,26 @@ td.num {
   background: rgba(107, 114, 128, 0.16);
 }
 
+.price-pack {
+  display: inline-grid;
+  grid-auto-flow: column;
+  grid-template-columns: 3ch auto;
+  column-gap: 6px;
+  align-items: baseline;
+}
+
+.currency-prefix {
+  color: var(--text-muted);
+  text-align: left;
+  font-size: 0.78rem;
+}
+
+.price-value {
+  min-width: 8ch;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
 th {
   padding: 10px 20px;
   background: var(--bg-raised);
@@ -566,6 +637,10 @@ th.num {
     width: 38px;
     padding: 0;
     justify-content: center;
+  }
+
+  .theme-toggle {
+    width: 38px;
   }
 
   .content {

@@ -2,6 +2,7 @@ package com.team5.mapper;
 
 import com.team5.dto.response.AccountResponse;
 import com.team5.dto.response.BalanceResponse;
+import com.team5.dto.response.InstrumentOptionResponse;
 import com.team5.dto.response.OrderHistoryEntry;
 import com.team5.dto.response.PositionResponse;
 import java.math.BigDecimal;
@@ -29,6 +30,8 @@ public interface AccountQueryMapper {
         @Param("from") OffsetDateTime from,
         @Param("to") OffsetDateTime to
     );
+
+    List<InstrumentOptionResponse> getInstruments(@Param("prefix") String prefix);
 
     Map<String, Object> findAccountForOrder(@Param("accountId") Long accountId);
 

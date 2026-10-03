@@ -7,6 +7,8 @@ import { finalize } from 'rxjs';
 import { OrderHistoryEntry } from '../api/generated/trade-api/models';
 import { TradeService } from '../api/trade.service';
 import { AuthSessionService } from '../auth/auth-session.service';
+import { currencyForSymbol } from '../instruments/instrument-currency';
+import { ThemeService } from '../theme/theme.service';
 
 @Component({
   selector: 'app-home',
@@ -18,17 +20,28 @@ export class HomeComponent {
   private readonly authSession = inject(AuthSessionService);
   private readonly tradeService = inject(TradeService);
   private readonly router = inject(Router);
+  private readonly themeService = inject(ThemeService);
   private readonly now = signal(Date.now());
 
   readonly claims = this.authSession.claims;
   readonly role = computed(() => this.claims()?.roles[0] ?? 'USER');
+  readonly customerName = signal('Customer');
+  readonly theme = this.themeService.theme;
+  readonly balanceAmount = signal<number | null>(null);
+  readonly balanceCurrency = signal('INR');
+  readonly balanceLoading = signal(false);
+  readonly balanceHidden = signal(true);
   readonly recentOrders = signal<OrderHistoryEntry[]>([]);
   readonly ordersLoading = signal(false);
   readonly ordersError = signal('');
 
-  readonly greeting = computed(() => {
+  readonly greetingSalutation = computed(() => {
     const hour = new Date(this.now()).getHours();
     return hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
+  });
+
+  readonly greeting = computed(() => {
+    return `${this.greetingSalutation()}, ${this.customerName()}`;
   });
 
   /** Seconds until the access token expires, or null when it can't be read. */
@@ -40,9 +53,16 @@ export class HomeComponent {
   readonly sessionExpired = computed(() => this.secondsLeft() === 0);
 
   constructor() {
+    this.themeService.initialize();
     const timer = setInterval(() => this.now.set(Date.now()), 1000);
     inject(DestroyRef).onDestroy(() => clearInterval(timer));
+    this.loadCustomerName();
+    this.loadBalance();
     this.loadRecentOrders();
+  }
+
+  toggleTheme(): void {
+    this.themeService.toggleTheme();
   }
 
   signOut(): void {
@@ -50,8 +70,20 @@ export class HomeComponent {
     void this.router.navigateByUrl('/sign-in');
   }
 
+  toggleBalanceVisibility(): void {
+    this.balanceHidden.update((hidden) => !hidden);
+  }
+
+  maskedBalance(): string {
+    return '••••••';
+  }
+
   statusLabel(status: OrderHistoryEntry['status']): string {
     return status === 'NEW' ? 'NEW - Working' : status;
+  }
+
+  currencyForSymbol(symbol: string): string {
+    return currencyForSymbol(symbol);
   }
 
   private loadRecentOrders(): void {
@@ -77,5 +109,44 @@ export class HomeComponent {
           this.recentOrders.set([]);
         }
       });
+  }
+
+  private loadBalance(): void {
+    const accountId = this.claims()?.accountId ?? null;
+    if (accountId === null) {
+      this.balanceAmount.set(null);
+      return;
+    }
+
+    this.balanceLoading.set(true);
+    this.tradeService
+      .getBalance(accountId)
+      .pipe(finalize(() => this.balanceLoading.set(false)))
+      .subscribe({
+        next: (balance) => {
+          this.balanceAmount.set(balance.cashBalance);
+          this.balanceCurrency.set(balance.currency || 'INR');
+        },
+        error: () => {
+          this.balanceAmount.set(null);
+        }
+      });
+  }
+
+  private loadCustomerName(): void {
+    const accountId = this.claims()?.accountId ?? null;
+    if (accountId === null) {
+      this.customerName.set(this.claims()?.sub ?? 'Customer');
+      return;
+    }
+
+    this.tradeService.getAccount(accountId).subscribe({
+      next: (account) => {
+        this.customerName.set(account.holderName || this.claims()?.sub || 'Customer');
+      },
+      error: () => {
+        this.customerName.set(this.claims()?.sub ?? 'Customer');
+      }
+    });
   }
 }

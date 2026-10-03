@@ -42,6 +42,37 @@
 	--font-mono: 'JetBrains Mono', 'Cascadia Code', Consolas, monospace;
 }
 
+:root[data-theme='light'] {
+	color-scheme: light;
+
+	--bg: #f6f8fd;
+	--bg-raised: #edf2fb;
+	--bar-bg: rgba(246, 248, 253, 0.9);
+	--surface: #ffffff;
+	--surface-2: #f6f8fd;
+	--surface-hover: #eef3ff;
+	--border: #d6deee;
+	--border-strong: #bfcbdf;
+
+	--text: #1a2438;
+	--text-muted: #4f5f7c;
+	--text-faint: #6c7892;
+
+	--accent: #3f6ef6;
+	--accent-hover: #2d59df;
+	--accent-soft: rgba(63, 110, 246, 0.12);
+
+	--up: #0f8f5f;
+	--up-soft: rgba(15, 143, 95, 0.12);
+	--down: #cf3745;
+	--down-soft: rgba(207, 55, 69, 0.12);
+	--warn: #be7e10;
+	--warn-soft: rgba(190, 126, 16, 0.12);
+
+	--shadow: 0 8px 24px rgba(43, 67, 112, 0.14);
+	--focus-ring: 0 0 0 3px rgba(63, 110, 246, 0.28);
+}
+
 *,
 *::before,
 *::after {
