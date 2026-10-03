@@ -52,6 +52,7 @@
             <input
               id="order-account"
               type="text"
+              data-testid="order-account"
               [value]="accountId() === null ? 'Unavailable' : '#' + accountId()"
               readonly
               aria-readonly="true"
@@ -61,7 +62,7 @@
 
           <div class="field-group">
             <label for="order-side">Side</label>
-            <select id="order-side" formControlName="side">
+            <select id="order-side" formControlName="side" data-testid="order-side">
               <option value="BUY">BUY</option>
               <option value="SELL">SELL</option>
             </select>
@@ -74,6 +75,7 @@
             id="order-symbol"
             type="text"
             formControlName="symbol"
+            data-testid="order-symbol"
             placeholder="INFY.NS"
             autocomplete="off"
             [class.invalid]="orderForm.controls.symbol.touched && orderForm.controls.symbol.invalid"
@@ -96,6 +98,7 @@
               min="1"
               step="1"
               formControlName="quantity"
+              data-testid="order-quantity"
               [class.invalid]="orderForm.controls.quantity.touched && orderForm.controls.quantity.invalid"
             />
             @if (orderForm.controls.quantity.touched && orderForm.controls.quantity.hasError('required')) {
@@ -113,6 +116,7 @@
               type="text"
               inputmode="decimal"
               formControlName="price"
+              data-testid="order-price"
               placeholder="150.00"
               [class.invalid]="orderForm.controls.price.touched && orderForm.controls.price.invalid"
             />
@@ -142,7 +146,7 @@
           </div>
         }
 
-        <button class="submit-order-button" type="submit" [disabled]="orderSubmitting()">
+        <button class="submit-order-button" type="submit" data-testid="order-submit" [disabled]="orderSubmitting()">
           {{ orderSubmitting() ? 'Placing order…' : 'Place order' }}
         </button>
       </form>
