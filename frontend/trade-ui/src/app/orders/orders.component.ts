@@ -222,6 +222,6 @@ export class OrdersComponent {
   }
 }
 
-const SYMBOL_PATTERN = /^(?:[A-Z]{1,10}(?:\.(?:NS|BO))?|FX:[A-Z]{6}|X:[A-Z0-9]{2,15})$/;
+const SYMBOL_PATTERN = /^(?:[A-Z]{1,10}(?:\.(?:NS|BO))?|FX:[A-Z]{6}|X:[A-Z0-9]+(?:-[A-Z0-9]+)*)$/;
 const POSITIVE_INTEGER_PATTERN = /^[1-9]\d*$/;
 const PRICE_PATTERN = /^(?:0|[1-9]\d*)(?:\.\d{1,2})?$/;

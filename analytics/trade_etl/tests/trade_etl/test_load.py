@@ -48,7 +48,6 @@ def _sample_dims_and_fact() -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, p
                 "name": "Infosys Limited",
                 "asset_class": "EQUITY",
                 "currency": "INR",
-                "exchange": "NSE",
                 "tradable": True,
                 "loaded_at": datetime(2026, 8, 1, 10, 0, 0),
             }

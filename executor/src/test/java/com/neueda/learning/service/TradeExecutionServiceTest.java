@@ -83,7 +83,7 @@ class TradeExecutionServiceTest {
         );
 
         InstrumentRecord instrument = new InstrumentRecord(
-                instrumentId, "INFY.NS", "Infosys", "EQUITY", "INR", "NSE", true
+                instrumentId, "INFY.NS", "Infosys", "EQUITY", "INR", true
         );
 
         Quote quote = new Quote("INFY.NS", new BigDecimal("490.00"), new BigDecimal("499.00"));
@@ -129,7 +129,7 @@ class TradeExecutionServiceTest {
         );
 
         InstrumentRecord instrument = new InstrumentRecord(
-                instrumentId, "INFY.NS", "Infosys", "EQUITY", "INR", "NSE", true
+                instrumentId, "INFY.NS", "Infosys", "EQUITY", "INR", true
         );
 
         Quote quote = new Quote("INFY.NS", new BigDecimal("501.00"), new BigDecimal("510.00"));
@@ -174,7 +174,7 @@ class TradeExecutionServiceTest {
         );
 
         InstrumentRecord instrument = new InstrumentRecord(
-                instrumentId, "INFY.NS", "Infosys", "EQUITY", "INR", "NSE", true
+                instrumentId, "INFY.NS", "Infosys", "EQUITY", "INR", true
         );
 
         Quote quote = new Quote("INFY.NS", new BigDecimal("500.00"), new BigDecimal("510.00"));  // ask > limit
@@ -220,7 +220,7 @@ class TradeExecutionServiceTest {
         );
 
         InstrumentRecord instrument = new InstrumentRecord(
-                instrumentId, "INFY.NS", "Infosys", "EQUITY", "INR", "NSE", true
+                instrumentId, "INFY.NS", "Infosys", "EQUITY", "INR", true
         );
 
         when(orderMapper.findById(orderId)).thenReturn(order);
@@ -262,7 +262,7 @@ class TradeExecutionServiceTest {
         );
 
         InstrumentRecord instrument = new InstrumentRecord(
-                instrumentId, "INFY.NS", "Infosys", "EQUITY", "INR", "NSE", true
+                instrumentId, "INFY.NS", "Infosys", "EQUITY", "INR", true
         );
 
         when(orderMapper.findById(orderId)).thenReturn(order);
@@ -304,7 +304,7 @@ class TradeExecutionServiceTest {
         );
 
         InstrumentRecord instrument = new InstrumentRecord(
-                instrumentId, "INFY.NS", "Infosys", "EQUITY", "INR", "NSE", true
+                instrumentId, "INFY.NS", "Infosys", "EQUITY", "INR", true
         );
 
         when(orderMapper.findById(orderId)).thenReturn(order);
@@ -372,7 +372,7 @@ class TradeExecutionServiceTest {
         );
 
         InstrumentRecord instrument = new InstrumentRecord(
-                instrumentId, "INFY.NS", "Infosys", "EQUITY", "INR", "NSE", false  // not tradable
+                instrumentId, "INFY.NS", "Infosys", "EQUITY", "INR", false  // not tradable
         );
 
         when(orderMapper.findById(orderId)).thenReturn(order);
