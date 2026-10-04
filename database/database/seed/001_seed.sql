@@ -27,78 +27,90 @@ VALUES
 (206, 'Meera Growth Portfolio', 106, 'ACTIVE');
 
 INSERT INTO instruments
-(instrument_id, name, ticker, asset_class, currency, tradable)
+(instrument_id, name, ticker, asset_class, currency, exchange, tradable)
 VALUES
 
 -- =========================================================
--- US EQUITIES - 20
+-- CORE INDIAN EQUITIES - 6 (referenced by the holdings, orders
+-- and transactions below)
 -- =========================================================
 
-(307, 'Apple Inc.', 'AAPL', 'EQUITY', 'USD', TRUE),
-(308, 'Microsoft Corporation', 'MSFT', 'EQUITY', 'USD', TRUE),
-(309, 'Amazon.com Inc.', 'AMZN', 'EQUITY', 'USD', TRUE),
-(310, 'Google (Alphabet Inc.) Class A', 'GOOGL', 'EQUITY', 'USD', TRUE),
-(311, 'Google (Alphabet Inc.) Class C', 'GOOG', 'EQUITY', 'USD', TRUE),
-(312, 'NVIDIA Corporation', 'NVDA', 'EQUITY', 'USD', TRUE),
-(313, 'Meta Platforms Inc.', 'META', 'EQUITY', 'USD', TRUE),
-(314, 'Tesla Inc.', 'TSLA', 'EQUITY', 'USD', TRUE),
-(315, 'Netflix Inc.', 'NFLX', 'EQUITY', 'USD', TRUE),
-(316, 'Adobe Inc.', 'ADBE', 'EQUITY', 'USD', TRUE),
-(317, 'Intel Corporation', 'INTC', 'EQUITY', 'USD', TRUE),
-(318, 'Advanced Micro Devices Inc.', 'AMD', 'EQUITY', 'USD', TRUE),
-(319, 'PayPal Holdings Inc.', 'PYPL', 'EQUITY', 'USD', TRUE),
-(320, 'Cisco Systems Inc.', 'CSCO', 'EQUITY', 'USD', TRUE),
-(321, 'Broadcom Inc.', 'AVGO', 'EQUITY', 'USD', TRUE),
-(322, 'JPMorgan Chase & Co.', 'JPM', 'EQUITY', 'USD', TRUE),
-(323, 'Visa Inc.', 'V', 'EQUITY', 'USD', TRUE),
-(324, 'Mastercard Incorporated', 'MA', 'EQUITY', 'USD', TRUE),
-(325, 'The Coca-Cola Company', 'KO', 'EQUITY', 'USD', TRUE),
-(326, 'Walmart Inc.', 'WMT', 'EQUITY', 'USD', TRUE),
+(301, 'Infosys Limited', 'INFY.NS', 'EQUITY', 'INR', 'NSE', TRUE),
+(302, 'Reliance Industries Limited', 'RELIANCE.NS', 'EQUITY', 'INR', 'NSE', TRUE),
+(303, 'Tata Steel Limited', 'TATASTEEL.BO', 'EQUITY', 'INR', 'BSE', TRUE),
+(304, 'HDFC Bank Limited', 'HDFCBANK.NS', 'EQUITY', 'INR', 'NSE', TRUE),
+(305, 'ICICI Bank Limited', 'ICICIBANK.NS', 'EQUITY', 'INR', 'NSE', TRUE),
+(306, 'ITC Limited', 'ITC.NS', 'EQUITY', 'INR', 'NSE', TRUE),
+
+-- =========================================================
+-- US EQUITIES - 20 (15 NASDAQ, 5 NYSE)
+-- =========================================================
+
+(307, 'Apple Inc.', 'AAPL', 'EQUITY', 'USD', 'NASDAQ', TRUE),
+(308, 'Microsoft Corporation', 'MSFT', 'EQUITY', 'USD', 'NASDAQ', TRUE),
+(309, 'Amazon.com Inc.', 'AMZN', 'EQUITY', 'USD', 'NASDAQ', TRUE),
+(310, 'Google (Alphabet Inc.) Class A', 'GOOGL', 'EQUITY', 'USD', 'NASDAQ', TRUE),
+(311, 'Google (Alphabet Inc.) Class C', 'GOOG', 'EQUITY', 'USD', 'NASDAQ', TRUE),
+(312, 'NVIDIA Corporation', 'NVDA', 'EQUITY', 'USD', 'NASDAQ', TRUE),
+(313, 'Meta Platforms Inc.', 'META', 'EQUITY', 'USD', 'NASDAQ', TRUE),
+(314, 'Tesla Inc.', 'TSLA', 'EQUITY', 'USD', 'NASDAQ', TRUE),
+(315, 'Netflix Inc.', 'NFLX', 'EQUITY', 'USD', 'NASDAQ', TRUE),
+(316, 'Adobe Inc.', 'ADBE', 'EQUITY', 'USD', 'NASDAQ', TRUE),
+(317, 'Intel Corporation', 'INTC', 'EQUITY', 'USD', 'NASDAQ', TRUE),
+(318, 'Advanced Micro Devices Inc.', 'AMD', 'EQUITY', 'USD', 'NASDAQ', TRUE),
+(319, 'PayPal Holdings Inc.', 'PYPL', 'EQUITY', 'USD', 'NASDAQ', TRUE),
+(320, 'Cisco Systems Inc.', 'CSCO', 'EQUITY', 'USD', 'NASDAQ', TRUE),
+(321, 'Broadcom Inc.', 'AVGO', 'EQUITY', 'USD', 'NASDAQ', TRUE),
+(322, 'JPMorgan Chase & Co.', 'JPM', 'EQUITY', 'USD', 'NYSE', TRUE),
+(323, 'Visa Inc.', 'V', 'EQUITY', 'USD', 'NYSE', TRUE),
+(324, 'Mastercard Incorporated', 'MA', 'EQUITY', 'USD', 'NYSE', TRUE),
+(325, 'The Coca-Cola Company', 'KO', 'EQUITY', 'USD', 'NYSE', TRUE),
+(326, 'Walmart Inc.', 'WMT', 'EQUITY', 'USD', 'NYSE', TRUE),
 
 -- =========================================================
 -- INDIAN EQUITIES - 15
 -- =========================================================
 
-(327, 'Tata Consultancy Services Limited', 'TCS.NS', 'EQUITY', 'INR', TRUE),
-(328, 'State Bank of India', 'SBIN.NS', 'EQUITY', 'INR', TRUE),
-(329, 'Bharti Airtel Limited', 'BHARTIARTL.NS', 'EQUITY', 'INR', TRUE),
-(330, 'Larsen & Toubro Limited', 'LT.NS', 'EQUITY', 'INR', TRUE),
-(331, 'Tata Motors Limited', 'TATAMOTORS.NS', 'EQUITY', 'INR', TRUE),
-(332, 'Hindustan Unilever Limited', 'HINDUNILVR.NS', 'EQUITY', 'INR', TRUE),
-(333, 'Maruti Suzuki India Limited', 'MARUTI.NS', 'EQUITY', 'INR', TRUE),
-(334, 'Asian Paints Limited', 'ASIANPAINT.NS', 'EQUITY', 'INR', TRUE),
-(335, 'Adani Enterprises Limited', 'ADANIENT.NS', 'EQUITY', 'INR', TRUE),
-(336, 'Axis Bank Limited', 'AXISBANK.NS', 'EQUITY', 'INR', TRUE),
-(337, 'Kotak Mahindra Bank Limited', 'KOTAKBANK.NS', 'EQUITY', 'INR', TRUE),
-(338, 'Sun Pharmaceutical Industries Limited', 'SUNPHARMA.NS', 'EQUITY', 'INR', TRUE),
-(339, 'Wipro Limited', 'WIPRO.NS', 'EQUITY', 'INR', TRUE),
-(340, 'HCL Technologies Limited', 'HCLTECH.NS', 'EQUITY', 'INR', TRUE),
-(341, 'Bajaj Finance Limited', 'BAJFINANCE.NS', 'EQUITY', 'INR', TRUE),
+(327, 'Tata Consultancy Services Limited', 'TCS.NS', 'EQUITY', 'INR', 'NSE', TRUE),
+(328, 'State Bank of India', 'SBIN.NS', 'EQUITY', 'INR', 'NSE', TRUE),
+(329, 'Bharti Airtel Limited', 'BHARTIARTL.NS', 'EQUITY', 'INR', 'NSE', TRUE),
+(330, 'Larsen & Toubro Limited', 'LT.NS', 'EQUITY', 'INR', 'NSE', TRUE),
+(331, 'Tata Motors Limited', 'TATAMOTORS.NS', 'EQUITY', 'INR', 'NSE', TRUE),
+(332, 'Hindustan Unilever Limited', 'HINDUNILVR.NS', 'EQUITY', 'INR', 'NSE', TRUE),
+(333, 'Maruti Suzuki India Limited', 'MARUTI.NS', 'EQUITY', 'INR', 'NSE', TRUE),
+(334, 'Asian Paints Limited', 'ASIANPAINT.NS', 'EQUITY', 'INR', 'NSE', TRUE),
+(335, 'Adani Enterprises Limited', 'ADANIENT.NS', 'EQUITY', 'INR', 'NSE', TRUE),
+(336, 'Axis Bank Limited', 'AXISBANK.NS', 'EQUITY', 'INR', 'NSE', TRUE),
+(337, 'Kotak Mahindra Bank Limited', 'KOTAKBANK.NS', 'EQUITY', 'INR', 'NSE', TRUE),
+(338, 'Sun Pharmaceutical Industries Limited', 'SUNPHARMA.NS', 'EQUITY', 'INR', 'NSE', TRUE),
+(339, 'Wipro Limited', 'WIPRO.NS', 'EQUITY', 'INR', 'NSE', TRUE),
+(340, 'HCL Technologies Limited', 'HCLTECH.NS', 'EQUITY', 'INR', 'NSE', TRUE),
+(341, 'Bajaj Finance Limited', 'BAJFINANCE.NS', 'EQUITY', 'INR', 'NSE', TRUE),
 
 -- =========================================================
 -- FOREIGN EXCHANGE - 8
 -- =========================================================
 
-(342, 'Euro / US Dollar', 'FX:EURUSD', 'FX', 'USD', TRUE),
-(343, 'British Pound / US Dollar', 'FX:GBPUSD', 'FX', 'USD', TRUE),
-(344, 'US Dollar / Japanese Yen', 'FX:USDJPY', 'FX', 'JPY', TRUE),
-(345, 'US Dollar / Swiss Franc', 'FX:USDCHF', 'FX', 'CHF', TRUE),
-(346, 'Australian Dollar / US Dollar', 'FX:AUDUSD', 'FX', 'USD', TRUE),
-(347, 'US Dollar / Canadian Dollar', 'FX:USDCAD', 'FX', 'CAD', TRUE),
-(348, 'US Dollar / Indian Rupee', 'FX:USDINR', 'FX', 'INR', TRUE),
-(349, 'Euro / British Pound', 'FX:EURGBP', 'FX', 'GBP', TRUE),
+(342, 'Euro / US Dollar', 'FX:EURUSD', 'FX', 'USD', 'FOREX', TRUE),
+(343, 'British Pound / US Dollar', 'FX:GBPUSD', 'FX', 'USD', 'FOREX', TRUE),
+(344, 'US Dollar / Japanese Yen', 'FX:USDJPY', 'FX', 'JPY', 'FOREX', TRUE),
+(345, 'US Dollar / Swiss Franc', 'FX:USDCHF', 'FX', 'CHF', 'FOREX', TRUE),
+(346, 'Australian Dollar / US Dollar', 'FX:AUDUSD', 'FX', 'USD', 'FOREX', TRUE),
+(347, 'US Dollar / Canadian Dollar', 'FX:USDCAD', 'FX', 'CAD', 'FOREX', TRUE),
+(348, 'US Dollar / Indian Rupee', 'FX:USDINR', 'FX', 'INR', 'FOREX', TRUE),
+(349, 'Euro / British Pound', 'FX:EURGBP', 'FX', 'GBP', 'FOREX', TRUE),
 
 -- =========================================================
 -- CRYPTO - 7
 -- =========================================================
 
-(350, 'Bitcoin', 'X:BTC-USD', 'CRYPTO', 'USD', TRUE),
-(351, 'Ethereum', 'X:ETH-USD', 'CRYPTO', 'USD', TRUE),
-(352, 'Tether', 'X:USDT-USD', 'CRYPTO', 'USD', TRUE),
-(353, 'BNB', 'X:BNB-USD', 'CRYPTO', 'USD', TRUE),
-(354, 'XRP', 'X:XRP-USD', 'CRYPTO', 'USD', TRUE),
-(355, 'Solana', 'X:SOL-USD', 'CRYPTO', 'USD', TRUE),
-(356, 'Cardano', 'X:ADA-USD', 'CRYPTO', 'USD', TRUE);
+(350, 'Bitcoin', 'X:BTC-USD', 'CRYPTO', 'USD', 'CRYPTO', TRUE),
+(351, 'Ethereum', 'X:ETH-USD', 'CRYPTO', 'USD', 'CRYPTO', TRUE),
+(352, 'Tether', 'X:USDT-USD', 'CRYPTO', 'USD', 'CRYPTO', TRUE),
+(353, 'BNB', 'X:BNB-USD', 'CRYPTO', 'USD', 'CRYPTO', TRUE),
+(354, 'XRP', 'X:XRP-USD', 'CRYPTO', 'USD', 'CRYPTO', TRUE),
+(355, 'Solana', 'X:SOL-USD', 'CRYPTO', 'USD', 'CRYPTO', TRUE),
+(356, 'Cardano', 'X:ADA-USD', 'CRYPTO', 'USD', 'CRYPTO', TRUE);
 
 INSERT INTO portfolio_holdings
 (portfolio_holding_id, portfolio_id, instrument_id, quantity, avg_cost)

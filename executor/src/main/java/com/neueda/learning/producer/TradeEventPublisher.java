@@ -56,6 +56,17 @@ public class TradeEventPublisher {
      */
     public void publishOrderFilled(Long orderId, Long accountId, BigDecimal executedPrice,
                                    OffsetDateTime executedOn, Integer quantity, String symbol, String side) {
+        publishOrderFilled(orderId, accountId, executedPrice, executedOn, quantity, symbol, side, null, null, null);
+    }
+
+    /**
+     * ORDER_FILLED including the settlement figures: the FX rate applied, the account's base
+     * currency and the cash amount moved in that currency. The three fields are additive; consumers
+     * that predate them ignore unknown fields.
+     */
+    public void publishOrderFilled(Long orderId, Long accountId, BigDecimal executedPrice,
+                                   OffsetDateTime executedOn, Integer quantity, String symbol, String side,
+                                   BigDecimal fxRate, String settlementCurrency, BigDecimal settlementAmount) {
         OrderFilledPayload payload = new OrderFilledPayload(
             orderId,
             accountId,
@@ -63,7 +74,10 @@ public class TradeEventPublisher {
             executedOn,
             quantity,
             symbol,
-            side
+            side,
+            fxRate,
+            settlementCurrency,
+            settlementAmount
         );
 
         publishEvent("ORDER_FILLED", accountId, payload);
@@ -138,9 +152,18 @@ public class TradeEventPublisher {
         public final Integer quantity;
         public final String symbol;
         public final String side;
+        public final BigDecimal fxRate;
+        public final String settlementCurrency;
+        public final BigDecimal settlementAmount;
 
         public OrderFilledPayload(Long orderId, Long accountId, BigDecimal executedPrice,
                                   OffsetDateTime executedOn, Integer quantity, String symbol, String side) {
+            this(orderId, accountId, executedPrice, executedOn, quantity, symbol, side, null, null, null);
+        }
+
+        public OrderFilledPayload(Long orderId, Long accountId, BigDecimal executedPrice,
+                                  OffsetDateTime executedOn, Integer quantity, String symbol, String side,
+                                  BigDecimal fxRate, String settlementCurrency, BigDecimal settlementAmount) {
             this.orderId = orderId;
             this.accountId = accountId;
             this.executedPrice = executedPrice;
@@ -148,6 +171,9 @@ public class TradeEventPublisher {
             this.quantity = quantity;
             this.symbol = symbol;
             this.side = side;
+            this.fxRate = fxRate;
+            this.settlementCurrency = settlementCurrency;
+            this.settlementAmount = settlementAmount;
         }
 
         public Long getOrderId() {
@@ -176,6 +202,18 @@ public class TradeEventPublisher {
 
         public String getSide() {
             return side;
+        }
+
+        public BigDecimal getFxRate() {
+            return fxRate;
+        }
+
+        public String getSettlementCurrency() {
+            return settlementCurrency;
+        }
+
+        public BigDecimal getSettlementAmount() {
+            return settlementAmount;
         }
     }
 

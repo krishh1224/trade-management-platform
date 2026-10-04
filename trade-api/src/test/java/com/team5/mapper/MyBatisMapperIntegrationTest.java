@@ -2,6 +2,7 @@ package com.team5.mapper;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -11,11 +12,15 @@ import com.team5.domain.exception.DuplicateOrderException;
 import com.team5.domain.exception.OrderConflictException;
 import com.team5.domain.exception.OrderNotFoundException;
 import com.team5.dto.request.PlaceOrderRequest;
+import com.team5.dto.response.OrderHistoryEntry;
 import com.team5.dto.response.OrderResponse;
 import com.team5.service.OrderService;
 import java.math.BigDecimal;
 import java.time.OffsetDateTime;
+import java.util.Map;
 import java.util.UUID;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -32,6 +37,9 @@ class MyBatisMapperIntegrationTest {
 
     @Autowired
     private OrderService orderService;
+
+    @Autowired
+    private AccountQueryMapper accountQueryMapper;
 
     @BeforeEach
     void setUpSchemaAndData() {
@@ -129,6 +137,12 @@ class MyBatisMapperIntegrationTest {
               created_at TIMESTAMP NOT NULL,
               updated_at TIMESTAMP NOT NULL,
               expires_at TIMESTAMP,
+              executed_price NUMERIC(19,4),
+              executed_on TIMESTAMP,
+              rejection_reason VARCHAR(255),
+              fx_rate NUMERIC(19,8),
+              settlement_currency VARCHAR(3),
+              settlement_amount NUMERIC(19,4),
               CONSTRAINT fk_orders_portfolio FOREIGN KEY (portfolio_id) REFERENCES portfolio(portfolio_id),
               CONSTRAINT fk_orders_instrument FOREIGN KEY (instrument_id) REFERENCES instruments(instrument_id)
             )
@@ -300,6 +314,39 @@ class MyBatisMapperIntegrationTest {
         OrderResponse response = orderService.cancelOrder(101L, orderUuid);
 
         assertEquals("CANCELLED", response.status().name());
+    }
+
+    @Test
+    void orderHistoryReportsTheExecutorFillPriceNotTheLimitPrice() {
+        jdbcTemplate.update(
+            """
+            INSERT INTO orders (order_id, portfolio_id, instrument_id, side, quantity, price, status, idempotency_key,
+                                created_at, updated_at, executed_price)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            910001L, 201L, 301L, "BUY", 10L, new BigDecimal("1200.0000"), "FILLED", "history-executor-fill",
+            OffsetDateTime.parse("2026-09-10T10:00:00Z"), OffsetDateTime.parse("2026-09-10T10:00:00Z"),
+            new BigDecimal("1187.5000")
+        );
+        // Filled before the executor existed: no executed_price, filled at its limit price.
+        jdbcTemplate.update(
+            """
+            INSERT INTO orders (order_id, portfolio_id, instrument_id, side, quantity, price, status, idempotency_key,
+                                created_at, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            910002L, 201L, 301L, "BUY", 5L, new BigDecimal("1150.0000"), "FILLED", "history-legacy-fill",
+            OffsetDateTime.parse("2026-09-09T10:00:00Z"), OffsetDateTime.parse("2026-09-09T10:00:00Z")
+        );
+        insertOrder(910003L, "NEW", "history-working");
+
+        Map<String, OrderHistoryEntry> byKey = accountQueryMapper.getOrders(101L, null, null, null).stream()
+            .collect(Collectors.toMap(OrderHistoryEntry::idempotencyKey, Function.identity()));
+
+        assertEquals(0, new BigDecimal("1187.50").compareTo(byKey.get("history-executor-fill").executedPrice()));
+        assertEquals(0, new BigDecimal("1200.00").compareTo(byKey.get("history-executor-fill").price()));
+        assertEquals(0, new BigDecimal("1150.00").compareTo(byKey.get("history-legacy-fill").executedPrice()));
+        assertNull(byKey.get("history-working").executedPrice());
     }
 
     private void insertOrder(Long orderId, String status, String idempotencyKey) {

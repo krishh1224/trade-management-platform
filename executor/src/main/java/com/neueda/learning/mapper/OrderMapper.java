@@ -41,9 +41,13 @@ public interface OrderMapper {
             "    executed_price = #{executedPrice}, " +
             "    executed_on = #{executedOn}, " +
             "    rejection_reason = #{rejectionReason}, " +
+            "    fx_rate = #{fxRate}, " +
+            "    settlement_currency = #{settlementCurrency}, " +
+            "    settlement_amount = #{settlementAmount}, " +
             "    updated_at = CURRENT_TIMESTAMP " +
             "WHERE order_id = #{orderId} " +
             "  AND status = 'NEW'")
     int claimOrderIfNew(Long orderId, String newStatus, BigDecimal executedPrice,
-                        LocalDateTime executedOn, String rejectionReason);
+                        LocalDateTime executedOn, String rejectionReason,
+                        BigDecimal fxRate, String settlementCurrency, BigDecimal settlementAmount);
 }

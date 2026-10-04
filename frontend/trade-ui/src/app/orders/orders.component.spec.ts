@@ -15,6 +15,7 @@ const authServiceMock = {
 const tradeServiceMock = {
   placeOrder: vi.fn(),
   getAccount: vi.fn(),
+  getBalance: vi.fn(),
   getInstruments: vi.fn()
 };
 
@@ -29,7 +30,11 @@ describe('OrdersComponent', () => {
     tradeServiceMock.placeOrder.mockReset();
     tradeServiceMock.getAccount.mockReset();
     tradeServiceMock.getInstruments.mockReset();
+    tradeServiceMock.getBalance.mockReset();
     tradeServiceMock.getAccount.mockReturnValue(of({ accountId: 101, status: 'ACTIVE' }));
+    tradeServiceMock.getBalance.mockReturnValue(
+      of({ accountId: 101, cashBalance: 98000, currency: 'INR', asOf: '2026-10-04T00:00:00Z' })
+    );
     tradeServiceMock.getInstruments.mockReturnValue(of([]));
 
     await TestBed.configureTestingModule({
@@ -110,6 +115,33 @@ describe('OrdersComponent', () => {
     component.submitOrder();
 
     expect(component.orderErrorMessage()).toContain('not enough cash');
+  });
+
+  it('a USD instrument is priced in USD and notes INR settlement at the live rate', () => {
+    tradeServiceMock.getInstruments.mockReturnValue(of([{ symbol: 'AAPL', name: 'Apple Inc.', currency: 'USD' }]));
+
+    const fixture = TestBed.createComponent(OrdersComponent);
+    const component = fixture.componentInstance;
+
+    component.orderForm.controls.symbol.setValue('AAPL');
+    fixture.detectChanges();
+
+    expect(component.currentSymbolCurrency()).toBe('USD');
+    expect(component.settlementNote()).toContain('settled from your INR balance at the live USD/INR rate');
+    expect(fixture.nativeElement.querySelector('[data-testid="order-settlement-note"]')).not.toBeNull();
+    expect(fixture.nativeElement.textContent).toContain('Price (USD)');
+  });
+
+  it('an INR instrument on an INR account shows no settlement note', () => {
+    const fixture = TestBed.createComponent(OrdersComponent);
+    const component = fixture.componentInstance;
+
+    component.orderForm.controls.symbol.setValue('INFY.NS');
+    fixture.detectChanges();
+
+    expect(component.currentSymbolCurrency()).toBe('INR');
+    expect(component.settlementNote()).toBe('');
+    expect(fixture.nativeElement.querySelector('[data-testid="order-settlement-note"]')).toBeNull();
   });
 });
 

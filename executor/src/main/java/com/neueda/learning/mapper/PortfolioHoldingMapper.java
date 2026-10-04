@@ -5,6 +5,7 @@ import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Select;
 import org.apache.ibatis.annotations.Update;
 import org.apache.ibatis.annotations.Insert;
+import org.apache.ibatis.annotations.Delete;
 
 import java.util.List;
 
@@ -38,6 +39,16 @@ public interface PortfolioHoldingMapper {
             "    updated_at = CURRENT_TIMESTAMP " +
             "WHERE portfolio_holding_id = #{portfolioHoldingId}")
     int updateQuantity(Long portfolioHoldingId, Long newQuantity);
+
+    @Update("UPDATE portfolio_holdings " +
+            "SET quantity = #{newQuantity}, " +
+            "    avg_cost = #{newAvgCost}, " +
+            "    updated_at = CURRENT_TIMESTAMP " +
+            "WHERE portfolio_holding_id = #{portfolioHoldingId}")
+    int updateQuantityAndAvgCost(Long portfolioHoldingId, Long newQuantity, java.math.BigDecimal newAvgCost);
+
+    @Delete("DELETE FROM portfolio_holdings WHERE portfolio_holding_id = #{portfolioHoldingId}")
+    int deleteHolding(Long portfolioHoldingId);
 
     /**
      * Create a new holding for a portfolio and instrument.

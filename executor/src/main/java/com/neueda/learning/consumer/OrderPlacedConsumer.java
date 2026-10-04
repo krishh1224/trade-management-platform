@@ -207,7 +207,10 @@ public class OrderPlacedConsumer {
                     executedOn,
                     order.getQuantity(),
                     payload.getSymbol(),
-                    payload.getSide()
+                    payload.getSide(),
+                    execution.getFxRate(),
+                    execution.getSettlementCurrency(),
+                    execution.getSettlementAmount()
                 );
                 logger.info("Published ORDER_FILLED for order {}", orderIdLong);
             } else {
