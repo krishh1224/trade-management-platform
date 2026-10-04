@@ -41,6 +41,29 @@ describe('bearer token interceptor', () => {
     req.flush([]);
   });
 
+  it('the advisor chat endpoint carries the bearer token, other advisor paths do not', () => {
+    TestBed.configureTestingModule({
+      providers: [
+        provideApi({ tradeApi: 'http://trade', authApi: 'http://auth', advisorApi: 'http://advisor' }),
+        provideHttpClientTesting(),
+        { provide: AuthSessionService, useValue: { token: () => 'jwt-token' } }
+      ]
+    });
+    const http = TestBed.inject(HttpClient);
+    const httpMock = TestBed.inject(HttpTestingController);
+
+    http.post('http://advisor/api/v1/advisor/chat', { messages: [] }).subscribe();
+    http.get('http://advisor/health').subscribe();
+
+    const chatReq = httpMock.expectOne('http://advisor/api/v1/advisor/chat');
+    expect(chatReq.request.headers.get('Authorization')).toBe('Bearer jwt-token');
+    chatReq.flush({});
+
+    const healthReq = httpMock.expectOne('http://advisor/health');
+    expect(healthReq.request.headers.has('Authorization')).toBe(false);
+    healthReq.flush({});
+  });
+
   it('a request to a third-party origin does not carry the bearer token', () => {
     const { http, httpMock } = setup('jwt-token');
 

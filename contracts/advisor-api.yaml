@@ -1,0 +1,258 @@
+openapi: 3.1.0
+
+info:
+  title: Advisor REST API
+  version: 1.0.0
+  summary: Educational portfolio and market research assistant for the Enterprise Trading Platform.
+  description: |
+    Binding contract for the advisor-api service. It is separate from trade-api.yaml and
+    auth-api.yaml, which it does not change.
+
+    ## What the advisor does
+
+    The advisor answers questions about the signed-in account's portfolio, prices, currency
+    conversion and past orders. It is an educational research assistant, not a registered
+    investment adviser: it explains data, reasoning and risks, and it never places, modifies
+    or cancels orders.
+
+    ## Data sources
+
+    Every figure comes from the platform's own database through read-only tools:
+    holdings, cash balance and orders for the signed-in account; prices from the market-data
+    snapshots written by the Trade Executor; FX rates from the last settled order in that
+    currency. The advisor never calls the Fauxnance API itself, so it uses none of the
+    2,000-requests-a-day quota. Prices can therefore be minutes to days old; every reply that
+    uses a price states its age.
+
+    ## Conversation state
+
+    The service is stateless. The client sends the whole conversation (oldest first) on every
+    request and keeps it for the next one. The last message must come from the user.
+
+    ## Authentication
+
+    Every `/api/v1/**` route requires the same signed JWT trade-api accepts (issuer
+    `auth-service`). The account is always the token's `accountId` claim; a request cannot
+    name another account.
+  contact:
+    name: Enterprise Trading Platform, programme materials
+  license:
+    name: Instructional use only
+
+servers:
+  - url: http://localhost:8083
+    description: Local development
+
+tags:
+  - name: Advisor
+    description: Conversational research assistant.
+
+security:
+  - bearerAuth: []
+
+paths:
+  /api/v1/advisor/chat:
+    post:
+      tags: [Advisor]
+      operationId: chat
+      summary: Send the conversation and get the advisor's next reply
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AdvisorChatRequest'
+            examples:
+              firstQuestion:
+                value:
+                  messages:
+                    - role: user
+                      content: What is my biggest position and how much is it worth in INR?
+      responses:
+        '200':
+          description: The advisor's reply.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdvisorChatResponse'
+              examples:
+                reply:
+                  value:
+                    reply: Your largest position is 150 ITC.NS, worth about ₹38,391 at the last price of ₹255.94 (as of 4 Oct, 12:40). This is educational information, not investment advice.
+                    toolsUsed: [get_portfolio]
+                    model: gemini-3.8-flash
+                    generatedAt: '2026-10-04T13:05:11Z'
+        '401':
+          $ref: '#/components/responses/Unauthorised'
+        '403':
+          $ref: '#/components/responses/AccountNotActive'
+        '404':
+          $ref: '#/components/responses/AccountNotFound'
+        '422':
+          $ref: '#/components/responses/InvalidInput'
+        '429':
+          description: The AI provider's rate limit was reached. Retry after a short wait.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                busy:
+                  value:
+                    errorCode: ADV-429
+                    message: The advisor is busy. Please try again in a minute.
+        '503':
+          description: The AI provider is unavailable or returned no answer.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                unavailable:
+                  value:
+                    errorCode: ADV-503
+                    message: The advisor is unavailable right now. Please try again later.
+
+  /health:
+    get:
+      tags: [Advisor]
+      operationId: health
+      summary: Liveness check
+      security: []
+      responses:
+        '200':
+          description: The service is up.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status]
+                properties:
+                  status:
+                    type: string
+                    example: UP
+
+components:
+
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: A JWT issued by the auth service. The claims contract is defined in `auth-api.yaml`.
+
+  responses:
+    Unauthorised:
+      description: Missing, malformed, expired or wrongly signed token.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          examples:
+            unauthorised:
+              value:
+                errorCode: AUTH-401
+                message: Unauthorised
+    AccountNotFound:
+      description: The token's account does not exist.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          examples:
+            notFound:
+              value:
+                errorCode: ACC-404
+                message: Account not found
+    AccountNotActive:
+      description: The token's account is SUSPENDED or CLOSED.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          examples:
+            notActive:
+              value:
+                errorCode: ACC-403
+                message: Account not active
+    InvalidInput:
+      description: The request failed field validation.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          examples:
+            invalid:
+              value:
+                errorCode: VAL-422
+                message: Invalid input
+
+  schemas:
+
+    ChatRole:
+      type: string
+      enum: [user, assistant]
+      description: Who wrote the message. System instructions are set by the server and cannot be sent.
+
+    ChatMessage:
+      type: object
+      additionalProperties: false
+      required: [role, content]
+      properties:
+        role:
+          $ref: '#/components/schemas/ChatRole'
+        content:
+          type: string
+          minLength: 1
+          maxLength: 4000
+          example: What is my biggest position?
+
+    AdvisorChatRequest:
+      type: object
+      additionalProperties: false
+      required: [messages]
+      properties:
+        messages:
+          type: array
+          minItems: 1
+          maxItems: 20
+          description: |
+            The conversation so far, oldest first. The last message must have role `user`.
+            Clients should drop the oldest messages once the limit is reached.
+          items:
+            $ref: '#/components/schemas/ChatMessage'
+
+    AdvisorChatResponse:
+      type: object
+      additionalProperties: false
+      required: [reply, toolsUsed, model, generatedAt]
+      properties:
+        reply:
+          type: string
+          description: The advisor's answer as Markdown. Educational information, not investment advice.
+        toolsUsed:
+          type: array
+          description: The data tools the advisor consulted for this reply, in call order without duplicates.
+          items:
+            type: string
+            enum: [get_portfolio, get_quotes, get_fx_rate, search_instruments, get_order_history]
+        model:
+          type: string
+          description: The AI model that produced the reply.
+          example: gemini-3.8-flash
+        generatedAt:
+          type: string
+          format: date-time
+
+    ErrorResponse:
+      type: object
+      additionalProperties: false
+      required: [errorCode, message]
+      description: The single error envelope for every failure. Clients branch on `errorCode`.
+      properties:
+        errorCode:
+          type: string
+          enum: [AUTH-401, ACC-403, ACC-404, VAL-422, ADV-429, ADV-503]
+        message:
+          type: string
+          description: Short description for a human. Never includes stack traces or internal identifiers.
