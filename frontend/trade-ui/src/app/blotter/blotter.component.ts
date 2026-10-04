@@ -4,8 +4,8 @@ import { Router, RouterLink } from '@angular/router';
 import { finalize } from 'rxjs';
 
 import { toUserFacingErrorMessage } from '../api/error-catalogue';
-import { OrderHistoryEntry, OrderStatus } from '../api/generated/trade-api/models';
-import { TradeService } from '../api/trade.service';
+import { OrderStatus } from '../api/generated/trade-api/models';
+import { OrderHistoryRow, TradeService } from '../api/trade.service';
 import { AuthSessionService } from '../auth/auth-session.service';
 import { currencyForSymbol } from '../instruments/instrument-currency';
 import { ThemeService } from '../theme/theme.service';
@@ -42,7 +42,7 @@ export class BlotterComponent implements OnInit, OnChanges {
   readonly profileMenuOpen = signal(false);
   readonly theme = this.themeService.theme;
 
-  readonly orderHistory = signal<OrderHistoryEntry[]>([]);
+  readonly orderHistory = signal<OrderHistoryRow[]>([]);
   readonly historyLoading = signal(false);
   readonly historyErrorMessage = signal('');
   readonly currentCashBalance = signal<number | null>(null);
@@ -85,9 +85,19 @@ export class BlotterComponent implements OnInit, OnChanges {
       amounts.set(entry.orderId, rowCashAfter);
 
       if (entry.status === 'FILLED') {
-        const fillPrice = entry.executedPrice ?? entry.price;
-        const tradeValue = fillPrice * entry.quantity;
-        rollback += entry.side === 'BUY' ? -tradeValue : tradeValue;
+        // Prefer the cash the executor actually moved (already in the account's currency).
+        // Without it, price x quantity is only valid for an instrument in the account's currency:
+        // undoing a USD fill that way would subtract dollars from rupees, so stop here and leave
+        // every older row without a value ("—").
+        let cashMoved: number;
+        if (entry.settlementAmount != null) {
+          cashMoved = entry.settlementAmount;
+        } else if (currencyForSymbol(entry.symbol) === this.cashAfterCurrency()) {
+          cashMoved = (entry.executedPrice ?? entry.price) * entry.quantity;
+        } else {
+          break;
+        }
+        rollback += entry.side === 'BUY' ? -cashMoved : cashMoved;
       }
     }
 
@@ -255,7 +265,7 @@ export class BlotterComponent implements OnInit, OnChanges {
       });
   }
 
-  private handlePostHistoryFetch(entries: OrderHistoryEntry[]): void {
+  private handlePostHistoryFetch(entries: OrderHistoryRow[]): void {
     const hasWorkingOrders = entries.some((entry) => entry.status === 'NEW');
     if (!hasWorkingOrders) {
       this.stopPolling();

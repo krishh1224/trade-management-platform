@@ -52,6 +52,13 @@ export interface InstrumentOption {
   currency: string;
 }
 
+/**
+ * Order history row as trade-api returns it. `settlementAmount` is the cash actually moved on a
+ * FILLED order, in the account's currency. The server sends it but trade-api.yaml does not declare
+ * it, so it is added here rather than in the generated model (which `check:api` regenerates).
+ */
+export type OrderHistoryRow = OrderHistoryEntry & { settlementAmount?: number | null };
+
 export interface ClientProfile {
   accountId: number;
   name: string;
@@ -87,7 +94,7 @@ export class TradeService {
     return getPositions(this.http, this.config.rootUrl, { id: accountId }).pipe(map((r) => r.body));
   }
 
-  getOrders(accountId: number, filter: Omit<GetOrders$Params, 'id'> = {}): Observable<OrderHistoryEntry[]> {
+  getOrders(accountId: number, filter: Omit<GetOrders$Params, 'id'> = {}): Observable<OrderHistoryRow[]> {
     return getOrders(this.http, this.config.rootUrl, { id: accountId, ...filter }).pipe(map((r) => r.body));
   }
 
