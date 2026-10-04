@@ -17,7 +17,30 @@ test.describe('Place order journey', () => {
     await page.getByTestId('signin-password').fill(password ?? '');
     await page.getByTestId('signin-submit').click();
 
-    // Wait for successful sign-in
+    // Wait for either successful redirect to home or error message
+    // The sign-in is successful if we navigate away from /sign-in
+    await Promise.race([
+      page.waitForURL('/', { timeout: 10000 }),
+      page.waitForURL('**/orders', { timeout: 10000 }),
+      page.waitForURL('**/blotter', { timeout: 10000 })
+    ]).catch(() => {
+      // Timeout is okay - just means we didn't navigate, but we'll check for the button anyway
+    });
+    
+    // Verify we're signed in by clicking profile and checking for logout button
+    // If we see an error alert instead, the test will fail here
+    const errorAlert = page.locator('[role="alert"]');
+    const isError = await errorAlert.isVisible().catch(() => false);
+    
+    if (isError) {
+      const errorText = await errorAlert.textContent();
+      throw new Error(`Sign-in failed: ${errorText}`);
+    }
+    
+    // Click the profile menu to open it
+    await page.getByTestId('profile-trigger').click();
+    
+    // Wait for logout button to be visible in the dropdown
     await expect(page.getByTestId('signout-button')).toBeVisible();
   }
 

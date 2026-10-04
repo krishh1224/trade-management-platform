@@ -18,7 +18,6 @@ CREATE TABLE dim_instrument (
     name VARCHAR(255) NOT NULL,
     asset_class VARCHAR(20) NOT NULL,
     currency CHAR(3) NOT NULL,
-    exchange VARCHAR(20),
     tradable BOOLEAN NOT NULL,
     loaded_at TIMESTAMP NOT NULL,
 

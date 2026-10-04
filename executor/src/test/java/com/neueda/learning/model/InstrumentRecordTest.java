@@ -10,14 +10,13 @@ class InstrumentRecordTest {
     @Test
     void allArgsConstructorPopulatesAllGetters() {
         InstrumentRecord record = new InstrumentRecord(
-            301L, "INFY.NS", "Infosys Limited", "EQUITY", "INR", "NSE", true);
+            301L, "INFY.NS", "Infosys Limited", "EQUITY", "INR", true);
 
         assertEquals(301L, record.getInstrumentId());
         assertEquals("INFY.NS", record.getTicker());
         assertEquals("Infosys Limited", record.getName());
         assertEquals("EQUITY", record.getAssetClass());
         assertEquals("INR", record.getCurrency());
-        assertEquals("NSE", record.getExchange());
         assertEquals(true, record.getTradable());
     }
 
@@ -30,7 +29,6 @@ class InstrumentRecordTest {
         record.setName("Tata Steel Limited");
         record.setAssetClass("EQUITY");
         record.setCurrency("INR");
-        record.setExchange("BSE");
         record.setTradable(false);
 
         assertEquals(303L, record.getInstrumentId());
@@ -38,19 +36,17 @@ class InstrumentRecordTest {
         assertEquals("Tata Steel Limited", record.getName());
         assertEquals("EQUITY", record.getAssetClass());
         assertEquals("INR", record.getCurrency());
-        assertEquals("BSE", record.getExchange());
         assertEquals(false, record.getTradable());
     }
 
     @Test
     void toStringContainsKeyFields() {
         InstrumentRecord record = new InstrumentRecord(
-            301L, "INFY.NS", "Infosys Limited", "EQUITY", "INR", "NSE", true);
+            301L, "INFY.NS", "Infosys Limited", "EQUITY", "INR", true);
 
         String text = record.toString();
 
         assertTrue(text.contains("ticker='INFY.NS'"));
-        assertTrue(text.contains("exchange='NSE'"));
         assertTrue(text.contains("tradable=true"));
     }
 }

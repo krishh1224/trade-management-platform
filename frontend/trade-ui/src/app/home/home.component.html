@@ -16,20 +16,25 @@
     </div>
 
     <div class="topbar-right">
-      <div class="account-chip">
-        <span class="avatar" aria-hidden="true">
-          <svg viewBox="0 0 24 24" width="16" height="16"><circle cx="12" cy="8" r="4" fill="none" stroke="currentColor" stroke-width="2" /><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" /></svg>
-        </span>
-        <span class="account-meta">
-          <strong>{{ claims() ? 'Account ' + claims()!.accountId : 'Signed in' }}</strong>
-          <small>{{ role() }}</small>
-        </span>
-      </div>
+      <div class="profile-menu-wrap">
+        <button class="account-chip profile-trigger" type="button" (click)="toggleProfileMenu()" [attr.aria-expanded]="profileMenuOpen()" aria-haspopup="menu" data-testid="profile-trigger">
+          <span class="avatar" aria-hidden="true">
+            <svg viewBox="0 0 24 24" width="16" height="16"><circle cx="12" cy="8" r="4" fill="none" stroke="currentColor" stroke-width="2" /><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" /></svg>
+          </span>
+          <span class="account-meta">
+            <strong>{{ claims() ? 'Account ' + claims()!.accountId : 'Signed in' }}</strong>
+            <small>{{ role() }}</small>
+          </span>
+          <svg class="caret" viewBox="0 0 24 24" width="14" height="14" aria-hidden="true"><path d="M6 9l6 6 6-6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" /></svg>
+        </button>
 
-      <button class="signout-button" type="button" (click)="signOut()" data-testid="signout-button" aria-label="Sign out">
-        <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M15 4h3a2 2 0 012 2v12a2 2 0 01-2 2h-3M10 17l5-5-5-5M15 12H4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" /></svg>
-        <span>Sign out</span>
-      </button>
+        @if (profileMenuOpen()) {
+          <div class="profile-menu" role="menu">
+            <a role="menuitem" routerLink="/profile" (click)="closeProfileMenu()">Profile</a>
+            <button role="menuitem" type="button" (click)="signOut()" data-testid="signout-button">Logout</button>
+          </div>
+        }
+      </div>
 
       <button class="theme-toggle" type="button" (click)="toggleTheme()" [attr.aria-label]="theme() === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'">
         @if (theme() === 'dark') {
@@ -69,25 +74,36 @@
           } @else if (balanceAmount() === null) {
             —
           } @else if (balanceHidden()) {
-            {{ maskedBalance() }}
+            <span class="masked-dots">••••••••</span>
           } @else {
             {{ balanceCurrency() }} {{ balanceAmount()! | number: '1.2-2' }}
           }
         </strong>
         <div class="balance-actions">
-          <button class="view-balance-button" type="button" (click)="toggleBalanceVisibility()">
-            {{ balanceHidden() ? 'View' : 'Hide' }}
+          <button class="view-balance-button" type="button" (click)="toggleBalanceVisibility()" [attr.aria-label]="balanceHidden() ? 'Show balance' : 'Hide balance'">
+            @if (balanceHidden()) {
+              <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" /><circle cx="12" cy="12" r="3" fill="none" stroke="currentColor" stroke-width="2" /></svg>
+            } @else {
+              <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" /><line x1="1" y1="1" x2="23" y2="23" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" /></svg>
+            }
           </button>
-          <span class="stat-hint">From accounts table</span>
         </div>
       </article>
 
       <article class="stat">
-        <span class="stat-label">Role</span>
+        <span class="stat-label">Account Status</span>
         <strong class="stat-value">
-          <span class="role-badge">{{ role() }}</span>
+          @if (accountStatusLoading()) {
+            <span class="status-badge">Loading...</span>
+          } @else if (accountStatus() === null) {
+            <span class="status-badge">—</span>
+          } @else {
+            <span class="status-badge" [class.status-active]="accountStatus() === 'ACTIVE'" [class.status-suspended]="accountStatus() === 'SUSPENDED'" [class.status-closed]="accountStatus() === 'CLOSED'">
+              {{ accountStatus() }}
+            </span>
+          }
         </strong>
-        <span class="stat-hint">Access level for this session</span>
+        <span class="stat-hint">@if (accountStatus() === 'ACTIVE') {Only active accounts can place orders} @else {Contact support to reactivate}</span>
       </article>
     </section>
 
@@ -193,4 +209,5 @@
       </article>
     </section>
   </main>
+  <app-footer></app-footer>
 </div>

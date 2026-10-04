@@ -86,12 +86,17 @@ public class SettlementService {
                     null // no rejection reason for FILLED
                 );
             } else {
+                // Truncate rejection reason to fit VARCHAR(255) column
+                String rejectionReason = execution.getReason();
+                if (rejectionReason != null && rejectionReason.length() > 255) {
+                    rejectionReason = rejectionReason.substring(0, 252) + "...";
+                }
                 claimedRows = orderMapper.claimOrderIfNew(
                     order.getOrderId(),
                     "REJECTED",
                     null, // no execution price for REJECTED
                     executedOn,
-                    execution.getReason() // rejection reason
+                    rejectionReason
                 );
             }
 

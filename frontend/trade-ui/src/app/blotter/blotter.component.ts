@@ -9,6 +9,7 @@ import { TradeService } from '../api/trade.service';
 import { AuthSessionService } from '../auth/auth-session.service';
 import { currencyForSymbol } from '../instruments/instrument-currency';
 import { ThemeService } from '../theme/theme.service';
+import { FooterComponent } from '../shared/footer.component';
 
 export const BLOTTER_POLL_INTERVAL_MS = 3_000;
 export const BLOTTER_MAX_POLL_ATTEMPTS = 10;
@@ -19,7 +20,7 @@ type CreatedAtFilter = 'ALL' | 'TODAY' | 'LAST_7_DAYS' | 'LAST_30_DAYS';
 
 @Component({
   selector: 'app-blotter',
-  imports: [DatePipe, DecimalPipe, RouterLink],
+  imports: [DatePipe, DecimalPipe, RouterLink, FooterComponent],
   templateUrl: './blotter.component.html',
   styleUrl: './blotter.component.css'
 })
@@ -38,6 +39,7 @@ export class BlotterComponent implements OnInit, OnChanges {
 
   readonly claims = this.authSession.claims;
   readonly role = computed(() => this.claims()?.roles[0] ?? 'USER');
+  readonly profileMenuOpen = signal(false);
   readonly theme = this.themeService.theme;
 
   readonly orderHistory = signal<OrderHistoryEntry[]>([]);
@@ -101,6 +103,14 @@ export class BlotterComponent implements OnInit, OnChanges {
 
   toggleTheme(): void {
     this.themeService.toggleTheme();
+  }
+
+  toggleProfileMenu(): void {
+    this.profileMenuOpen.update((open) => !open);
+  }
+
+  closeProfileMenu(): void {
+    this.profileMenuOpen.set(false);
   }
 
   ngOnInit(): void {

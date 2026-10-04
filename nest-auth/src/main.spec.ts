@@ -78,6 +78,7 @@ describe('main bootstrap', () => {
     const app = {
       useLogger: jest.fn(),
       useGlobalPipes: jest.fn(),
+      enableCors: jest.fn(),
       get: getMock,
       listen: jest.fn().mockResolvedValue(undefined),
     };

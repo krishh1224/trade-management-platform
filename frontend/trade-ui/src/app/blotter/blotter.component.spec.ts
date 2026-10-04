@@ -14,7 +14,8 @@ const authServiceMock = {
 };
 
 const tradeServiceMock = {
-  getOrders: vi.fn()
+  getOrders: vi.fn(),
+  getBalance: vi.fn()
 };
 
 describe('BlotterComponent', () => {
@@ -27,6 +28,8 @@ describe('BlotterComponent', () => {
 
     tradeServiceMock.getOrders.mockReset();
     tradeServiceMock.getOrders.mockReturnValue(of([]));
+    tradeServiceMock.getBalance.mockReset();
+    tradeServiceMock.getBalance.mockReturnValue(of({ cashBalance: 1000, currency: 'INR' }));
 
     await TestBed.configureTestingModule({
       imports: [BlotterComponent],

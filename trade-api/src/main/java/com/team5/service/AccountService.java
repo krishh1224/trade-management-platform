@@ -3,6 +3,7 @@ package com.team5.service;
 import com.team5.domain.enums.OrderStatus;
 import com.team5.dto.response.AccountResponse;
 import com.team5.dto.response.BalanceResponse;
+import com.team5.dto.response.ClientProfileResponse;
 import com.team5.dto.response.InstrumentOptionResponse;
 import com.team5.dto.response.OrderHistoryEntry;
 import com.team5.dto.response.PositionResponse;
@@ -12,6 +13,8 @@ import java.util.List;
 public interface AccountService {
 
     AccountResponse getAccount(long authenticatedAccountId, Long accountId);
+
+    ClientProfileResponse getClientProfile(long authenticatedAccountId, Long accountId);
 
     BalanceResponse getBalance(long authenticatedAccountId, Long accountId);
 

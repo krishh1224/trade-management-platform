@@ -113,7 +113,7 @@ class OrderPlacedConsumerIntegrationTest {
 
         // Setup instrument
         InstrumentRecord instrument = new InstrumentRecord(
-                instrumentId, "INFY.NS", "Infosys", "EQUITY", "INR", "NSE", true
+                instrumentId, "INFY.NS", "Infosys", "EQUITY", "INR", true
         );
 
         // Setup mocks for all database calls
@@ -178,7 +178,7 @@ class OrderPlacedConsumerIntegrationTest {
 
         // Setup instrument
         InstrumentRecord instrument = new InstrumentRecord(
-                instrumentId, "INFY.NS", "Infosys", "EQUITY", "INR", "NSE", true
+                instrumentId, "INFY.NS", "Infosys", "EQUITY", "INR", true
         );
 
         // Setup mocks
@@ -242,7 +242,7 @@ class OrderPlacedConsumerIntegrationTest {
 
         // Setup instrument
         InstrumentRecord instrument = new InstrumentRecord(
-                instrumentId, "INFY.NS", "Infosys", "EQUITY", "INR", "NSE", true
+                instrumentId, "INFY.NS", "Infosys", "EQUITY", "INR", true
         );
 
         // Setup mocks

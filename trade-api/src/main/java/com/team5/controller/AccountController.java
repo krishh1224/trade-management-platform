@@ -4,6 +4,7 @@ import com.team5.auth.AuthenticatedAccountId;
 import com.team5.domain.enums.OrderStatus;
 import com.team5.dto.response.AccountResponse;
 import com.team5.dto.response.BalanceResponse;
+import com.team5.dto.response.ClientProfileResponse;
 import com.team5.dto.response.InstrumentOptionResponse;
 import com.team5.dto.response.OrderHistoryEntry;
 import com.team5.dto.response.PositionResponse;
@@ -36,6 +37,14 @@ public class AccountController {
         @AuthenticatedAccountId long authenticatedAccountId
     ) {
         return ResponseEntity.ok(accountService.getAccount(authenticatedAccountId, id));
+    }
+
+    @GetMapping("/{id}/profile")
+    public ResponseEntity<ClientProfileResponse> getClientProfile(
+        @PathVariable("id") @Min(1) Long id,
+        @AuthenticatedAccountId long authenticatedAccountId
+    ) {
+        return ResponseEntity.ok(accountService.getClientProfile(authenticatedAccountId, id));
     }
 
     @GetMapping("/{id}/balance")

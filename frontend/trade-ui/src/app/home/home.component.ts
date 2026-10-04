@@ -4,15 +4,16 @@ import { RouterLink } from '@angular/router';
 import { Router } from '@angular/router';
 import { finalize } from 'rxjs';
 
-import { OrderHistoryEntry } from '../api/generated/trade-api/models';
+import { AccountStatus, OrderHistoryEntry } from '../api/generated/trade-api/models';
 import { TradeService } from '../api/trade.service';
 import { AuthSessionService } from '../auth/auth-session.service';
 import { currencyForSymbol } from '../instruments/instrument-currency';
 import { ThemeService } from '../theme/theme.service';
+import { FooterComponent } from '../shared/footer.component';
 
 @Component({
   selector: 'app-home',
-  imports: [RouterLink, DecimalPipe],
+  imports: [RouterLink, DecimalPipe, FooterComponent],
   templateUrl: './home.component.html',
   styleUrl: './home.component.css'
 })
@@ -25,12 +26,15 @@ export class HomeComponent {
 
   readonly claims = this.authSession.claims;
   readonly role = computed(() => this.claims()?.roles[0] ?? 'USER');
+  readonly profileMenuOpen = signal(false);
   readonly customerName = signal('Customer');
   readonly theme = this.themeService.theme;
   readonly balanceAmount = signal<number | null>(null);
   readonly balanceCurrency = signal('INR');
   readonly balanceLoading = signal(false);
   readonly balanceHidden = signal(true);
+  readonly accountStatus = signal<AccountStatus | null>(null);
+  readonly accountStatusLoading = signal(false);
   readonly recentOrders = signal<OrderHistoryEntry[]>([]);
   readonly ordersLoading = signal(false);
   readonly ordersError = signal('');
@@ -58,11 +62,20 @@ export class HomeComponent {
     inject(DestroyRef).onDestroy(() => clearInterval(timer));
     this.loadCustomerName();
     this.loadBalance();
+    this.loadAccountStatus();
     this.loadRecentOrders();
   }
 
   toggleTheme(): void {
     this.themeService.toggleTheme();
+  }
+
+  toggleProfileMenu(): void {
+    this.profileMenuOpen.update((open) => !open);
+  }
+
+  closeProfileMenu(): void {
+    this.profileMenuOpen.set(false);
   }
 
   signOut(): void {
@@ -72,10 +85,6 @@ export class HomeComponent {
 
   toggleBalanceVisibility(): void {
     this.balanceHidden.update((hidden) => !hidden);
-  }
-
-  maskedBalance(): string {
-    return '••••••';
   }
 
   statusLabel(status: OrderHistoryEntry['status']): string {
@@ -148,5 +157,26 @@ export class HomeComponent {
         this.customerName.set(this.claims()?.sub ?? 'Customer');
       }
     });
+  }
+
+  private loadAccountStatus(): void {
+    const accountId = this.claims()?.accountId ?? null;
+    if (accountId === null) {
+      this.accountStatus.set(null);
+      return;
+    }
+
+    this.accountStatusLoading.set(true);
+    this.tradeService
+      .getAccount(accountId)
+      .pipe(finalize(() => this.accountStatusLoading.set(false)))
+      .subscribe({
+        next: (account) => {
+          this.accountStatus.set(account.status);
+        },
+        error: () => {
+          this.accountStatus.set(null);
+        }
+      });
   }
 }

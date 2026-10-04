@@ -52,6 +52,14 @@ export interface InstrumentOption {
   currency: string;
 }
 
+export interface ClientProfile {
+  accountId: number;
+  name: string;
+  email: string;
+  phone: string;
+  dob: string;
+}
+
 /** Hand-written facade over the generated Trade REST API client. Unwraps the HTTP envelope. */
 @Injectable({ providedIn: 'root' })
 export class TradeService {
@@ -110,5 +118,7 @@ export class TradeService {
 
   createWatchlistGroup(request: CreateWatchlistGroupRequest): Observable<WatchlistGroup> {
     return this.http.post<WatchlistGroup>(`${this.config.rootUrl}/api/v1/watchlists/groups`, request);
+  getClientProfile(accountId: number): Observable<ClientProfile> {
+    return this.http.get<ClientProfile>(`${this.config.rootUrl}/api/v1/accounts/${accountId}/profile`);
   }
 }

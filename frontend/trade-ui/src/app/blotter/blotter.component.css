@@ -1,6 +1,8 @@
 .shell {
   min-height: 100dvh;
   background: var(--bg-raised);
+  display: flex;
+  flex-direction: column;
 }
 
 .topbar {
@@ -82,6 +84,10 @@
   cursor: not-allowed;
 }
 
+.profile-menu-wrap {
+  position: relative;
+}
+
 .account-chip {
   display: flex;
   align-items: center;
@@ -119,26 +125,44 @@
   letter-spacing: 0.06em;
 }
 
-.signout-button {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  height: 38px;
-  padding: 0 14px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  background: transparent;
-  color: var(--text-muted);
-  font-size: 0.88rem;
-  font-weight: 500;
+.profile-trigger {
   cursor: pointer;
-  transition: color 150ms ease, border-color 150ms ease, background 150ms ease;
+  color: inherit;
 }
 
-.signout-button:hover {
-  border-color: var(--down);
-  background: var(--down-soft);
-  color: var(--down);
+.caret {
+  color: var(--text-faint);
+}
+
+.profile-menu {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 8px);
+  min-width: 150px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  box-shadow: var(--shadow);
+  display: grid;
+  overflow: hidden;
+  z-index: 20;
+}
+
+.profile-menu a,
+.profile-menu button {
+  border: 0;
+  background: transparent;
+  color: var(--text);
+  text-align: left;
+  text-decoration: none;
+  font-size: 0.85rem;
+  padding: 10px 12px;
+  cursor: pointer;
+}
+
+.profile-menu a:hover,
+.profile-menu button:hover {
+  background: var(--surface-2);
 }
 
 .theme-toggle {
@@ -525,16 +549,6 @@ td.col-status {
 
   .account-chip {
     padding: 4px;
-  }
-
-  .signout-button span {
-    display: none;
-  }
-
-  .signout-button {
-    width: 38px;
-    padding: 0;
-    justify-content: center;
   }
 
   .theme-toggle {
