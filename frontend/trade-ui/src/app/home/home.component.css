@@ -485,6 +485,12 @@
   font-weight: 500;
 }
 
+.soon-badge.connected {
+  border-color: rgba(22, 199, 132, 0.35);
+  background: var(--up-soft);
+  color: var(--up);
+}
+
 .panel-link {
   color: var(--accent-hover);
   font-size: 0.8rem;
