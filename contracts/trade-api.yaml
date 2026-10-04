@@ -73,6 +73,8 @@ tags:
     description: Placing and cancelling orders.
   - name: Accounts
     description: Account details, cash balance, holdings and order history.
+  - name: Watchlist
+    description: Add, list and remove watchlist instruments.
 
 security:
   - bearerAuth: []
@@ -365,6 +367,93 @@ paths:
         '404':
           $ref: '#/components/responses/AccountNotFound'
 
+  /api/v1/watchlists:
+    post:
+      tags: [Watchlist]
+      operationId: addToWatchlist
+      summary: Add instrument to watchlist
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AddToWatchlistRequest'
+      responses:
+        '201':
+          description: Instrument added to watchlist.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WatchlistItemResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorised'
+        '403':
+          $ref: '#/components/responses/AccountNotActive'
+        '404':
+          description: Account or instrument not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Instrument already exists in watchlist.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                duplicate:
+                  value:
+                    errorCode: WTL-409
+                    message: Instrument already in watchlist
+        '422':
+          $ref: '#/components/responses/InvalidInput'
+    get:
+      tags: [Watchlist]
+      operationId: listWatchlist
+      summary: List watchlist entries
+      responses:
+        '200':
+          description: Watchlist entries for authenticated account.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/WatchlistItemResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorised'
+
+  /api/v1/watchlists/{instrumentId}:
+    delete:
+      tags: [Watchlist]
+      operationId: removeFromWatchlist
+      summary: Remove instrument from watchlist
+      parameters:
+        - name: instrumentId
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+            minimum: 1
+      responses:
+        '204':
+          description: Entry removed.
+        '401':
+          $ref: '#/components/responses/Unauthorised'
+        '404':
+          description: Watchlist entry not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                notFound:
+                  value:
+                    errorCode: WTL-404
+                    message: Watchlist item not found
+
 components:
 
   securitySchemes:
@@ -540,6 +629,46 @@ components:
           format: double
           example: 25.50
 
+    AddToWatchlistRequest:
+      type: object
+      additionalProperties: false
+      required: [accountId, symbol]
+      properties:
+        accountId:
+          type: integer
+          format: int64
+          minimum: 1
+          example: 101
+        symbol:
+          type: string
+          minLength: 1
+          maxLength: 20
+          example: RELIANCE.NS
+
+    WatchlistItemResponse:
+      type: object
+      additionalProperties: false
+      required: [watchlistId, instrumentId, symbol, instrumentName, addedAt]
+      properties:
+        watchlistId:
+          type: integer
+          format: int64
+          example: 1000001
+        instrumentId:
+          type: integer
+          format: int64
+          example: 302
+        symbol:
+          type: string
+          example: RELIANCE.NS
+        instrumentName:
+          type: string
+          example: Reliance Industries Limited
+        addedAt:
+          type: string
+          format: date-time
+          example: '2026-09-29T09:14:22Z'
+
     OrderHistoryEntry:
       type: object
       additionalProperties: false
@@ -679,7 +808,7 @@ components:
       properties:
         errorCode:
           type: string
-          enum: [ACC-404, ACC-403, INS-404, ORD-400, ORD-409, VAL-422, AUTH-401]
+          enum: [ACC-404, ACC-403, INS-404, ORD-400, ORD-409, WTL-404, WTL-409, VAL-422, AUTH-401]
           description: |
             | Code | HTTP | Meaning |
             |---|---|---|
@@ -688,6 +817,8 @@ components:
             | `INS-404` | 404 | Instrument not found or not tradable |
             | `ORD-400` | 400 | Insufficient funds |
             | `ORD-409` | 409 | Insufficient holdings, duplicate order, or order not cancellable |
+            | `WTL-404` | 404 | Watchlist item not found |
+            | `WTL-409` | 409 | Instrument already in watchlist |
             | `VAL-422` | 422 | Invalid input |
             | `AUTH-401` | 401 | Unauthorised or invalid token |
           example: ORD-409

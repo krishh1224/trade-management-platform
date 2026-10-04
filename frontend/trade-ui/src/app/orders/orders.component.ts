@@ -1,6 +1,6 @@
 import { Component, computed, inject, signal } from '@angular/core';
 import { AbstractControl, FormBuilder, ReactiveFormsModule, ValidationErrors, Validators } from '@angular/forms';
-import { Router, RouterLink } from '@angular/router';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { finalize } from 'rxjs';
 
 import { toUserFacingErrorMessage } from '../api/error-catalogue';
@@ -22,6 +22,7 @@ export class OrdersComponent {
   private readonly authSession = inject(AuthSessionService);
   private readonly tradeService = inject(TradeService);
   private readonly router = inject(Router);
+  private readonly route = inject(ActivatedRoute);
   private readonly themeService = inject(ThemeService);
 
   readonly claims = this.authSession.claims;
@@ -63,6 +64,13 @@ export class OrdersComponent {
     this.themeService.initialize();
     this.loadAccountStatus();
     this.loadInstruments();
+
+    const symbolFromQuery = this.route.snapshot.queryParamMap.get('symbol');
+    if (symbolFromQuery) {
+      const normalized = symbolFromQuery.trim().toUpperCase();
+      this.orderForm.controls.symbol.setValue(normalized);
+      this.instrumentQuery.set(normalized);
+    }
   }
 
   toggleTheme(): void {

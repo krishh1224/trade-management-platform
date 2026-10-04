@@ -18,6 +18,34 @@ import {
   PositionResponse
 } from './generated/trade-api/models';
 
+export interface WatchlistItem {
+  watchlistId: string;
+  watchlistGroupId: string;
+  watchlistName: string;
+  instrumentId: number;
+  symbol: string;
+  instrumentName: string;
+  addedAt: string;
+  lastPrice: number | null;
+  changePct: number | null;
+}
+
+export interface AddToWatchlistRequest {
+  accountId: number;
+  symbol: string;
+  watchlistGroupId?: string;
+}
+
+export interface WatchlistGroup {
+  watchlistGroupId: string;
+  name: string;
+  createdAt: string;
+}
+
+export interface CreateWatchlistGroupRequest {
+  name: string;
+}
+
 export interface InstrumentOption {
   symbol: string;
   name: string;
@@ -68,6 +96,28 @@ export class TradeService {
     return this.http.get<InstrumentOption[]>(`${this.config.rootUrl}/api/v1/accounts/${accountId}/instruments`, { params });
   }
 
+  /** Get watchlist items for authenticated user */
+  getWatchlist(accountId: number, watchlistGroupId?: string): Observable<WatchlistItem[]> {
+    const params = watchlistGroupId ? new HttpParams({ fromObject: { groupId: String(watchlistGroupId) } }) : undefined;
+    return this.http.get<WatchlistItem[]>(`${this.config.rootUrl}/api/v1/watchlists`, { params });
+  }
+
+  /** Add instrument to watchlist */
+  addToWatchlist(request: AddToWatchlistRequest): Observable<WatchlistItem> {
+    return this.http.post<WatchlistItem>(`${this.config.rootUrl}/api/v1/watchlists`, request);
+  }
+
+  /** Remove watchlist row by watchlist id */
+  removeFromWatchlist(watchlistId: string): Observable<void> {
+    return this.http.delete<void>(`${this.config.rootUrl}/api/v1/watchlists/${watchlistId}`);
+  }
+
+  listWatchlistGroups(): Observable<WatchlistGroup[]> {
+    return this.http.get<WatchlistGroup[]>(`${this.config.rootUrl}/api/v1/watchlists/groups`);
+  }
+
+  createWatchlistGroup(request: CreateWatchlistGroupRequest): Observable<WatchlistGroup> {
+    return this.http.post<WatchlistGroup>(`${this.config.rootUrl}/api/v1/watchlists/groups`, request);
   getClientProfile(accountId: number): Observable<ClientProfile> {
     return this.http.get<ClientProfile>(`${this.config.rootUrl}/api/v1/accounts/${accountId}/profile`);
   }

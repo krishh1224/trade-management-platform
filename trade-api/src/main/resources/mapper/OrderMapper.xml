@@ -13,6 +13,7 @@
   <select id="findInstrumentByTicker" resultType="map">
     SELECT
       instrument_id,
+      name,
       ticker,
       tradable
     FROM instruments
