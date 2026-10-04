@@ -7,7 +7,7 @@ import { toUserFacingErrorMessage } from '../api/error-catalogue';
 import { AccountStatus } from '../api/generated/trade-api/models';
 import { InstrumentOption, TradeService } from '../api/trade.service';
 import { AuthSessionService } from '../auth/auth-session.service';
-import { currencyForSymbol } from '../instruments/instrument-currency';
+import { DEFAULT_ACCOUNT_CURRENCY, currencyForSymbol } from '../instruments/instrument-currency';
 import { ThemeService } from '../theme/theme.service';
 import { FooterComponent } from '../shared/footer.component';
 
@@ -32,6 +32,7 @@ export class OrdersComponent {
   readonly accountId = computed(() => this.claims()?.accountId ?? null);
   readonly accountStatus = signal<AccountStatus | null>(null);
   readonly accountStatusError = signal('');
+  readonly accountCurrency = signal(DEFAULT_ACCOUNT_CURRENCY);
   readonly canPlaceOrder = computed(() => this.accountStatus() === 'ACTIVE');
   readonly orderSubmitting = signal(false);
   readonly orderErrorMessage = signal('');
@@ -63,6 +64,7 @@ export class OrdersComponent {
   constructor() {
     this.themeService.initialize();
     this.loadAccountStatus();
+    this.loadAccountCurrency();
     this.loadInstruments();
 
     const symbolFromQuery = this.route.snapshot.queryParamMap.get('symbol');
@@ -86,7 +88,26 @@ export class OrdersComponent {
   }
 
   currentSymbolCurrency(): string {
-    return currencyForSymbol(this.orderForm.controls.symbol.value);
+    const symbol = (this.orderForm.controls.symbol.value ?? '').trim().toUpperCase();
+    const listed = this.instrumentOptions().find((option) => option.symbol.toUpperCase() === symbol);
+    return listed?.currency ?? currencyForSymbol(symbol);
+  }
+
+  /**
+   * Shown when the instrument trades in a different currency from the account's cash. The Trade
+   * Executor converts at the live FX rate when the order fills, so no amount is quoted here.
+   */
+  settlementNote(): string {
+    if ((this.orderForm.controls.symbol.value ?? '').trim().length === 0) {
+      return '';
+    }
+    const instrumentCurrency = this.currentSymbolCurrency();
+    const accountCurrency = this.accountCurrency();
+    if (instrumentCurrency === accountCurrency) {
+      return '';
+    }
+    return `${instrumentCurrency} order, settled from your ${accountCurrency} balance at the live ` +
+      `${instrumentCurrency}/${accountCurrency} rate at execution.`;
   }
 
   onInstrumentInput(): void {
@@ -205,6 +226,23 @@ export class OrdersComponent {
           this.accountStatusError.set('Unable to load account status.');
         }
       });
+  }
+
+  private loadAccountCurrency(): void {
+    const accountId = this.accountId();
+    if (accountId === null) {
+      return;
+    }
+
+    // Cash balance currency is the account's base currency; keep the INR default if it can't load.
+    this.tradeService.getBalance(accountId).subscribe({
+      next: (balance) => {
+        if (balance.currency) {
+          this.accountCurrency.set(balance.currency.toUpperCase());
+        }
+      },
+      error: () => {}
+    });
   }
 
   private priceValidator(control: AbstractControl<string>): ValidationErrors | null {

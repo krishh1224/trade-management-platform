@@ -322,6 +322,12 @@
   font-size: 0.78rem;
 }
 
+.settlement-note {
+  display: block;
+  color: var(--text-muted);
+  font-size: 0.78rem;
+}
+
 .field-group label {
   color: var(--text-muted);
   font-size: 0.78rem;

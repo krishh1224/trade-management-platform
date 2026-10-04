@@ -60,7 +60,10 @@
       o.side AS side,
       CAST(o.quantity AS INTEGER) AS quantity,
       o.price AS price,
-      CASE WHEN o.status = 'FILLED' THEN o.price ELSE NULL END AS executedPrice,
+      <!-- executed_price is what the Trade Executor filled at. Rows filled before the executor
+           existed (Sprint 6 synchronous fills, seed data) have no executed_price and filled at
+           their limit price, so fall back to it for those only. -->
+      CASE WHEN o.status = 'FILLED' THEN COALESCE(o.executed_price, o.price) ELSE NULL END AS executedPrice,
       o.status AS status,
       o.idempotency_key AS idempotencyKey,
       o.created_at AS createdOn

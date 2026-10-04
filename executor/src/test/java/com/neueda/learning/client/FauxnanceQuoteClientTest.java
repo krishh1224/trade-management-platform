@@ -122,6 +122,58 @@ class FauxnanceQuoteClientTest {
     }
 
     /**
+     * Test: FX rates keep full precision (FX:INRUSD 0.010399 would round to 0.01 at 2dp).
+     */
+    @Test
+    void testFxRateKeepsFullPrecision() {
+        FauxnanceQuoteClient.FauxnanceQuoteResponse response =
+                new FauxnanceQuoteClient.FauxnanceQuoteResponse(
+                        new FauxnanceQuoteClient.FauxnanceQuoteResponse.Data(
+                                new BigDecimal("0.010399"),
+                                new BigDecimal("0.010401"),
+                                "USD"
+                        )
+                );
+
+        when(restTemplate.exchange(
+                eq("http://localhost:8081/quotes/FX:INRUSD"),
+                eq(HttpMethod.GET),
+                any(),
+                eq(FauxnanceQuoteClient.FauxnanceQuoteResponse.class)
+        )).thenReturn(new ResponseEntity<>(response, HttpStatus.OK));
+
+        Quote rate = quoteClient.getFxRate("INR", "USD");
+
+        assertEquals("FX:INRUSD", rate.getSymbol());
+        assertEquals(new BigDecimal("0.010399"), rate.getBid());
+        assertEquals(new BigDecimal("0.010401"), rate.getAsk());
+    }
+
+    /**
+     * Test: an FX pair quoted in a currency other than the target is not used.
+     */
+    @Test
+    void testFxRateInUnexpectedCurrencyIsUnavailable() {
+        FauxnanceQuoteClient.FauxnanceQuoteResponse response =
+                new FauxnanceQuoteClient.FauxnanceQuoteResponse(
+                        new FauxnanceQuoteClient.FauxnanceQuoteResponse.Data(
+                                new BigDecimal("96.169038"),
+                                new BigDecimal("96.170962"),
+                                "USD"
+                        )
+                );
+
+        when(restTemplate.exchange(anyString(), eq(HttpMethod.GET), any(), eq(FauxnanceQuoteClient.FauxnanceQuoteResponse.class)))
+                .thenReturn(new ResponseEntity<>(response, HttpStatus.OK));
+
+        QuoteUnavailableException exception = assertThrows(QuoteUnavailableException.class, () ->
+                quoteClient.getFxRate("USD", "INR")
+        );
+
+        assertTrue(exception.getMessage().contains("expected INR"));
+    }
+
+    /**
      * Test: Null response handling.
      */
     @Test

@@ -166,6 +166,10 @@
           </div>
         </div>
 
+        @if (settlementNote()) {
+          <small class="settlement-note" data-testid="order-settlement-note">{{ settlementNote() }}</small>
+        }
+
         @if (orderErrorMessage()) {
           <div class="form-error" role="alert">{{ orderErrorMessage() }}</div>
         }

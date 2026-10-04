@@ -74,7 +74,7 @@ class SettlementServiceTest {
         ExecutionResult execution = new ExecutionResult(orderId, ExecutionStatus.FILLED, executedPrice, "BUY order filled");
 
         // Mock the order claim (returns 1 = success)
-        when(orderMapper.claimOrderIfNew(eq(orderId), eq("FILLED"), eq(executedPrice), any(LocalDateTime.class), isNull()))
+        when(orderMapper.claimOrderIfNew(eq(orderId), eq("FILLED"), eq(executedPrice), any(LocalDateTime.class), isNull(), isNull(), isNull(), isNull()))
             .thenReturn(1);
 
         // Mock account read and update with optimistic lock
@@ -100,7 +100,7 @@ class SettlementServiceTest {
         assertThat(result.isDuplicate()).isFalse();
 
         // Verify all three writes happened
-        verify(orderMapper).claimOrderIfNew(eq(orderId), eq("FILLED"), eq(executedPrice), any(LocalDateTime.class), isNull());
+        verify(orderMapper).claimOrderIfNew(eq(orderId), eq("FILLED"), eq(executedPrice), any(LocalDateTime.class), isNull(), isNull(), isNull(), isNull());
         verify(accountMapper).findById(accountId);
         verify(accountMapper).updateBalanceWithVersionCheck(eq(accountId), eq(new BigDecimal("35000.00")), eq(1L));
         verify(holdingMapper).findByPortfolioAndInstrument(portfolioId, instrumentId);
@@ -128,7 +128,7 @@ class SettlementServiceTest {
         ExecutionResult execution = new ExecutionResult(orderId, ExecutionStatus.FILLED, executedPrice, "SELL order filled");
 
         // Mock the order claim (returns 1 = success)
-        when(orderMapper.claimOrderIfNew(eq(orderId), eq("FILLED"), eq(executedPrice), any(LocalDateTime.class), isNull()))
+        when(orderMapper.claimOrderIfNew(eq(orderId), eq("FILLED"), eq(executedPrice), any(LocalDateTime.class), isNull(), isNull(), isNull(), isNull()))
             .thenReturn(1);
 
         // Mock account read and update
@@ -169,7 +169,7 @@ class SettlementServiceTest {
         ExecutionResult execution = new ExecutionResult(orderId, ExecutionStatus.REJECTED, null, "Quote unavailable");
 
         // Mock the order claim (returns 1 = success)
-        when(orderMapper.claimOrderIfNew(eq(orderId), eq("REJECTED"), isNull(), any(LocalDateTime.class), eq("Quote unavailable")))
+        when(orderMapper.claimOrderIfNew(eq(orderId), eq("REJECTED"), isNull(), any(LocalDateTime.class), eq("Quote unavailable"), isNull(), isNull(), isNull()))
             .thenReturn(1);
 
         // When
@@ -180,7 +180,7 @@ class SettlementServiceTest {
         // Then
         assertThat(result.isSuccess()).isTrue();
         // Verify order was claimed
-        verify(orderMapper).claimOrderIfNew(eq(orderId), eq("REJECTED"), isNull(), any(LocalDateTime.class), eq("Quote unavailable"));
+        verify(orderMapper).claimOrderIfNew(eq(orderId), eq("REJECTED"), isNull(), any(LocalDateTime.class), eq("Quote unavailable"), isNull(), isNull(), isNull());
         // Verify account and holdings were NOT touched
         verify(accountMapper, never()).findById(any());
         verify(holdingMapper, never()).findByPortfolioAndInstrument(any(), any());
@@ -203,7 +203,7 @@ class SettlementServiceTest {
         ExecutionResult execution = new ExecutionResult(orderId, ExecutionStatus.FILLED, executedPrice, "Filled");
 
         // Mock the order claim (returns 0 = already processed)
-        when(orderMapper.claimOrderIfNew(eq(orderId), eq("FILLED"), eq(executedPrice), any(LocalDateTime.class), isNull()))
+        when(orderMapper.claimOrderIfNew(eq(orderId), eq("FILLED"), eq(executedPrice), any(LocalDateTime.class), isNull(), isNull(), isNull(), isNull()))
             .thenReturn(0);
 
         // When
@@ -238,7 +238,7 @@ class SettlementServiceTest {
         ExecutionResult execution = new ExecutionResult(orderId, ExecutionStatus.FILLED, executedPrice, "Filled");
 
         // Mock the order claim
-        when(orderMapper.claimOrderIfNew(eq(orderId), eq("FILLED"), eq(executedPrice), any(LocalDateTime.class), isNull()))
+        when(orderMapper.claimOrderIfNew(eq(orderId), eq("FILLED"), eq(executedPrice), any(LocalDateTime.class), isNull(), isNull(), isNull(), isNull()))
             .thenReturn(1);
 
         // Mock account: first read returns v1, second read returns v2 (updated by concurrent tx)
@@ -287,7 +287,7 @@ class SettlementServiceTest {
         ExecutionResult execution = new ExecutionResult(orderId, ExecutionStatus.FILLED, executedPrice, "Filled");
 
         // Mock the order claim
-        when(orderMapper.claimOrderIfNew(eq(orderId), eq("FILLED"), eq(executedPrice), any(LocalDateTime.class), isNull()))
+        when(orderMapper.claimOrderIfNew(eq(orderId), eq("FILLED"), eq(executedPrice), any(LocalDateTime.class), isNull(), isNull(), isNull(), isNull()))
             .thenReturn(1);
 
         // Mock account: always returns the same version
@@ -330,7 +330,7 @@ class SettlementServiceTest {
         ExecutionResult execution = new ExecutionResult(orderId, ExecutionStatus.FILLED, executedPrice, "Filled");
 
         // Mock the order claim
-        when(orderMapper.claimOrderIfNew(eq(orderId), eq("FILLED"), eq(executedPrice), any(LocalDateTime.class), isNull()))
+        when(orderMapper.claimOrderIfNew(eq(orderId), eq("FILLED"), eq(executedPrice), any(LocalDateTime.class), isNull(), isNull(), isNull(), isNull()))
             .thenReturn(1);
 
         // Mock account read
@@ -368,7 +368,7 @@ class SettlementServiceTest {
         ExecutionResult execution = new ExecutionResult(orderId, ExecutionStatus.FILLED, executedPrice, "Filled");
 
         // Mock the order claim
-        when(orderMapper.claimOrderIfNew(eq(orderId), eq("FILLED"), eq(executedPrice), any(LocalDateTime.class), isNull()))
+        when(orderMapper.claimOrderIfNew(eq(orderId), eq("FILLED"), eq(executedPrice), any(LocalDateTime.class), isNull(), isNull(), isNull(), isNull()))
             .thenReturn(1);
 
         // Mock account read and update
@@ -389,6 +389,142 @@ class SettlementServiceTest {
         assertThat(result.isSuccess()).isFalse();
         assertThat(result.getErrorMessage()).contains("Insufficient holdings");
         // Verify holding update was NOT attempted
+        verify(holdingMapper, never()).updateQuantity(anyLong(), anyLong());
+    }
+
+    // ==================== Test 6: Currency conversion ====================
+
+    @Test
+    @DisplayName("FILLED USD BUY on an INR account debits the INR settlement amount and records the FX rate")
+    void testSettleUsdBuyDebitsInrSettlementAmount() {
+        long orderId = 1009L;
+        long accountId = 101L;
+        long portfolioId = 201L;
+        long instrumentId = 307L; // AAPL
+        int quantity = 2;
+        BigDecimal executedPrice = new BigDecimal("333.73");     // USD
+        BigDecimal fxRate = new BigDecimal("96.17096200");
+        BigDecimal settlementAmount = new BigDecimal("64190.27"); // INR
+
+        OrderRecord order = createOrderRecord(orderId, portfolioId, instrumentId, quantity, "NEW", "BUY");
+        AccountRecord account = createAccountRecord(accountId, new BigDecimal("98000.00"), 3L);
+        ExecutionResult execution = new ExecutionResult(orderId, ExecutionStatus.FILLED, executedPrice,
+            "BUY order marketable at ask price", fxRate, "INR", settlementAmount);
+
+        when(orderMapper.claimOrderIfNew(eq(orderId), eq("FILLED"), eq(executedPrice), any(LocalDateTime.class),
+            isNull(), eq(fxRate), eq("INR"), eq(settlementAmount))).thenReturn(1);
+        when(accountMapper.findById(accountId)).thenReturn(account);
+        when(accountMapper.updateBalanceWithVersionCheck(accountId, new BigDecimal("33809.73"), 3L)).thenReturn(1);
+        when(holdingMapper.findByPortfolioAndInstrument(portfolioId, instrumentId)).thenReturn(null);
+        when(holdingMapper.insertHolding(anyLong(), eq(portfolioId), eq(instrumentId), eq(2L), eq(executedPrice)))
+            .thenReturn(1);
+
+        SettlementService.SettlementResult result = settlementService.settleOrder(
+            execution, order, accountId, portfolioId, quantity, instrumentId);
+
+        assertThat(result.isSuccess()).isTrue();
+        // 98000.00 - 64190.27, NOT 98000.00 - 667.46 (the USD trade value)
+        verify(accountMapper).updateBalanceWithVersionCheck(accountId, new BigDecimal("33809.73"), 3L);
+        // Average cost stays in the instrument's currency
+        verify(holdingMapper).insertHolding(anyLong(), eq(portfolioId), eq(instrumentId), eq(2L), eq(executedPrice));
+    }
+
+    @Test
+    @DisplayName("FILLED USD SELL on an INR account credits the INR settlement amount")
+    void testSettleUsdSellCreditsInrSettlementAmount() {
+        long orderId = 1010L;
+        long accountId = 101L;
+        long portfolioId = 201L;
+        long instrumentId = 307L;
+        int quantity = 2;
+        BigDecimal executedPrice = new BigDecimal("333.65");
+        BigDecimal fxRate = new BigDecimal("96.16903800");
+        BigDecimal settlementAmount = new BigDecimal("64173.60");
+
+        OrderRecord order = createOrderRecord(orderId, portfolioId, instrumentId, quantity, "NEW", "SELL");
+        AccountRecord account = createAccountRecord(accountId, new BigDecimal("1000.00"), 1L);
+        PortfolioHoldingRecord holding = new PortfolioHoldingRecord(
+            410L, portfolioId, instrumentId, 5L, new BigDecimal("320.0000"), LocalDateTime.now(), LocalDateTime.now());
+        ExecutionResult execution = new ExecutionResult(orderId, ExecutionStatus.FILLED, executedPrice,
+            "SELL order marketable at bid price", fxRate, "INR", settlementAmount);
+
+        when(orderMapper.claimOrderIfNew(eq(orderId), eq("FILLED"), eq(executedPrice), any(LocalDateTime.class),
+            isNull(), eq(fxRate), eq("INR"), eq(settlementAmount))).thenReturn(1);
+        when(accountMapper.findById(accountId)).thenReturn(account);
+        when(accountMapper.updateBalanceWithVersionCheck(accountId, new BigDecimal("65173.60"), 1L)).thenReturn(1);
+        when(holdingMapper.findByPortfolioAndInstrument(portfolioId, instrumentId)).thenReturn(holding);
+        when(holdingMapper.updateQuantity(410L, 3L)).thenReturn(1);
+
+        SettlementService.SettlementResult result = settlementService.settleOrder(
+            execution, order, accountId, portfolioId, quantity, instrumentId);
+
+        assertThat(result.isSuccess()).isTrue();
+        verify(accountMapper).updateBalanceWithVersionCheck(accountId, new BigDecimal("65173.60"), 1L);
+        verify(holdingMapper).updateQuantity(410L, 3L); // sell leaves average cost unchanged
+    }
+
+    // ==================== Test 7: Holdings average cost and sell-out ====================
+
+    @Test
+    @DisplayName("BUY into an existing holding recalculates the weighted average cost")
+    void testBuyIntoExistingHoldingRecalculatesAverageCost() {
+        long orderId = 1011L;
+        long accountId = 102L;
+        long portfolioId = 202L;
+        long instrumentId = 302L;
+        int quantity = 50;
+        BigDecimal executedPrice = new BigDecimal("200.00");
+
+        OrderRecord order = createOrderRecord(orderId, portfolioId, instrumentId, quantity, "NEW", "BUY");
+        AccountRecord account = createAccountRecord(accountId, new BigDecimal("20000.00"), 1L);
+        PortfolioHoldingRecord holding = new PortfolioHoldingRecord(
+            402L, portfolioId, instrumentId, 100L, new BigDecimal("180.0000"), LocalDateTime.now(), LocalDateTime.now());
+        ExecutionResult execution = new ExecutionResult(orderId, ExecutionStatus.FILLED, executedPrice, "Filled");
+
+        when(orderMapper.claimOrderIfNew(eq(orderId), eq("FILLED"), eq(executedPrice), any(LocalDateTime.class),
+            isNull(), isNull(), isNull(), isNull())).thenReturn(1);
+        when(accountMapper.findById(accountId)).thenReturn(account);
+        when(accountMapper.updateBalanceWithVersionCheck(accountId, new BigDecimal("10000.00"), 1L)).thenReturn(1);
+        when(holdingMapper.findByPortfolioAndInstrument(portfolioId, instrumentId)).thenReturn(holding);
+        // (100 x 180 + 50 x 200) / 150 = 28000 / 150 = 186.6667
+        when(holdingMapper.updateQuantityAndAvgCost(402L, 150L, new BigDecimal("186.6667"))).thenReturn(1);
+
+        SettlementService.SettlementResult result = settlementService.settleOrder(
+            execution, order, accountId, portfolioId, quantity, instrumentId);
+
+        assertThat(result.isSuccess()).isTrue();
+        verify(holdingMapper).updateQuantityAndAvgCost(402L, 150L, new BigDecimal("186.6667"));
+        verify(holdingMapper, never()).updateQuantity(anyLong(), anyLong());
+    }
+
+    @Test
+    @DisplayName("SELL of the entire position deletes the holding instead of writing quantity 0")
+    void testSellEntirePositionDeletesHolding() {
+        long orderId = 1012L;
+        long accountId = 102L;
+        long portfolioId = 202L;
+        long instrumentId = 302L;
+        int quantity = 100;
+        BigDecimal executedPrice = new BigDecimal("200.00");
+
+        OrderRecord order = createOrderRecord(orderId, portfolioId, instrumentId, quantity, "NEW", "SELL");
+        AccountRecord account = createAccountRecord(accountId, new BigDecimal("0.00"), 1L);
+        PortfolioHoldingRecord holding = new PortfolioHoldingRecord(
+            402L, portfolioId, instrumentId, 100L, new BigDecimal("180.0000"), LocalDateTime.now(), LocalDateTime.now());
+        ExecutionResult execution = new ExecutionResult(orderId, ExecutionStatus.FILLED, executedPrice, "Filled");
+
+        when(orderMapper.claimOrderIfNew(eq(orderId), eq("FILLED"), eq(executedPrice), any(LocalDateTime.class),
+            isNull(), isNull(), isNull(), isNull())).thenReturn(1);
+        when(accountMapper.findById(accountId)).thenReturn(account);
+        when(accountMapper.updateBalanceWithVersionCheck(accountId, new BigDecimal("20000.00"), 1L)).thenReturn(1);
+        when(holdingMapper.findByPortfolioAndInstrument(portfolioId, instrumentId)).thenReturn(holding);
+        when(holdingMapper.deleteHolding(402L)).thenReturn(1);
+
+        SettlementService.SettlementResult result = settlementService.settleOrder(
+            execution, order, accountId, portfolioId, quantity, instrumentId);
+
+        assertThat(result.isSuccess()).isTrue();
+        verify(holdingMapper).deleteHolding(402L);
         verify(holdingMapper, never()).updateQuantity(anyLong(), anyLong());
     }
 

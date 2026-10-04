@@ -125,9 +125,10 @@ test.describe('Place order journey', () => {
     await signIn(page);
     await page.goto('/orders');
 
-    // Try to place an order with an unavailable symbol (WMT is not available for trading)
-    // This tests that API errors are displayed as readable messages
-    await page.getByTestId('order-symbol').fill('WMT');
+    // Try to place an order with a symbol that is not in the instruments table (INS-404).
+    // This tests that API errors are displayed as readable messages.
+    // Do not use a real ticker here: WMT, AAPL etc. are seeded and tradable.
+    await page.getByTestId('order-symbol').fill('ZZZZ');
     await page.getByTestId('order-side').selectOption('BUY');
     await page.getByTestId('order-quantity').fill('1');
     await page.getByTestId('order-price').fill('150.00');

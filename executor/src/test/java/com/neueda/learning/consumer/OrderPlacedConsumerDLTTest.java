@@ -228,7 +228,10 @@ class OrderPlacedConsumerDLTTest {
             any(OffsetDateTime.class),
             eq(10),
             eq("INFY.NS"),
-            eq("BUY")
+            eq("BUY"),
+            isNull(),
+            isNull(),
+            isNull()
         );
         verify(acknowledgment).acknowledge();
     }
@@ -384,7 +387,7 @@ class OrderPlacedConsumerDLTTest {
 
         // Then: Message is acknowledged (duplicate is safe, idempotent delivery)
         verify(acknowledgment).acknowledge();
-        verify(tradeEventPublisher, never()).publishOrderFilled(any(), any(), any(), any(), any(), any(), any());
+        verify(tradeEventPublisher, never()).publishOrderFilled(any(), any(), any(), any(), any(), any(), any(), any(), any(), any());
     }
 
     // ==================== Test 8: Fauxnance outage → order REJECTED (not permanent failure) ====================
