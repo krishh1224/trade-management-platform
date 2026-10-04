@@ -4,7 +4,7 @@ import { RouterLink } from '@angular/router';
 import { Router } from '@angular/router';
 import { finalize } from 'rxjs';
 
-import { AccountStatus, OrderHistoryEntry } from '../api/generated/trade-api/models';
+import { AccountStatus, OrderHistoryEntry, PositionResponse } from '../api/generated/trade-api/models';
 import { TradeService } from '../api/trade.service';
 import { AuthSessionService } from '../auth/auth-session.service';
 import { currencyForSymbol } from '../instruments/instrument-currency';
@@ -35,6 +35,9 @@ export class HomeComponent {
   readonly balanceHidden = signal(true);
   readonly accountStatus = signal<AccountStatus | null>(null);
   readonly accountStatusLoading = signal(false);
+  readonly positions = signal<PositionResponse[]>([]);
+  readonly positionsLoading = signal(false);
+  readonly positionsError = signal('');
   readonly recentOrders = signal<OrderHistoryEntry[]>([]);
   readonly ordersLoading = signal(false);
   readonly ordersError = signal('');
@@ -63,6 +66,7 @@ export class HomeComponent {
     this.loadCustomerName();
     this.loadBalance();
     this.loadAccountStatus();
+    this.loadPositions();
     this.loadRecentOrders();
   }
 
@@ -110,12 +114,38 @@ export class HomeComponent {
       .pipe(finalize(() => this.ordersLoading.set(false)))
       .subscribe({
         next: (orders) => {
-          const sorted = [...orders].sort((a, b) => Date.parse(b.createdOn) - Date.parse(a.createdOn));
+          const filledOnly = orders.filter((order) => order.status === 'FILLED');
+          const sorted = [...filledOnly].sort((a, b) => Date.parse(b.createdOn) - Date.parse(a.createdOn));
           this.recentOrders.set(sorted.slice(0, 5));
         },
         error: () => {
           this.ordersError.set('Could not load recent orders.');
           this.recentOrders.set([]);
+        }
+      });
+  }
+
+  private loadPositions(): void {
+    const accountId = this.claims()?.accountId ?? null;
+    if (accountId === null) {
+      this.positions.set([]);
+      return;
+    }
+
+    this.positionsLoading.set(true);
+    this.positionsError.set('');
+
+    this.tradeService
+      .getPositions(accountId)
+      .pipe(finalize(() => this.positionsLoading.set(false)))
+      .subscribe({
+        next: (positions) => {
+          const sorted = [...positions].sort((a, b) => a.symbol.localeCompare(b.symbol));
+          this.positions.set(sorted);
+        },
+        error: () => {
+          this.positionsError.set('Could not load portfolio holdings.');
+          this.positions.set([]);
         }
       });
   }

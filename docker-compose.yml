@@ -60,7 +60,18 @@ services:
     volumes:
       - pgdata:/var/lib/postgresql/data
       - ./database/database/migration/V1_schema.sql:/docker-entrypoint-initdb.d/01_schema.sql:ro
-      - ./database/database/seed/001_seed.sql:/docker-entrypoint-initdb.d/02_seed.sql:ro
+      - ./database/database/migration/V2_add_settlement_columns.sql:/docker-entrypoint-initdb.d/02_migration_v2.sql:ro
+      - ./database/database/migration/V3_add_credentials.sql:/docker-entrypoint-initdb.d/03_migration_v3.sql:ro
+      - ./database/database/migration/V4_add_refresh_tokens.sql:/docker-entrypoint-initdb.d/04_migration_v4.sql:ro
+      - ./database/database/migration/V5_add_roles_to_credentials.sql:/docker-entrypoint-initdb.d/05_migration_v5.sql:ro
+      - ./database/database/migration/V6_add_external_order_id.sql:/docker-entrypoint-initdb.d/06_migration_v6.sql:ro
+      - ./database/database/migration/V7_add_watchlists.sql:/docker-entrypoint-initdb.d/07_migration_v7.sql:ro
+      - ./database/database/migration/V8_watchlist_groups.sql:/docker-entrypoint-initdb.d/08_migration_v8.sql:ro
+      - ./database/database/migration/V9_market_quote_snapshots.sql:/docker-entrypoint-initdb.d/09_migration_v9.sql:ro
+      - ./database/database/migration/V10_multi_exchange_and_fx.sql:/docker-entrypoint-initdb.d/10_migration_v10.sql:ro
+      
+      
+      - ./database/database/seed/001_seed.sql:/docker-entrypoint-initdb.d/99_seed.sql:ro
     ports:
       - "5432:5432"
     healthcheck:

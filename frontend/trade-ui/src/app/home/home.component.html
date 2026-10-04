@@ -115,7 +115,7 @@
             <h2>Positions</h2>
             <p>Holdings and average cost per instrument</p>
           </div>
-          <span class="soon-badge">Not connected</span>
+          <span class="soon-badge connected">Live</span>
         </header>
 
         <div class="table-wrap">
@@ -127,14 +127,42 @@
                 <th scope="col" class="num">Avg cost</th>
               </tr>
             </thead>
+            @if (!positionsLoading() && !positionsError() && positions().length > 0) {
+              <tbody>
+                @for (position of positions(); track position.symbol) {
+                  <tr>
+                    <td>{{ position.symbol }}</td>
+                    <td class="num">{{ position.quantity | number: '1.0-0' }}</td>
+                    <td class="num">
+                      <span class="price-pack">
+                        <span class="currency-prefix">{{ currencyForSymbol(position.symbol) }}</span>
+                        <span class="price-value">{{ position.averageCost | number: '1.2-2' }}</span>
+                      </span>
+                    </td>
+                  </tr>
+                }
+              </tbody>
+            }
           </table>
-          <div class="empty">
-            <span class="empty-icon" aria-hidden="true">
-              <svg viewBox="0 0 24 24" width="22" height="22"><path d="M4 19V5M4 19h16M8 15l3-4 3 2 5-6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" /></svg>
-            </span>
-            <strong>No positions to show</strong>
-            <span>Portfolio data will appear here once the trade API is connected.</span>
-          </div>
+          @if (positionsLoading()) {
+            <div class="empty">
+              <strong>Loading portfolio holdings</strong>
+              <span>Please wait while positions are fetched.</span>
+            </div>
+          } @else if (positionsError()) {
+            <div class="empty">
+              <strong>Unable to load positions</strong>
+              <span>{{ positionsError() }}</span>
+            </div>
+          } @else if (positions().length === 0) {
+            <div class="empty">
+              <span class="empty-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" width="22" height="22"><path d="M4 19V5M4 19h16M8 15l3-4 3 2 5-6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" /></svg>
+              </span>
+              <strong>No positions to show</strong>
+              <span>Place an order to build your portfolio holdings.</span>
+            </div>
+          }
         </div>
       </article>
 
@@ -142,7 +170,7 @@
         <header class="panel-header">
           <div>
             <h2>Recent orders</h2>
-            <p>Latest history from your blotter</p>
+            <p>Latest filled orders from your blotter</p>
           </div>
           <a class="panel-link" routerLink="/blotter">View full blotter</a>
         </header>
@@ -202,8 +230,8 @@
             <span class="empty-icon" aria-hidden="true">
               <svg viewBox="0 0 24 24" width="22" height="22"><path d="M7 4h10a2 2 0 012 2v14l-3-2-2 2-2-2-2 2-2-2-3 2V6a2 2 0 012-2zM9 9h6M9 13h4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" /></svg>
             </span>
-            <strong>No orders yet</strong>
-            <span>Place an order, then open Blotter for complete history.</span>
+            <strong>No filled orders yet</strong>
+            <span>Filled orders will appear here and align with portfolio holdings.</span>
           </div>
           }
         </div>
