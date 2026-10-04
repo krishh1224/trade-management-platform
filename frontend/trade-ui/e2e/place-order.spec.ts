@@ -125,10 +125,9 @@ test.describe('Place order journey', () => {
     await signIn(page);
     await page.goto('/orders');
 
-    // Try to place an order with an invalid account or symbol that will be rejected by the API
+    // Try to place an order with an unavailable symbol (WMT is not available for trading)
     // This tests that API errors are displayed as readable messages
-    const symbolValue = 'INVALIDINSTRUMENT';
-    await page.getByTestId('order-symbol').fill(symbolValue);
+    await page.getByTestId('order-symbol').fill('WMT');
     await page.getByTestId('order-side').selectOption('BUY');
     await page.getByTestId('order-quantity').fill('1');
     await page.getByTestId('order-price').fill('150.00');
@@ -136,22 +135,13 @@ test.describe('Place order journey', () => {
     const submitButton = page.getByTestId('order-submit');
     await submitButton.click();
 
-    // Wait for a response (either success or error)
+    // Wait for error message to appear
     const errorMessage = page.locator('[role="alert"]');
-    const successMessage = page.locator('[role="status"]');
+    await expect(errorMessage).toBeVisible({ timeout: 5000 });
 
-    // Either an error or success message should appear
-    const messageVisible = await Promise.race([
-      errorMessage.isVisible().then(() => 'error'),
-      successMessage.isVisible().then(() => 'success')
-    ]).catch(() => null);
-
-    if (messageVisible === 'error') {
-      const errorText = await errorMessage.textContent();
-      // Should contain a readable error message (not the error code itself)
-      expect(errorText).toBeTruthy();
-      expect(errorText).not.toContain('INS-404'); // Should show readable message, not error code
-    }
+    // Verify the error message is readable and specific
+    const errorText = await errorMessage.textContent();
+    expect(errorText).toContain('The selected instrument is not available for trading');
   });
 
   test('each order placement is isolated with a unique idempotency key', async ({ page }) => {
