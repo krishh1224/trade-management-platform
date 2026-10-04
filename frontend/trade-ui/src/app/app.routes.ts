@@ -5,6 +5,7 @@ import { BlotterComponent } from './blotter/blotter.component';
 import { HomeComponent } from './home/home.component';
 import { OrdersComponent } from './orders/orders.component';
 import { SignInComponent } from './sign-in/sign-in.component';
+import { WatchlistComponent } from './watchlist/watchlist.component';
 
 export const routes: Routes = [
   {
@@ -21,6 +22,7 @@ export const routes: Routes = [
       { path: '', pathMatch: 'full', component: HomeComponent },
       { path: 'orders', component: OrdersComponent },
       { path: 'blotter', component: BlotterComponent },
+      { path: 'watchlist', component: WatchlistComponent },
       { path: '**', redirectTo: '' }
     ]
   }

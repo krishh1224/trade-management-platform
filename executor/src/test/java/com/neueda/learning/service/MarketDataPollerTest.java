@@ -3,6 +3,7 @@ package com.neueda.learning.service;
 import com.neueda.learning.client.FauxnanceQuoteClient;
 import com.neueda.learning.domain.Quote;
 import com.neueda.learning.exception.QuoteUnavailableException;
+import com.neueda.learning.mapper.MarketQuoteSnapshotMapper;
 import com.neueda.learning.producer.MarketDataPublisher;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.BeforeEach;
@@ -32,11 +33,24 @@ class MarketDataPollerTest {
     @Mock
     private MarketDataPublisher publisher;
 
+    @Mock
+    private MarketQuoteSnapshotMapper marketQuoteSnapshotMapper;
+
     private MarketDataPoller poller;
 
     @BeforeEach
     void setUp() {
         MockitoAnnotations.openMocks(this);
+    }
+
+    private MarketDataPoller createPoller(long intervalSeconds) {
+        return new MarketDataPoller(
+            symbolProvider,
+            fauxnanceClient,
+            publisher,
+            marketQuoteSnapshotMapper,
+            intervalSeconds
+        );
     }
 
     /**
@@ -46,7 +60,7 @@ class MarketDataPollerTest {
     void testEmptySymbolSet_NoFauxnanceCallsNoKafkaPublish() {
         when(symbolProvider.getSymbolsToPoll()).thenReturn(new HashSet<>());
 
-        poller = new MarketDataPoller(symbolProvider, fauxnanceClient, publisher, 60);
+        poller = createPoller(60);
         poller.pollMarketData();
 
         // Should not call Fauxnance or publish
@@ -65,7 +79,7 @@ class MarketDataPollerTest {
         when(symbolProvider.getSymbolsToPoll()).thenReturn(symbols);
         when(fauxnanceClient.getQuote("INFY.NS")).thenReturn(quote);
 
-        poller = new MarketDataPoller(symbolProvider, fauxnanceClient, publisher, 60);
+        poller = createPoller(60);
         poller.pollMarketData();
 
         verify(fauxnanceClient, times(1)).getQuote("INFY.NS");
@@ -90,7 +104,7 @@ class MarketDataPollerTest {
             when(fauxnanceClient.getQuote(symbol)).thenReturn(quote);
         }
 
-        poller = new MarketDataPoller(symbolProvider, fauxnanceClient, publisher, 60);
+        poller = createPoller(60);
         poller.pollMarketData();
 
         // Each symbol should be fetched once
@@ -120,7 +134,7 @@ class MarketDataPollerTest {
             when(fauxnanceClient.getQuote(symbol)).thenReturn(quote);
         }
 
-        poller = new MarketDataPoller(symbolProvider, fauxnanceClient, publisher, 60);
+        poller = createPoller(60);
         poller.pollMarketData();
 
         // All 26 symbols should be fetched
@@ -149,7 +163,7 @@ class MarketDataPollerTest {
             when(fauxnanceClient.getQuote(symbol)).thenReturn(quote);
         }
 
-        poller = new MarketDataPoller(symbolProvider, fauxnanceClient, publisher, 60);
+        poller = createPoller(60);
         poller.pollMarketData();
 
         // All 50 symbols should be fetched
@@ -183,7 +197,7 @@ class MarketDataPollerTest {
         when(fauxnanceClient.getQuote("INFY.NS")).thenReturn(infy);
         when(fauxnanceClient.getQuote("RELIANCE.NS")).thenReturn(reliance);
 
-        poller = new MarketDataPoller(symbolProvider, fauxnanceClient, publisher, 60);
+        poller = createPoller(60);
         poller.pollMarketData();
 
         // INFY should be fetched only once
@@ -212,7 +226,7 @@ class MarketDataPollerTest {
         when(fauxnanceClient.getQuote("RELIANCE.NS")).thenReturn(reliance);
         when(fauxnanceClient.getQuote("ITC.NS")).thenReturn(itc);
 
-        poller = new MarketDataPoller(symbolProvider, fauxnanceClient, publisher, 60);
+        poller = createPoller(60);
         poller.pollMarketData();
 
         // Each quote published separately
@@ -238,7 +252,7 @@ class MarketDataPollerTest {
         when(fauxnanceClient.getQuote("INFY.NS")).thenReturn(infy);
         when(fauxnanceClient.getQuote("RELIANCE.NS")).thenReturn(reliance);
 
-        poller = new MarketDataPoller(symbolProvider, fauxnanceClient, publisher, 60);
+        poller = createPoller(60);
         poller.pollMarketData();
 
         // Verify publishQuote is called with correct symbol as first parameter (used as Kafka key)
@@ -267,7 +281,7 @@ class MarketDataPollerTest {
         when(fauxnanceClient.getQuote("RELIANCE.NS")).thenReturn(reliance);
         when(fauxnanceClient.getQuote("ITC.NS")).thenReturn(itc);
 
-        poller = new MarketDataPoller(symbolProvider, fauxnanceClient, publisher, 60);
+        poller = createPoller(60);
         poller.pollMarketData();
 
         // All three should be attempted
@@ -288,7 +302,7 @@ class MarketDataPollerTest {
     @Test
     void testMinimumIntervalEnforced() {
         assertThrows(IllegalArgumentException.class, () -> {
-            new MarketDataPoller(symbolProvider, fauxnanceClient, publisher, 43);
+            createPoller(43);
         });
     }
 
@@ -298,7 +312,7 @@ class MarketDataPollerTest {
     @Test
     void testMinimumIntervalAccepted() {
         assertDoesNotThrow(() -> {
-            new MarketDataPoller(symbolProvider, fauxnanceClient, publisher, 44);
+            createPoller(44);
         });
     }
 
@@ -312,7 +326,7 @@ class MarketDataPollerTest {
         // 6 symbols fit in 1 batch (ceil(6/25) = 1)
         // 1 batch * 1440 polls = 1440 requests/day (within 2000 quota)
         assertDoesNotThrow(() -> {
-            new MarketDataPoller(symbolProvider, fauxnanceClient, publisher, 60);
+            createPoller(60);
         });
     }
 
@@ -332,7 +346,7 @@ class MarketDataPollerTest {
         // Requests per day: 1 * 1440 = 1440 (within 2000)
 
         assertDoesNotThrow(() -> {
-            new MarketDataPoller(symbolProvider, fauxnanceClient, publisher, 60);
+            createPoller(60);
         });
     }
 
@@ -349,7 +363,7 @@ class MarketDataPollerTest {
         // Documentation of the 44 second minimum
         // 44 seconds minimum ensures we stay under 2000 requests/day
         assertDoesNotThrow(() -> {
-            new MarketDataPoller(symbolProvider, fauxnanceClient, publisher, 44);
+            createPoller(44);
         });
     }
 
@@ -367,7 +381,7 @@ class MarketDataPollerTest {
         when(fauxnanceClient.getQuote("INFY.NS")).thenReturn(infy);
         when(fauxnanceClient.getQuote("RELIANCE.NS")).thenReturn(reliance);
 
-        poller = new MarketDataPoller(symbolProvider, fauxnanceClient, publisher, 60);
+        poller = createPoller(60);
 
         // Should not throw
         assertDoesNotThrow(() -> poller.pollMarketData());

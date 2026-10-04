@@ -2,6 +2,8 @@ package com.team5.controller;
 
 import com.team5.auth.AuthenticatedAccountId;
 import com.team5.dto.request.AddToWatchlistRequest;
+import com.team5.dto.request.CreateWatchlistGroupRequest;
+import com.team5.dto.response.WatchlistGroupResponse;
 import com.team5.dto.response.WatchlistItemResponse;
 import com.team5.service.WatchlistService;
 import jakarta.validation.Valid;
@@ -15,6 +17,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -40,17 +43,34 @@ public class WatchlistController {
 
     @GetMapping
     public ResponseEntity<List<WatchlistItemResponse>> listWatchlist(
+        @RequestParam(value = "groupId", required = false) Long watchlistGroupId,
         @AuthenticatedAccountId long authenticatedAccountId
     ) {
-        return ResponseEntity.ok(watchlistService.listWatchlist(authenticatedAccountId));
+        return ResponseEntity.ok(watchlistService.listWatchlist(authenticatedAccountId, watchlistGroupId));
     }
 
-    @DeleteMapping("/{instrumentId}")
-    @ResponseStatus(HttpStatus.NO_CONTENT)
-    public void removeFromWatchlist(
-        @PathVariable long instrumentId,
+    @GetMapping("/groups")
+    public ResponseEntity<List<WatchlistGroupResponse>> listWatchlistGroups(
         @AuthenticatedAccountId long authenticatedAccountId
     ) {
-        watchlistService.removeFromWatchlist(authenticatedAccountId, instrumentId);
+        return ResponseEntity.ok(watchlistService.listWatchlistGroups(authenticatedAccountId));
+    }
+
+    @PostMapping("/groups")
+    public ResponseEntity<WatchlistGroupResponse> createWatchlistGroup(
+        @Valid @RequestBody CreateWatchlistGroupRequest request,
+        @AuthenticatedAccountId long authenticatedAccountId
+    ) {
+        return ResponseEntity.status(HttpStatus.CREATED)
+            .body(watchlistService.createWatchlistGroup(authenticatedAccountId, request));
+    }
+
+    @DeleteMapping("/{watchlistId}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void removeFromWatchlist(
+        @PathVariable long watchlistId,
+        @AuthenticatedAccountId long authenticatedAccountId
+    ) {
+        watchlistService.removeFromWatchlist(authenticatedAccountId, watchlistId);
     }
 }

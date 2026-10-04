@@ -8,6 +8,8 @@ import com.team5.domain.exception.OrderConflictException;
 import com.team5.domain.exception.WatchlistDuplicateException;
 import com.team5.domain.exception.WatchlistItemNotFoundException;
 import com.team5.dto.request.AddToWatchlistRequest;
+import com.team5.dto.request.CreateWatchlistGroupRequest;
+import com.team5.dto.response.WatchlistGroupResponse;
 import com.team5.dto.response.WatchlistItemResponse;
 import com.team5.mapper.AccountQueryMapper;
 import com.team5.mapper.OrderMapper;
@@ -22,6 +24,8 @@ import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class WatchlistServiceImpl implements WatchlistService {
+
+    private static final String DEFAULT_WATCHLIST_NAME = "Favourite";
 
     private final WatchlistMapper watchlistMapper;
     private final AccountQueryMapper accountQueryMapper;
@@ -60,8 +64,10 @@ public class WatchlistServiceImpl implements WatchlistService {
 
         Long instrumentId = asLong(instrument, "instrument_id");
         String instrumentName = asString(instrument, "name");
+        Long watchlistGroupId = resolveWatchlistGroupId(request.getAccountId(), request.getWatchlistGroupId());
+        String watchlistName = resolveWatchlistName(request.getAccountId(), watchlistGroupId);
 
-        if (watchlistMapper.existsInWatchlist(request.getAccountId(), instrumentId)) {
+        if (watchlistMapper.existsInWatchlist(watchlistGroupId, instrumentId)) {
             throw new WatchlistDuplicateException();
         }
 
@@ -69,7 +75,13 @@ public class WatchlistServiceImpl implements WatchlistService {
         Long watchlistId = toPositiveLong(UUID.randomUUID());
 
         try {
-            int inserted = watchlistMapper.insertWatchlistItem(watchlistId, request.getAccountId(), instrumentId, now);
+            int inserted = watchlistMapper.insertWatchlistItem(
+                watchlistId,
+                request.getAccountId(),
+                watchlistGroupId,
+                instrumentId,
+                now
+            );
             if (inserted != 1) {
                 throw new OrderConflictException("Watchlist insert did not affect exactly one row");
             }
@@ -79,32 +91,107 @@ public class WatchlistServiceImpl implements WatchlistService {
 
         return new WatchlistItemResponse(
             watchlistId,
+            watchlistGroupId,
+            watchlistName,
             instrumentId,
             request.getSymbol(),
             instrumentName,
-            now
+            now,
+            null,
+            null
         );
     }
 
     @Override
     @Transactional(readOnly = true)
     public List<WatchlistItemResponse> listWatchlist(long authenticatedAccountId) {
-        return watchlistMapper.findWatchlistByAccountId(authenticatedAccountId);
+        return listWatchlist(authenticatedAccountId, null);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<WatchlistItemResponse> listWatchlist(long authenticatedAccountId, Long watchlistGroupId) {
+        if (watchlistGroupId != null) {
+            validateWatchlistGroupOwnership(authenticatedAccountId, watchlistGroupId);
+        }
+        return watchlistMapper.findWatchlistByAccountId(authenticatedAccountId, watchlistGroupId);
     }
 
     @Override
     @Transactional
-    public void removeFromWatchlist(long authenticatedAccountId, long instrumentId) {
-        Long ownerAccountId = watchlistMapper.findAccountIdByInstrumentId(authenticatedAccountId, instrumentId);
+    public List<WatchlistGroupResponse> listWatchlistGroups(long authenticatedAccountId) {
+        ensureDefaultGroup(authenticatedAccountId);
+        return watchlistMapper.findWatchlistGroups(authenticatedAccountId);
+    }
+
+    @Override
+    @Transactional
+    public WatchlistGroupResponse createWatchlistGroup(long authenticatedAccountId, CreateWatchlistGroupRequest request) {
+        String normalizedName = request.getName().trim();
+        if (watchlistMapper.findWatchlistGroupByName(authenticatedAccountId, normalizedName) != null) {
+            throw new WatchlistDuplicateException();
+        }
+
+        OffsetDateTime now = OffsetDateTime.now();
+        Long watchlistGroupId = toPositiveLong(UUID.randomUUID());
+        int inserted = watchlistMapper.insertWatchlistGroup(watchlistGroupId, authenticatedAccountId, normalizedName, now);
+        if (inserted != 1) {
+            throw new OrderConflictException("Watchlist group insert did not affect exactly one row");
+        }
+        return new WatchlistGroupResponse(watchlistGroupId, normalizedName, now);
+    }
+
+    @Override
+    @Transactional
+    public void removeFromWatchlist(long authenticatedAccountId, long watchlistId) {
+        Long ownerAccountId = watchlistMapper.findAccountIdByWatchlistId(authenticatedAccountId, watchlistId);
         if (ownerAccountId == null) {
             throw new WatchlistItemNotFoundException();
         }
         accountAccessAuthorizer.assertAuthorised(authenticatedAccountId, ownerAccountId);
 
-        int deleted = watchlistMapper.deleteWatchlistItem(authenticatedAccountId, instrumentId);
+        int deleted = watchlistMapper.deleteWatchlistItem(authenticatedAccountId, watchlistId);
         if (deleted != 1) {
             throw new WatchlistItemNotFoundException();
         }
+    }
+
+    private Long resolveWatchlistGroupId(Long accountId, Long requestedGroupId) {
+        if (requestedGroupId != null) {
+            validateWatchlistGroupOwnership(accountId, requestedGroupId);
+            return requestedGroupId;
+        }
+        return ensureDefaultGroup(accountId);
+    }
+
+    private void validateWatchlistGroupOwnership(Long accountId, Long watchlistGroupId) {
+        Long existing = watchlistMapper.findWatchlistGroupById(accountId, watchlistGroupId);
+        if (existing == null) {
+            throw new WatchlistItemNotFoundException();
+        }
+    }
+
+    private Long ensureDefaultGroup(Long accountId) {
+        Long existingDefault = watchlistMapper.findDefaultWatchlistGroupId(accountId);
+        if (existingDefault != null) {
+            return existingDefault;
+        }
+        OffsetDateTime now = OffsetDateTime.now();
+        Long groupId = toPositiveLong(UUID.randomUUID());
+        int inserted = watchlistMapper.insertWatchlistGroup(groupId, accountId, DEFAULT_WATCHLIST_NAME, now);
+        if (inserted != 1) {
+            throw new OrderConflictException("Default watchlist group insert failed");
+        }
+        return groupId;
+    }
+
+    private String resolveWatchlistName(Long accountId, Long watchlistGroupId) {
+        return watchlistMapper.findWatchlistGroups(accountId)
+            .stream()
+            .filter(group -> watchlistGroupId.equals(group.watchlistGroupId()))
+            .map(WatchlistGroupResponse::name)
+            .findFirst()
+            .orElse(DEFAULT_WATCHLIST_NAME);
     }
 
     private Long toPositiveLong(UUID uuid) {

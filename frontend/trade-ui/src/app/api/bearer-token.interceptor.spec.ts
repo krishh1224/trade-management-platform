@@ -31,6 +31,16 @@ describe('bearer token interceptor', () => {
     req.flush({});
   });
 
+  it('watchlist group endpoints carry the bearer token', () => {
+    const { http, httpMock } = setup('jwt-token');
+
+    http.get('http://trade/api/v1/watchlists/groups').subscribe();
+
+    const req = httpMock.expectOne('http://trade/api/v1/watchlists/groups');
+    expect(req.request.headers.get('Authorization')).toBe('Bearer jwt-token');
+    req.flush([]);
+  });
+
   it('a request to a third-party origin does not carry the bearer token', () => {
     const { http, httpMock } = setup('jwt-token');
 

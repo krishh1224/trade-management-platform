@@ -15,6 +15,9 @@ public class AddToWatchlistRequest {
     @Size(min = 1, max = 20)
     private String symbol;
 
+    @Min(1)
+    private Long watchlistGroupId;
+
     public AddToWatchlistRequest() {
     }
 
@@ -32,5 +35,13 @@ public class AddToWatchlistRequest {
 
     public void setSymbol(String symbol) {
         this.symbol = symbol;
+    }
+
+    public Long getWatchlistGroupId() {
+        return watchlistGroupId;
+    }
+
+    public void setWatchlistGroupId(Long watchlistGroupId) {
+        this.watchlistGroupId = watchlistGroupId;
     }
 }

@@ -43,6 +43,8 @@ class WatchlistControllerIntegrationTest {
     void testAddToWatchlist_Success_201() throws Exception {
         when(watchlistService.addToWatchlist(eq(101L), any())).thenReturn(new WatchlistItemResponse(
             7001L,
+            5001L,
+            "Default",
             301L,
             "INFY.NS",
             "Infosys Limited",
@@ -124,8 +126,8 @@ class WatchlistControllerIntegrationTest {
     @Test
     void testListWatchlist_Success_200() throws Exception {
         when(watchlistService.listWatchlist(101L)).thenReturn(List.of(
-            new WatchlistItemResponse(7001L, 301L, "INFY.NS", "Infosys Limited", OffsetDateTime.parse("2026-09-29T09:14:22Z")),
-            new WatchlistItemResponse(7002L, 302L, "RELIANCE.NS", "Reliance Industries Limited", OffsetDateTime.parse("2026-09-29T09:15:22Z"))
+            new WatchlistItemResponse(7001L, 5001L, "Default", 301L, "INFY.NS", "Infosys Limited", OffsetDateTime.parse("2026-09-29T09:14:22Z")),
+            new WatchlistItemResponse(7002L, 5001L, "Default", 302L, "RELIANCE.NS", "Reliance Industries Limited", OffsetDateTime.parse("2026-09-29T09:15:22Z"))
         ));
 
         mockMvc.perform(get("/api/v1/watchlists")

@@ -70,8 +70,10 @@ class WatchlistServiceImplTest {
 
         when(accountQueryMapper.findAccountForOrder(101L)).thenReturn(account);
         when(orderMapper.findInstrumentByTicker("RELIANCE.NS")).thenReturn(instrument);
-        when(watchlistMapper.existsInWatchlist(101L, 302L)).thenReturn(false);
-        when(watchlistMapper.insertWatchlistItem(anyLong(), eq(101L), eq(302L), any())).thenReturn(1);
+        when(watchlistMapper.findDefaultWatchlistGroupId(101L)).thenReturn(5001L);
+        when(watchlistMapper.findWatchlistGroups(101L)).thenReturn(List.of());
+        when(watchlistMapper.existsInWatchlist(5001L, 302L)).thenReturn(false);
+        when(watchlistMapper.insertWatchlistItem(anyLong(), eq(101L), eq(5001L), eq(302L), any())).thenReturn(1);
 
         WatchlistItemResponse response = watchlistService.addToWatchlist(101L, request);
 
@@ -157,7 +159,8 @@ class WatchlistServiceImplTest {
 
         when(accountQueryMapper.findAccountForOrder(101L)).thenReturn(account);
         when(orderMapper.findInstrumentByTicker("RELIANCE.NS")).thenReturn(instrument);
-        when(watchlistMapper.existsInWatchlist(101L, 302L)).thenReturn(true);
+        when(watchlistMapper.findDefaultWatchlistGroupId(101L)).thenReturn(5001L);
+        when(watchlistMapper.existsInWatchlist(5001L, 302L)).thenReturn(true);
 
         assertThrows(WatchlistDuplicateException.class,
             () -> watchlistService.addToWatchlist(101L, request));
@@ -167,12 +170,14 @@ class WatchlistServiceImplTest {
     void testListWatchlist_Success() {
         WatchlistItemResponse item = new WatchlistItemResponse(
             1L,
+            5001L,
+            "Default",
             302L,
             "RELIANCE.NS",
             "Reliance Industries Limited",
             null
         );
-        when(watchlistMapper.findWatchlistByAccountId(101L)).thenReturn(List.of(item));
+        when(watchlistMapper.findWatchlistByAccountId(101L, null)).thenReturn(List.of(item));
 
         List<WatchlistItemResponse> items = watchlistService.listWatchlist(101L);
 
@@ -182,7 +187,7 @@ class WatchlistServiceImplTest {
 
     @Test
     void testListWatchlist_Empty() {
-        when(watchlistMapper.findWatchlistByAccountId(101L)).thenReturn(List.of());
+        when(watchlistMapper.findWatchlistByAccountId(101L, null)).thenReturn(List.of());
 
         List<WatchlistItemResponse> items = watchlistService.listWatchlist(101L);
 
@@ -191,7 +196,7 @@ class WatchlistServiceImplTest {
 
     @Test
     void testRemoveFromWatchlist_Success() {
-        when(watchlistMapper.findAccountIdByInstrumentId(101L, 302L)).thenReturn(101L);
+        when(watchlistMapper.findAccountIdByWatchlistId(101L, 302L)).thenReturn(101L);
         when(watchlistMapper.deleteWatchlistItem(101L, 302L)).thenReturn(1);
 
         watchlistService.removeFromWatchlist(101L, 302L);
@@ -201,7 +206,7 @@ class WatchlistServiceImplTest {
 
     @Test
     void testRemoveFromWatchlist_NotFound() {
-        when(watchlistMapper.findAccountIdByInstrumentId(101L, 302L)).thenReturn(null);
+        when(watchlistMapper.findAccountIdByWatchlistId(101L, 302L)).thenReturn(null);
 
         assertThrows(WatchlistItemNotFoundException.class,
             () -> watchlistService.removeFromWatchlist(101L, 302L));
@@ -211,7 +216,7 @@ class WatchlistServiceImplTest {
 
     @Test
     void testRemoveFromWatchlist_DeleteFails() {
-        when(watchlistMapper.findAccountIdByInstrumentId(101L, 302L)).thenReturn(101L);
+        when(watchlistMapper.findAccountIdByWatchlistId(101L, 302L)).thenReturn(101L);
         when(watchlistMapper.deleteWatchlistItem(101L, 302L)).thenReturn(0);
 
         assertThrows(WatchlistItemNotFoundException.class,
