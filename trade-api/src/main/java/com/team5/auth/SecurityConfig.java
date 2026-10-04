@@ -96,7 +96,9 @@ public class SecurityConfig {
             new JwtTimestampValidator(properties.clockSkew()),
             // JwtTimestampValidator accepts a token with no exp at all; the contract requires one.
             new JwtClaimValidator<Object>(JwtClaimNames.EXP, Objects::nonNull),
-            new JwtClaimValidator<Object>(AccountClaims.ACCOUNT_ID, AccountClaims::isValidAccountId)
+            new JwtClaimValidator<Object>(AccountClaims.ACCOUNT_ID, AccountClaims::isValidAccountId),
+            new JwtClaimValidator<String>(JwtClaimNames.ISS,
+                issuer -> Objects.equals(issuer, properties.issuer()))
         ));
         return decoder;
     }

@@ -2,10 +2,15 @@
 
 ## Overview
 
-Two complete Playwright test journeys have been implemented for the Artha trading application:
+Four complete Playwright test journeys have been implemented for the Artha trading application:
 
+**Core Journeys (Required):**
 1. **Sign-In Journey** (`e2e/sign-in.spec.ts`) - 4 tests
 2. **Place-Order Journey** (`e2e/place-order.spec.ts`) - 5 tests
+
+**Additional Journeys:**
+3. **Blotter Journey** (`e2e/blotter.spec.ts`) - 5 tests
+4. **Watchlist Journey** (`e2e/watchlist.spec.ts`) - 7 tests
 
 Each test is fully independent and can run in any order. All credentials are read from environment variables.
 
@@ -139,6 +144,67 @@ npx playwright test --headed
    - Verifies unique idempotency key used
    - Confirms each order is independent
 
+### Blotter Journey (5 tests)
+
+1. **Display Blotter Page Test**
+   - Verifies blotter page loads after authentication
+   - Confirms page header/title indicates blotter
+
+2. **Display Orders Test**
+   - Verifies orders table loads for signed-in account
+   - Confirms table has standard blotter columns
+
+3. **Order Details Test**
+   - Verifies order rows display Order ID, Symbol, Side, Status
+   - Confirms status is one of: NEW, FILLED, REJECTED, CANCELLED
+   - Validates pricing information is shown
+
+4. **Filtering/Sorting Test**
+   - Checks for filter or sort controls
+   - Tests interactive filtering if available
+   - Verifies table remains visible after filtering
+
+5. **Data Refresh Test**
+   - Navigates away and back to blotter
+   - Verifies data reloads correctly
+   - Confirms table structure is intact after refresh
+
+### Watchlist Journey (7 tests)
+
+1. **Display Watchlist Test**
+   - Verifies watchlist section loads after authentication
+   - Confirms watchlist groups are visible
+
+2. **Add to Watchlist Test**
+   - Adds an instrument to watchlist
+   - Verifies success message appears
+   - Confirms operation completes
+
+3. **Display Items Test**
+   - Verifies watchlist items show symbol, price, and changes
+   - Confirms price data is present and valid
+   - Checks change percentage displays correctly
+
+4. **Remove from Watchlist Test**
+   - Removes an instrument from watchlist
+   - Verifies success or confirmation message
+   - Confirms item is no longer in list
+
+5. **Manage Groups Test**
+   - Creates new watchlist groups
+   - Fills group name and submits
+   - Verifies new group appears in list
+
+6. **Data Refresh Test**
+   - Navigates away and back to profile/watchlist
+   - Verifies watchlist data reloads correctly
+   - Confirms structure is intact
+
+7. **Account Isolation Test**
+   - Verifies each test has fresh sign-in
+   - Confirms watchlist data belongs only to signed-in user
+   - Validates no permissions errors or cross-account data leaks
+
 ## Test Selectors
 
 All tests use stable `data-testid` attributes:
@@ -156,8 +222,36 @@ All tests use stable `data-testid` attributes:
 - `order-price` - Price input
 - `order-submit` - Submit button
 
+### Blotter Elements
+- `blotter-container` - Main blotter container
+- `blotter-table` - Orders table
+- `blotter-header` - Table header row
+- `blotter-filters` - Filter controls (optional)
+- `blotter-sort` - Sort controls (optional)
+- `filter-status` - Status filter selector
+- `order-id` - Order ID column
+- `order-symbol` - Symbol column
+- `order-side` - Side column (BUY/SELL)
+- `order-status` - Status column (NEW, FILLED, REJECTED, CANCELLED)
+
+### Watchlist Elements
+- `watchlist-section` - Main watchlist section
+- `watchlist-groups` - Container for watchlist groups
+- `watchlist-group-name` - Group name label
+- `watchlist-item` - Individual watchlist item
+- `watchlist-symbol` - Instrument symbol in watchlist
+- `watchlist-price` - Current price display
+- `watchlist-change` - Price change percentage
+- `add-to-watchlist-btn` - Button to add instrument
+- `remove-from-watchlist-btn` - Button to remove instrument
+- `add-watchlist-group-btn` - Button to create new group
+- `group-name-input` - Input for group name
+- `create-group-submit` - Submit button for new group
+- `watchlist-add-symbol` - Symbol input for adding to watchlist
+
 ### Common Elements
 - `signout-button` - Sign out button
+- `profile-trigger` - Profile menu trigger/button
 - `[role="alert"]` - Error messages
 - `[role="status"]` - Success messages
 

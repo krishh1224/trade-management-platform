@@ -12,7 +12,10 @@ const TRADE_PROTECTED_PATH_PATTERNS: readonly RegExp[] = [
   /^\/api\/v1\/accounts\/[^/]+\/balance$/,
   /^\/api\/v1\/accounts\/[^/]+\/positions$/,
   /^\/api\/v1\/accounts\/[^/]+\/orders$/,
-  /^\/api\/v1\/accounts\/[^/]+\/instruments$/
+  /^\/api\/v1\/accounts\/[^/]+\/instruments$/,
+  /^\/api\/v1\/watchlists$/,
+  /^\/api\/v1\/watchlists\/[^/]+$/,
+  /^\/api\/v1\/watchlists\/groups$/
 ];
 
 const AUTH_ME_PATH = '/auth/me';

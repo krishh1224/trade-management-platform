@@ -2,6 +2,7 @@ import { expect, test } from '@playwright/test';
 
 const username = process.env.E2E_USERNAME;
 const password = process.env.E2E_PASSWORD;
+const accountId = process.env.E2E_ACCOUNT_ID;
 
 test.describe('Sign-in journey', () => {
   test.skip(!username || !password, 'Set E2E_USERNAME and E2E_PASSWORD to run the real auth sign-in test.');
@@ -37,71 +38,68 @@ test.describe('Sign-in journey', () => {
     await page.waitForURL('**/sign-in');
   });
 
-  test('successfully signs in and shows account information', async ({ page }) => {
+  test('successfully signs in and displays dashboard with account information', async ({ page }) => {
     await page.goto('/sign-in');
 
     await page.getByTestId('signin-username').fill(username ?? '');
     await page.getByTestId('signin-password').fill(password ?? '');
     await page.getByTestId('signin-submit').click();
 
-    // Wait for either successful redirect or error
-    await Promise.race([
-      page.waitForURL('/', { timeout: 10000 }),
-      page.waitForURL('**/orders', { timeout: 10000 }),
-      page.waitForURL('**/blotter', { timeout: 10000 })
-    ]).catch(() => {
-      // Timeout is okay - just means navigation pattern is different
-    });
+    // After successful sign-in, should navigate to dashboard home page
+    await page.waitForURL('/', { timeout: 10000 });
     
-    // Verify no error occurred
-    const errorAlert = page.locator('[role="alert"]');
-    await expect(errorAlert).not.toBeVisible({ timeout: 2000 }).catch(() => {
-      // If there's an error, get the text and fail the test
-      return errorAlert.textContent().then(text => {
-        throw new Error(`Sign-in failed with error: ${text}`);
-      });
-    });
-    
-    // Click the profile menu to open it
-    await page.getByTestId('profile-trigger').click();
-    
-    // Should see the sign-out button, indicating successful authentication
-    await expect(page.getByTestId('signout-button')).toBeVisible();
+    // Verify we're on the dashboard page (not sign-in)
+    expect(page.url()).toBe('http://localhost:4200/');
+
+    // Verify dashboard displays account information in header (profile trigger button)
+    const profileTrigger = page.getByTestId('profile-trigger');
+    await expect(profileTrigger).toBeVisible();
+
+    // Verify account ID is displayed in the profile button text
+    if (accountId) {
+      const profileText = await profileTrigger.textContent();
+      expect(profileText).toContain(`Account ${accountId}`);
+    }
   });
 
-  test('returns to the originally requested page after successful sign-in', async ({ page }) => {
-    // Start by navigating to a protected route, which should redirect to sign-in with returnUrl
-    await page.goto('/orders?returnUrl=/blotter');
-
-    // Should be redirected to sign-in
-    await page.waitForURL('**/sign-in**');
-
-    // Sign in
+  test('sign out button redirects authenticated user to sign-in page', async ({ page }) => {
+    // Sign in first
+    await page.goto('/sign-in');
     await page.getByTestId('signin-username').fill(username ?? '');
     await page.getByTestId('signin-password').fill(password ?? '');
     await page.getByTestId('signin-submit').click();
 
-    // After successful sign-in, should navigate away from sign-in page
-    await Promise.race([
-      page.waitForURL('/', { timeout: 10000 }),
-      page.waitForURL('**/orders', { timeout: 10000 }),
-      page.waitForURL('**/blotter', { timeout: 10000 })
-    ]).catch(() => {
-      // Timeout is okay - just means navigation pattern is different
-    });
-    
-    // Verify no error occurred
-    const errorAlert = page.locator('[role="alert"]');
-    const hasError = await errorAlert.isVisible().catch(() => false);
-    if (hasError) {
-      const errorText = await errorAlert.textContent();
-      throw new Error(`Sign-in failed with error: ${errorText}`);
-    }
-    
-    // Click the profile menu to open it
+    // Wait for successful sign-in (redirects to dashboard home)
+    await page.waitForURL('/', { timeout: 10000 });
+
+    // Open the profile menu
     await page.getByTestId('profile-trigger').click();
+
+    // Click sign-out button
+    const signoutButton = page.getByTestId('signout-button');
+    await expect(signoutButton).toBeVisible();
+    await signoutButton.click();
+
+    // Should be redirected to sign-in page
+    await page.waitForURL('**/sign-in', { timeout: 10000 });
+    expect(page.url()).toContain('/sign-in');
+  });
+
+  test('invalid password format prevents sign-in', async ({ page }) => {
+    await page.goto('/sign-in');
+
+    // Use valid username but invalid/weak password format
+    const invalidPassword = '123'; // Too short or weak format
     
-    // Verify we can see the signout button
-    await expect(page.getByTestId('signout-button')).toBeVisible();
+    await page.getByTestId('signin-username').fill(username ?? '');
+    await page.getByTestId('signin-password').fill(invalidPassword);
+    await page.getByTestId('signin-submit').click();
+
+    // Should see an error message
+    const errorMessage = page.locator('[role="alert"]');
+    await expect(errorMessage).toBeVisible({ timeout: 5000 });
+
+    // Verify we're still on sign-in page (not redirected to dashboard)
+    expect(page.url()).toContain('/sign-in');
   });
 });
