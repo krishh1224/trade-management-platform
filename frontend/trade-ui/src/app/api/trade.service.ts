@@ -118,6 +118,8 @@ export class TradeService {
 
   createWatchlistGroup(request: CreateWatchlistGroupRequest): Observable<WatchlistGroup> {
     return this.http.post<WatchlistGroup>(`${this.config.rootUrl}/api/v1/watchlists/groups`, request);
+  }
+
   getClientProfile(accountId: number): Observable<ClientProfile> {
     return this.http.get<ClientProfile>(`${this.config.rootUrl}/api/v1/accounts/${accountId}/profile`);
   }

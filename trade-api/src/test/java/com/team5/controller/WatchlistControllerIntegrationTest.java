@@ -3,6 +3,7 @@ package com.team5.controller;
 import static org.hamcrest.Matchers.hasSize;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
@@ -18,6 +19,7 @@ import com.team5.domain.exception.WatchlistItemNotFoundException;
 import com.team5.dto.request.AddToWatchlistRequest;
 import com.team5.dto.response.WatchlistItemResponse;
 import com.team5.service.WatchlistService;
+import java.math.BigDecimal;
 import java.time.OffsetDateTime;
 import java.util.List;
 import org.junit.jupiter.api.Test;
@@ -48,7 +50,9 @@ class WatchlistControllerIntegrationTest {
             301L,
             "INFY.NS",
             "Infosys Limited",
-            OffsetDateTime.parse("2026-09-29T09:14:22Z")
+            OffsetDateTime.parse("2026-09-29T09:14:22Z"),
+            BigDecimal.valueOf(2500.00),
+            BigDecimal.valueOf(2.50)
         ));
 
         mockMvc.perform(post("/api/v1/watchlists")
@@ -115,7 +119,7 @@ class WatchlistControllerIntegrationTest {
 
     @Test
     void testListWatchlist_Empty_200() throws Exception {
-        when(watchlistService.listWatchlist(101L)).thenReturn(List.of());
+        when(watchlistService.listWatchlist(eq(101L), any())).thenReturn(List.of());
 
         mockMvc.perform(get("/api/v1/watchlists")
                 .with(authenticatedAs(101L)))
@@ -125,9 +129,9 @@ class WatchlistControllerIntegrationTest {
 
     @Test
     void testListWatchlist_Success_200() throws Exception {
-        when(watchlistService.listWatchlist(101L)).thenReturn(List.of(
-            new WatchlistItemResponse(7001L, 5001L, "Default", 301L, "INFY.NS", "Infosys Limited", OffsetDateTime.parse("2026-09-29T09:14:22Z")),
-            new WatchlistItemResponse(7002L, 5001L, "Default", 302L, "RELIANCE.NS", "Reliance Industries Limited", OffsetDateTime.parse("2026-09-29T09:15:22Z"))
+        when(watchlistService.listWatchlist(eq(101L), any())).thenReturn(List.of(
+            new WatchlistItemResponse(7001L, 5001L, "Default", 301L, "INFY.NS", "Infosys Limited", OffsetDateTime.parse("2026-09-29T09:14:22Z"), BigDecimal.valueOf(2500.00), BigDecimal.valueOf(2.50)),
+            new WatchlistItemResponse(7002L, 5001L, "Default", 302L, "RELIANCE.NS", "Reliance Industries Limited", OffsetDateTime.parse("2026-09-29T09:15:22Z"), BigDecimal.valueOf(2800.00), BigDecimal.valueOf(1.75))
         ));
 
         mockMvc.perform(get("/api/v1/watchlists")
@@ -169,7 +173,10 @@ class WatchlistControllerIntegrationTest {
     }
 
     private static JwtRequestPostProcessor authenticatedAs(long accountId) {
-        return jwt().jwt(token -> token.claim("accountId", accountId));
+        return jwt().jwt(token -> token
+            .claim("accountId", accountId)
+            .claim("iss", "auth-service")
+        );
     }
 
     @SuppressWarnings("unused")

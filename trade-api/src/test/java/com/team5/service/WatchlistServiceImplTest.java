@@ -23,6 +23,7 @@ import com.team5.dto.response.WatchlistItemResponse;
 import com.team5.mapper.AccountQueryMapper;
 import com.team5.mapper.OrderMapper;
 import com.team5.mapper.WatchlistMapper;
+import java.math.BigDecimal;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -175,7 +176,9 @@ class WatchlistServiceImplTest {
             302L,
             "RELIANCE.NS",
             "Reliance Industries Limited",
-            null
+            null,
+            BigDecimal.ZERO,
+            BigDecimal.ZERO
         );
         when(watchlistMapper.findWatchlistByAccountId(101L, null)).thenReturn(List.of(item));
 
