@@ -8,6 +8,7 @@
     "watch": "ng build --watch --configuration development",
     "test": "ng test",
     "test:e2e": "playwright test",
+    "check:bundle": "node scripts/check-bundle-secrets.js",
     "generate:api": "ng-openapi-gen -c api-gen/trade-api.json && ng-openapi-gen -c api-gen/auth-api.json",
     "check:api": "npm run generate:api && git diff --exit-code -- src/app/api/generated"
   },

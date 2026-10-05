@@ -43,6 +43,7 @@
                   "maximumError": "12kB"
                 }
               ],
+              "sourceMap": false,
               "outputHashing": "all"
             },
             "development": {
