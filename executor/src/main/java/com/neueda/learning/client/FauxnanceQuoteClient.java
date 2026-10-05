@@ -53,7 +53,7 @@ public class FauxnanceQuoteClient {
         BigDecimal bid = data.bid.setScale(2, RoundingMode.HALF_UP);
         BigDecimal ask = data.ask.setScale(2, RoundingMode.HALF_UP);
 
-        return new Quote(symbol, bid, ask);
+        return new Quote(symbol, bid, ask, data.changePercent);
     }
 
     /**
@@ -169,6 +169,7 @@ public class FauxnanceQuoteClient {
         public static class Data {
             public BigDecimal bid;
             public BigDecimal ask;
+            public BigDecimal changePercent;
             public String currency; // ISO 4217 code the prices are quoted in
 
             // Default constructor for Jackson
@@ -190,6 +191,7 @@ public class FauxnanceQuoteClient {
                 return "Data{" +
                         "bid=" + bid +
                         ", ask=" + ask +
+                        ", changePercent=" + changePercent +
                         ", currency=" + currency +
                         '}';
             }

@@ -91,8 +91,7 @@ public class MarketDataPoller {
                         Quote quote = fauxnanceClient.getQuote(symbol);
 
                         BigDecimal lastPrice = midpoint(quote.getBid(), quote.getAsk());
-                        BigDecimal previousLastPrice = marketQuoteSnapshotMapper.findLastPriceBySymbol(symbol);
-                        BigDecimal changePct = computeChangePct(previousLastPrice, lastPrice);
+                        BigDecimal changePct = quote.getChangePct();
                         marketQuoteSnapshotMapper.upsertSnapshot(symbol, lastPrice, changePct, OffsetDateTime.now());
                         
                         // Publish one Kafka message per quote (keyed by symbol)
@@ -162,16 +161,5 @@ public class MarketDataPoller {
 
     private BigDecimal midpoint(BigDecimal bid, BigDecimal ask) {
         return bid.add(ask).divide(BigDecimal.valueOf(2), 4, RoundingMode.HALF_UP);
-    }
-
-    private BigDecimal computeChangePct(BigDecimal previousLastPrice, BigDecimal currentLastPrice) {
-        if (previousLastPrice == null || previousLastPrice.signum() == 0) {
-            return BigDecimal.ZERO.setScale(4, RoundingMode.HALF_UP);
-        }
-
-        return currentLastPrice
-            .subtract(previousLastPrice)
-            .multiply(BigDecimal.valueOf(100))
-            .divide(previousLastPrice, 4, RoundingMode.HALF_UP);
     }
 }

@@ -55,6 +55,7 @@ class FauxnanceQuoteClientTest {
                                 new BigDecimal("499.654321")
                         )
                 );
+        response.data.changePercent = new BigDecimal("1.23");
 
         when(restTemplate.exchange(
                 contains("/quotes/" + symbol),
@@ -70,6 +71,7 @@ class FauxnanceQuoteClientTest {
         // Should be scaled to 2 decimals
         assertEquals(new BigDecimal("498.12"), quote.getBid());
         assertEquals(new BigDecimal("499.65"), quote.getAsk());
+        assertEquals(new BigDecimal("1.23"), quote.getChangePct());
 
         verify(restTemplate, times(1)).exchange(anyString(), eq(HttpMethod.GET), any(), eq(FauxnanceQuoteClient.FauxnanceQuoteResponse.class));
     }

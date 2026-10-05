@@ -16,6 +16,7 @@ import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
 /**
@@ -385,5 +386,30 @@ class MarketDataPollerTest {
 
         // Should not throw
         assertDoesNotThrow(() -> poller.pollMarketData());
+    }
+
+    @Test
+    void testChangePctComesFromFauxnanceQuoteResponse() {
+        Set<String> symbols = Set.of("INFY.NS");
+        when(symbolProvider.getSymbolsToPoll()).thenReturn(symbols);
+
+        Quote quote = new Quote(
+            "INFY.NS",
+            new BigDecimal("1500.00"),
+            new BigDecimal("1501.00"),
+            new BigDecimal("2.50")
+        );
+        when(fauxnanceClient.getQuote("INFY.NS")).thenReturn(quote);
+
+        poller = createPoller(60);
+        poller.pollMarketData();
+
+        verify(marketQuoteSnapshotMapper, never()).findLastPriceBySymbol(anyString());
+        verify(marketQuoteSnapshotMapper).upsertSnapshot(
+            eq("INFY.NS"),
+            eq(new BigDecimal("1500.5000")),
+            eq(new BigDecimal("2.50")),
+            any()
+        );
     }
 }
