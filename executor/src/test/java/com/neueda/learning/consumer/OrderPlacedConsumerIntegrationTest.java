@@ -13,6 +13,7 @@ import com.neueda.learning.model.AccountRecord;
 import com.neueda.learning.model.InstrumentRecord;
 import com.neueda.learning.model.OrderRecord;
 import com.neueda.learning.model.PortfolioRecord;
+import com.neueda.learning.service.CurrencyConversionService;
 import com.neueda.learning.service.TradeExecutionService;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.BeforeEach;
@@ -61,7 +62,8 @@ class OrderPlacedConsumerIntegrationTest {
     @BeforeEach
     void setUp() {
         executionService = new TradeExecutionService(
-                orderMapper, portfolioMapper, accountMapper, instrumentMapper, quoteClient
+                orderMapper, portfolioMapper, accountMapper, instrumentMapper, quoteClient,
+                new CurrencyConversionService(quoteClient)
         );
         // The new consumer requires more dependencies; for integration tests, we would need to mock them too.
         // For now, we skip the integration test setup.
@@ -113,7 +115,7 @@ class OrderPlacedConsumerIntegrationTest {
 
         // Setup instrument
         InstrumentRecord instrument = new InstrumentRecord(
-                instrumentId, "INFY.NS", "Infosys", "EQUITY", "INR", "NSE", true
+                instrumentId, "INFY.NS", "Infosys", "EQUITY", "INR", true
         );
 
         // Setup mocks for all database calls
@@ -178,7 +180,7 @@ class OrderPlacedConsumerIntegrationTest {
 
         // Setup instrument
         InstrumentRecord instrument = new InstrumentRecord(
-                instrumentId, "INFY.NS", "Infosys", "EQUITY", "INR", "NSE", true
+                instrumentId, "INFY.NS", "Infosys", "EQUITY", "INR", true
         );
 
         // Setup mocks
@@ -242,7 +244,7 @@ class OrderPlacedConsumerIntegrationTest {
 
         // Setup instrument
         InstrumentRecord instrument = new InstrumentRecord(
-                instrumentId, "INFY.NS", "Infosys", "EQUITY", "INR", "NSE", true
+                instrumentId, "INFY.NS", "Infosys", "EQUITY", "INR", true
         );
 
         // Setup mocks

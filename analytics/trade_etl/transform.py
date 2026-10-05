@@ -59,7 +59,6 @@ def transform_trade_rows(
                     "name",
                     "asset_class",
                     "currency",
-                    "exchange",
                     "tradable",
                     "loaded_at",
                 ]
@@ -125,7 +124,6 @@ def transform_trade_rows(
                 "instrument_name": str(row["instrument_name"]),
                 "asset_class": str(row["asset_class"]),
                 "instrument_currency": str(row["instrument_currency"]),
-                "exchange": str(row["exchange"]),
                 "tradable": bool(row["tradable"]),
                 "account_number": str(row["account_number"]),
                 "holder_name": str(row["holder_name"]),
@@ -161,7 +159,6 @@ def transform_trade_rows(
                 "instrument_name",
                 "asset_class",
                 "instrument_currency",
-                "exchange",
                 "tradable",
             ]
         ]

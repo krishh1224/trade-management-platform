@@ -1,4 +1,4 @@
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpParams } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable, map } from 'rxjs';
 
@@ -22,6 +22,55 @@ import {
   PlaceOrderRequest,
   PositionResponse
 } from './generated/trade-api/models';
+
+export interface WatchlistItem {
+  watchlistId: string;
+  watchlistGroupId: string;
+  watchlistName: string;
+  instrumentId: number;
+  symbol: string;
+  instrumentName: string;
+  addedAt: string;
+  lastPrice: number | null;
+  changePct: number | null;
+}
+
+export interface AddToWatchlistRequest {
+  accountId: number;
+  symbol: string;
+  watchlistGroupId?: string;
+}
+
+export interface WatchlistGroup {
+  watchlistGroupId: string;
+  name: string;
+  createdAt: string;
+}
+
+export interface CreateWatchlistGroupRequest {
+  name: string;
+}
+
+export interface InstrumentOption {
+  symbol: string;
+  name: string;
+  currency: string;
+}
+
+/**
+ * Order history row as trade-api returns it. `settlementAmount` is the cash actually moved on a
+ * FILLED order, in the account's currency. The server sends it but trade-api.yaml does not declare
+ * it, so it is added here rather than in the generated model (which `check:api` regenerates).
+ */
+export type OrderHistoryRow = OrderHistoryEntry & { settlementAmount?: number | null };
+
+export interface ClientProfile {
+  accountId: number;
+  name: string;
+  email: string;
+  phone: string;
+  dob: string;
+}
 
 /** Hand-written facade over the generated Trade REST API client. Unwraps the HTTP envelope. */
 @Injectable({ providedIn: 'root' })
@@ -50,7 +99,7 @@ export class TradeService {
     return getPositions(this.http, this.config.rootUrl, { id: accountId }).pipe(map((r) => r.body));
   }
 
-  getOrders(accountId: number, filter: Omit<GetOrders$Params, 'id'> = {}): Observable<OrderHistoryEntry[]> {
+  getOrders(accountId: number, filter: Omit<GetOrders$Params, 'id'> = {}): Observable<OrderHistoryRow[]> {
     return getOrders(this.http, this.config.rootUrl, { id: accountId, ...filter }).pipe(map((r) => r.body));
   }
 
@@ -64,5 +113,38 @@ export class TradeService {
 
   getCashTransactions(accountId: number, limit?: number): Observable<CashTransactionResponse[]> {
     return getCashTransactions(this.http, this.config.rootUrl, { id: accountId, limit }).pipe(map((r) => r.body));
+  }
+ 
+  getInstruments(accountId: number, prefix = ''): Observable<InstrumentOption[]> {
+    const params = new HttpParams({ fromObject: prefix ? { prefix } : {} });
+    return this.http.get<InstrumentOption[]>(`${this.config.rootUrl}/api/v1/accounts/${accountId}/instruments`, { params });
+  }
+
+  /** Get watchlist items for authenticated user */
+  getWatchlist(accountId: number, watchlistGroupId?: string): Observable<WatchlistItem[]> {
+    const params = watchlistGroupId ? new HttpParams({ fromObject: { groupId: String(watchlistGroupId) } }) : undefined;
+    return this.http.get<WatchlistItem[]>(`${this.config.rootUrl}/api/v1/watchlists`, { params });
+  }
+
+  /** Add instrument to watchlist */
+  addToWatchlist(request: AddToWatchlistRequest): Observable<WatchlistItem> {
+    return this.http.post<WatchlistItem>(`${this.config.rootUrl}/api/v1/watchlists`, request);
+  }
+
+  /** Remove watchlist row by watchlist id */
+  removeFromWatchlist(watchlistId: string): Observable<void> {
+    return this.http.delete<void>(`${this.config.rootUrl}/api/v1/watchlists/${watchlistId}`);
+  }
+
+  listWatchlistGroups(): Observable<WatchlistGroup[]> {
+    return this.http.get<WatchlistGroup[]>(`${this.config.rootUrl}/api/v1/watchlists/groups`);
+  }
+
+  createWatchlistGroup(request: CreateWatchlistGroupRequest): Observable<WatchlistGroup> {
+    return this.http.post<WatchlistGroup>(`${this.config.rootUrl}/api/v1/watchlists/groups`, request);
+  }
+
+  getClientProfile(accountId: number): Observable<ClientProfile> {
+    return this.http.get<ClientProfile>(`${this.config.rootUrl}/api/v1/accounts/${accountId}/profile`);
   }
 }

@@ -37,17 +37,20 @@ public class TradeExecutionService {
     private final AccountMapper accountMapper;
     private final InstrumentMapper instrumentMapper;
     private final FauxnanceQuoteClient quoteClient;
+    private final CurrencyConversionService conversionService;
 
     public TradeExecutionService(OrderMapper orderMapper,
                                  PortfolioMapper portfolioMapper,
                                  AccountMapper accountMapper,
                                  InstrumentMapper instrumentMapper,
-                                 FauxnanceQuoteClient quoteClient) {
+                                 FauxnanceQuoteClient quoteClient,
+                                 CurrencyConversionService conversionService) {
         this.orderMapper = orderMapper;
         this.portfolioMapper = portfolioMapper;
         this.accountMapper = accountMapper;
         this.instrumentMapper = instrumentMapper;
         this.quoteClient = quoteClient;
+        this.conversionService = conversionService;
     }
 
     /**
@@ -114,7 +117,27 @@ public class TradeExecutionService {
                 return checkResult; // Validation failed
             }
 
-            // 7. Get quote from Fauxnance
+            // 7. FX rate from the instrument's currency into the account's base currency.
+            //    Exactly 1 (no Fauxnance call) when they match, e.g. an NSE stock on an INR account.
+            String instrumentCurrency = instrumentRecord.getCurrency();
+            String baseCurrency = accountRecord.getBaseCurrency();
+            BigDecimal fxRate;
+            try {
+                fxRate = conversionService.rateFor(instrumentCurrency, baseCurrency, orderRecord.getSide());
+            } catch (QuoteUnavailableException e) {
+                logger.error("FX rate {} -> {} unavailable for order {}: {}",
+                        instrumentCurrency, baseCurrency, orderId, e.getMessage());
+                return new ExecutionResult(orderId, com.neueda.learning.domain.enums.ExecutionStatus.REJECTED, null,
+                        "FX rate unavailable: " + e.getMessage());
+            }
+
+            // 8. BUY affordability, in the account's base currency
+            ExecutionResult fundsResult = checkBuyAffordability(orderId, accountRecord, orderRecord, fxRate);
+            if (fundsResult != null) {
+                return fundsResult;
+            }
+
+            // 9. Get quote from Fauxnance
             Quote quote;
             try {
                 quote = quoteClient.getQuote(instrumentRecord.getTicker());
@@ -125,7 +148,7 @@ public class TradeExecutionService {
                         "Quote unavailable: " + e.getMessage());
             }
 
-            // 8. Apply pure decision function
+            // 10. Apply pure decision function (limit and quote are both in the instrument's currency)
             ExecutionDecision decision = ExecutionDecision.decide(
                     orderRecord.getSide(),
                     orderRecord.getPrice(),
@@ -134,12 +157,30 @@ public class TradeExecutionService {
 
             logger.info("Execution decision for order {}: {}", orderId, decision);
 
-            // 9. Convert decision to result
+            if (decision.getStatus() != com.neueda.learning.domain.enums.ExecutionStatus.FILLED) {
+                return new ExecutionResult(
+                        orderId,
+                        decision.getStatus(),
+                        decision.getExecutionPrice(),
+                        decision.getReason()
+                );
+            }
+
+            // 11. FILLED: cash moves in the account's base currency
+            BigDecimal tradeValue = decision.getExecutionPrice().multiply(BigDecimal.valueOf(orderRecord.getQuantity()));
+            BigDecimal settlementAmount = CurrencyConversionService.convert(tradeValue, fxRate);
+            logger.info("Order {} settles {} {} = {} x {} {} (= {} {}) at FX rate {}",
+                    orderId, settlementAmount, baseCurrency, orderRecord.getQuantity(),
+                    decision.getExecutionPrice(), instrumentCurrency, tradeValue, instrumentCurrency, fxRate);
+
             return new ExecutionResult(
                     orderId,
                     decision.getStatus(),
                     decision.getExecutionPrice(),
-                    decision.getReason()
+                    decision.getReason(),
+                    fxRate,
+                    baseCurrency,
+                    settlementAmount
             );
 
         } catch (Exception e) {
@@ -174,23 +215,35 @@ public class TradeExecutionService {
                     "Instrument is not tradable");
         }
 
-        // Check BUY affordability: quantity × executionPrice must be affordable
-        // For BUY, we need to check if the account can afford the order at the LIMIT price (worst case)
-        // The actual execution price may be better (lower ask), but we must validate against limit
-        if ("BUY".equalsIgnoreCase(order.getSide())) {
-            BigDecimal cost = order.getPrice().multiply(BigDecimal.valueOf(order.getQuantity()));
-            if (account.getBalance() == null || account.getBalance().compareTo(cost) < 0) {
-                logger.warn("Account {} cannot afford BUY order {}: {} < required {}", 
-                        account.getAccId(), orderId, account.getBalance(), cost);
-                return new ExecutionResult(orderId, com.neueda.learning.domain.enums.ExecutionStatus.REJECTED, null,
-                        "Insufficient funds: " + account.getBalance() + " < " + cost);
-            }
-        }
+        // BUY affordability is checked separately in checkBuyAffordability, once the FX rate into
+        // the account's base currency is known.
 
         // For SELL: validation would check holdings, but that's in portfolio_holdings table
         // which is not the focus of this executor story
         // The ordering system (Sprint 5) would have already validated holdings at order placement
 
         return null; // All checks passed
+    }
+
+    /**
+     * BUY affordability: quantity x LIMIT price (worst case; the fill may be at a better ask),
+     * converted into the account's base currency, must not exceed the cash balance.
+     * Returns null if affordable (or a SELL), otherwise a rejection result.
+     */
+    private ExecutionResult checkBuyAffordability(Long orderId, AccountRecord account,
+                                                  OrderRecord order, BigDecimal fxRate) {
+        if (!"BUY".equalsIgnoreCase(order.getSide())) {
+            return null;
+        }
+
+        BigDecimal cost = CurrencyConversionService.convert(
+                order.getPrice().multiply(BigDecimal.valueOf(order.getQuantity())), fxRate);
+        if (account.getBalance() == null || account.getBalance().compareTo(cost) < 0) {
+            logger.warn("Account {} cannot afford BUY order {}: {} < required {} {}",
+                    account.getAccId(), orderId, account.getBalance(), cost, account.getBaseCurrency());
+            return new ExecutionResult(orderId, com.neueda.learning.domain.enums.ExecutionStatus.REJECTED, null,
+                    "Insufficient funds: " + account.getBalance() + " < " + cost + " " + account.getBaseCurrency());
+        }
+        return null;
     }
 }

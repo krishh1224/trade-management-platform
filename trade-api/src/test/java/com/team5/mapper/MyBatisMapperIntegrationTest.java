@@ -18,6 +18,7 @@ import com.team5.dto.request.CashMovementRequest;
 import com.team5.dto.request.PlaceOrderRequest;
 import com.team5.dto.response.BalanceResponse;
 import com.team5.dto.response.CashTransactionResponse;
+import com.team5.dto.response.OrderHistoryEntry;
 import com.team5.dto.response.OrderResponse;
 import com.team5.service.AccountService;
 import com.team5.service.OrderService;
@@ -26,6 +27,8 @@ import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -45,6 +48,9 @@ class MyBatisMapperIntegrationTest {
 
     @Autowired
     private AccountService accountService;
+
+    @Autowired
+    private AccountQueryMapper accountQueryMapper;
 
     @BeforeEach
     void setUpSchemaAndData() {
@@ -142,6 +148,12 @@ class MyBatisMapperIntegrationTest {
               created_at TIMESTAMP NOT NULL,
               updated_at TIMESTAMP NOT NULL,
               expires_at TIMESTAMP,
+              executed_price NUMERIC(19,4),
+              executed_on TIMESTAMP,
+              rejection_reason VARCHAR(255),
+              fx_rate NUMERIC(19,8),
+              settlement_currency VARCHAR(3),
+              settlement_amount NUMERIC(19,4),
               CONSTRAINT fk_orders_portfolio FOREIGN KEY (portfolio_id) REFERENCES portfolio(portfolio_id),
               CONSTRAINT fk_orders_instrument FOREIGN KEY (instrument_id) REFERENCES instruments(instrument_id)
             )
@@ -395,6 +407,44 @@ class MyBatisMapperIntegrationTest {
 
     private BigDecimal balanceOf101() {
         return jdbcTemplate.queryForObject("SELECT balance FROM accounts WHERE acc_id = 101", BigDecimal.class);
+    }
+
+    @Test
+    void orderHistoryReportsTheExecutorFillPriceNotTheLimitPrice() {
+        jdbcTemplate.update(
+            """
+            INSERT INTO orders (order_id, portfolio_id, instrument_id, side, quantity, price, status, idempotency_key,
+                                created_at, updated_at, executed_price, fx_rate, settlement_currency, settlement_amount)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            910001L, 201L, 301L, "BUY", 10L, new BigDecimal("1200.0000"), "FILLED", "history-executor-fill",
+            OffsetDateTime.parse("2026-09-10T10:00:00Z"), OffsetDateTime.parse("2026-09-10T10:00:00Z"),
+            new BigDecimal("1187.5000"), new BigDecimal("96.17096200"), "INR", new BigDecimal("1142066.4200")
+        );
+        // Filled before the executor existed: no executed_price, filled at its limit price.
+        jdbcTemplate.update(
+            """
+            INSERT INTO orders (order_id, portfolio_id, instrument_id, side, quantity, price, status, idempotency_key,
+                                created_at, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            910002L, 201L, 301L, "BUY", 5L, new BigDecimal("1150.0000"), "FILLED", "history-legacy-fill",
+            OffsetDateTime.parse("2026-09-09T10:00:00Z"), OffsetDateTime.parse("2026-09-09T10:00:00Z")
+        );
+        insertOrder(910003L, "NEW", "history-working");
+
+        Map<String, OrderHistoryEntry> byKey = accountQueryMapper.getOrders(101L, null, null, null).stream()
+            .collect(Collectors.toMap(OrderHistoryEntry::idempotencyKey, Function.identity()));
+
+        assertEquals(0, new BigDecimal("1187.50").compareTo(byKey.get("history-executor-fill").executedPrice()));
+        assertEquals(0, new BigDecimal("1200.00").compareTo(byKey.get("history-executor-fill").price()));
+        assertEquals(0, new BigDecimal("1150.00").compareTo(byKey.get("history-legacy-fill").executedPrice()));
+        assertNull(byKey.get("history-working").executedPrice());
+
+        // Cash actually moved, in the account's currency; null when the executor never recorded it.
+        assertEquals(0, new BigDecimal("1142066.42").compareTo(byKey.get("history-executor-fill").settlementAmount()));
+        assertNull(byKey.get("history-legacy-fill").settlementAmount());
+        assertNull(byKey.get("history-working").settlementAmount());
     }
 
     private void insertOrder(Long orderId, String status, String idempotencyKey) {

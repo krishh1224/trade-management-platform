@@ -18,8 +18,15 @@ Get-Content $envFile | ForEach-Object {
     }
 }
 
+# Remove legacy shared SERVER_PORT if present; services now use dedicated variables.
+if (Test-Path Env:SERVER_PORT) {
+    Remove-Item Env:SERVER_PORT
+}
+
 # Derive the bootstrap-servers string both Spring services expect from the
 # single KAFKA_HOST value, instead of storing "host:port" redundantly.
 $env:KAFKA_BOOTSTRAP_SERVERS = "$($env:KAFKA_HOST):8085"
+$env:SPRING_KAFKA_BOOTSTRAP_SERVERS = $env:KAFKA_BOOTSTRAP_SERVERS
 
 Write-Host "Loaded env from .env - KAFKA_BOOTSTRAP_SERVERS=$env:KAFKA_BOOTSTRAP_SERVERS"
+Write-Host "Loaded env from .env - SPRING_KAFKA_BOOTSTRAP_SERVERS=$env:SPRING_KAFKA_BOOTSTRAP_SERVERS"

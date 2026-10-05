@@ -5,6 +5,8 @@ import com.team5.dto.request.CashMovementRequest;
 import com.team5.dto.response.AccountResponse;
 import com.team5.dto.response.BalanceResponse;
 import com.team5.dto.response.CashTransactionResponse;
+import com.team5.dto.response.ClientProfileResponse;
+import com.team5.dto.response.InstrumentOptionResponse;
 import com.team5.dto.response.OrderHistoryEntry;
 import com.team5.dto.response.PositionResponse;
 import java.time.OffsetDateTime;
@@ -13,6 +15,8 @@ import java.util.List;
 public interface AccountService {
 
     AccountResponse getAccount(long authenticatedAccountId, Long accountId);
+
+    ClientProfileResponse getClientProfile(long authenticatedAccountId, Long accountId);
 
     BalanceResponse getBalance(long authenticatedAccountId, Long accountId);
 
@@ -31,4 +35,6 @@ public interface AccountService {
     CashTransactionResponse withdraw(long authenticatedAccountId, Long accountId, CashMovementRequest request);
 
     List<CashTransactionResponse> getCashTransactions(long authenticatedAccountId, Long accountId, int limit);
+
+    List<InstrumentOptionResponse> getInstruments(long authenticatedAccountId, Long accountId, String prefix);
 }

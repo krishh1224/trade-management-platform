@@ -133,7 +133,8 @@ class AccountControllerTest {
                 BigDecimal.valueOf(1499.75),
                 OrderStatus.FILLED,
                 "order-123456",
-                OffsetDateTime.parse("2026-09-09T14:00:00Z")
+                OffsetDateTime.parse("2026-09-09T14:00:00Z"),
+                BigDecimal.valueOf(14997.50)
             )
         ));
 
@@ -144,7 +145,8 @@ class AccountControllerTest {
                 .queryParam("to", "2026-09-30T23:59:59Z"))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$[0].orderId").value("ORD-6f2b1c2a-6a1e-4a4f-9c0d-2f7a1b3c4d5e"))
-            .andExpect(jsonPath("$[0].status").value("FILLED"));
+            .andExpect(jsonPath("$[0].status").value("FILLED"))
+            .andExpect(jsonPath("$[0].settlementAmount").value(14997.50));
     }
 
     @Test

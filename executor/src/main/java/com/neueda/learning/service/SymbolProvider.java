@@ -1,6 +1,7 @@
 package com.neueda.learning.service;
 
 import com.neueda.learning.mapper.PortfolioHoldingMapper;
+import com.neueda.learning.mapper.WatchlistSymbolMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -10,8 +11,7 @@ import java.util.Set;
 
 /**
  * Service that provides the set of symbols to poll for market data.
- * Currently sources symbols from portfolio holdings.
- * Future: May extend to support watchlists if they are added.
+ * Sources symbols from portfolio holdings and watchlists.
  */
 @Service
 public class SymbolProvider {
@@ -19,25 +19,32 @@ public class SymbolProvider {
     private static final Logger logger = LoggerFactory.getLogger(SymbolProvider.class);
 
     private final PortfolioHoldingMapper holdingMapper;
+    private final WatchlistSymbolMapper watchlistSymbolMapper;
 
-    public SymbolProvider(PortfolioHoldingMapper holdingMapper) {
+    public SymbolProvider(PortfolioHoldingMapper holdingMapper, WatchlistSymbolMapper watchlistSymbolMapper) {
         this.holdingMapper = holdingMapper;
+        this.watchlistSymbolMapper = watchlistSymbolMapper;
     }
 
     /**
-     * Get all unique symbols that someone currently holds.
-     * Returns a deduplicated set of ticker symbols.
+    * Get all unique symbols that someone currently holds or has in watchlists.
+    * Returns a deduplicated set of ticker symbols across both sources.
      *
      * @return set of symbols to poll (e.g., {"INFY.NS", "RELIANCE.NS"})
      */
     public Set<String> getSymbolsToPoll() {
-        // Query database for all held symbols
-        var symbols = holdingMapper.findAllHeldSymbols();
+        var heldSymbols = holdingMapper.findAllHeldSymbols();
+        var watchlistSymbols = watchlistSymbolMapper.findAllWatchlistSymbols();
 
-        // Deduplicate (should already be unique from SQL, but defensive)
-        Set<String> uniqueSymbols = new HashSet<>(symbols);
+        Set<String> uniqueSymbols = new HashSet<>(heldSymbols);
+        uniqueSymbols.addAll(watchlistSymbols);
 
-        logger.debug("Found {} unique symbols to poll", uniqueSymbols.size());
+        logger.debug(
+            "Found {} unique symbols to poll (holdings={}, watchlists={})",
+            uniqueSymbols.size(),
+            heldSymbols.size(),
+            watchlistSymbols.size()
+        );
 
         return uniqueSymbols;
     }

@@ -130,4 +130,15 @@ export class CredentialsRepository {
       createdOn: new Date(row.created_at),
     };
   }
+
+  async updatePasswordHash(accountId: number, passwordHash: string): Promise<boolean> {
+    const result = await this.pool.query(
+      `UPDATE auth.credentials
+       SET password_hash = $2
+       WHERE account_id = $1`,
+      [accountId, passwordHash],
+    );
+
+    return (result.rowCount ?? 0) > 0;
+  }
 }

@@ -36,4 +36,11 @@ export class AuthService {
   getCurrentUser(): Observable<UserResponse> {
     return getCurrentUser(this.http, this.config.rootUrl).pipe(map((r) => r.body));
   }
+
+  updatePassword(currentPassword: string, newPassword: string): Observable<{ message: string }> {
+    return this.http.patch<{ message: string }>(`${this.config.rootUrl}/auth/password`, {
+      currentPassword,
+      newPassword
+    });
+  }
 }

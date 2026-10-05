@@ -34,7 +34,7 @@ import java.util.UUID;
  */
 public class KafkaDLTIntegrationTest {
 
-    private static final String BOOTSTRAP_SERVERS = "10.8.67.91:8085";
+    private static final String BOOTSTRAP_SERVERS = "10.8.64.174:8085";
     private static final String ORDERS_TOPIC = "orders";
     private static final String DLT_TOPIC = "orders.DLT";
 

@@ -47,6 +47,37 @@ public class FauxnanceQuoteClient {
      * Throws QuoteUnavailableException if all retries are exhausted.
      */
     public Quote getQuote(String symbol) {
+        FauxnanceQuoteResponse.Data data = fetchWithRetry(symbol);
+
+        // Scale prices to 2 decimal places (matching Account.balance precision)
+        BigDecimal bid = data.bid.setScale(2, RoundingMode.HALF_UP);
+        BigDecimal ask = data.ask.setScale(2, RoundingMode.HALF_UP);
+
+        return new Quote(symbol, bid, ask, data.changePercent);
+    }
+
+    /**
+     * Fetch the FX rate that converts an amount in {@code fromCurrency} into {@code toCurrency},
+     * using the Fauxnance pair {@code FX:{from}{to}} (e.g. FX:USDINR = INR per 1 USD).
+     *
+     * Unlike {@link #getQuote(String)} the bid/ask are NOT rounded to 2dp: a rate such as
+     * FX:INRUSD (0.010399) would collapse to 0.01. Callers decide how to round the converted amount.
+     * Throws QuoteUnavailableException if all retries are exhausted or the pair is quoted in an
+     * unexpected currency.
+     */
+    public Quote getFxRate(String fromCurrency, String toCurrency) {
+        String symbol = "FX:" + fromCurrency + toCurrency;
+        FauxnanceQuoteResponse.Data data = fetchWithRetry(symbol);
+
+        if (data.currency != null && !toCurrency.equalsIgnoreCase(data.currency)) {
+            throw new QuoteUnavailableException(
+                "FX rate " + symbol + " is quoted in " + data.currency + ", expected " + toCurrency);
+        }
+
+        return new Quote(symbol, data.bid, data.ask);
+    }
+
+    private FauxnanceQuoteResponse.Data fetchWithRetry(String symbol) {
         long backoffMs = initialBackoffMs;
 
         for (int attempt = 0; attempt <= maxRetries; attempt++) {
@@ -80,12 +111,8 @@ public class FauxnanceQuoteClient {
                 }
 
                 logger.debug("Quote retrieved for {}: {}", symbol, response);
-                
-                // Scale prices to 2 decimal places (matching Account.balance precision)
-                BigDecimal bid = quoteResponse.data.bid.setScale(2, RoundingMode.HALF_UP);
-                BigDecimal ask = quoteResponse.data.ask.setScale(2, RoundingMode.HALF_UP);
 
-                return new Quote(symbol, bid, ask);
+                return quoteResponse.data;
             } catch (RestClientException e) {
                 logger.warn("Failed to fetch quote for {} (attempt {}/{}): {}", 
                     symbol, attempt + 1, maxRetries + 1, e.getMessage());
@@ -113,7 +140,8 @@ public class FauxnanceQuoteClient {
      * {
      *   "data": {
      *     "bid": 123.45,
-     *     "ask": 123.50
+     *     "ask": 123.50,
+     *     "currency": "USD"
      *   }
      * }
      */
@@ -141,6 +169,8 @@ public class FauxnanceQuoteClient {
         public static class Data {
             public BigDecimal bid;
             public BigDecimal ask;
+            public BigDecimal changePercent;
+            public String currency; // ISO 4217 code the prices are quoted in
 
             // Default constructor for Jackson
             public Data() {
@@ -151,11 +181,18 @@ public class FauxnanceQuoteClient {
                 this.ask = ask;
             }
 
+            public Data(BigDecimal bid, BigDecimal ask, String currency) {
+                this(bid, ask);
+                this.currency = currency;
+            }
+
             @Override
             public String toString() {
                 return "Data{" +
                         "bid=" + bid +
                         ", ask=" + ask +
+                        ", changePercent=" + changePercent +
+                        ", currency=" + currency +
                         '}';
             }
         }

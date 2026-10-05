@@ -1,6 +1,8 @@
 .shell {
   min-height: 100dvh;
   background: var(--bg-raised);
+  display: flex;
+  flex-direction: column;
 }
 
 .mono {
@@ -109,6 +111,9 @@
   border-color: var(--accent);
   background: rgba(79, 124, 255, 0.22);
 }
+.profile-menu-wrap {
+  position: relative;
+}
 
 .account-chip {
   display: flex;
@@ -147,26 +152,65 @@
   letter-spacing: 0.06em;
 }
 
-.signout-button {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  height: 38px;
-  padding: 0 14px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  background: transparent;
-  color: var(--text-muted);
-  font-size: 0.88rem;
-  font-weight: 500;
+.profile-trigger {
   cursor: pointer;
-  transition: color 150ms ease, border-color 150ms ease, background 150ms ease;
+  color: inherit;
 }
 
-.signout-button:hover {
-  border-color: var(--down);
-  background: var(--down-soft);
-  color: var(--down);
+.caret {
+  color: var(--text-faint);
+}
+
+.profile-menu {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 8px);
+  min-width: 150px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  box-shadow: var(--shadow);
+  display: grid;
+  overflow: hidden;
+  z-index: 20;
+}
+
+.profile-menu a,
+.profile-menu button {
+  border: 0;
+  background: transparent;
+  color: var(--text);
+  text-align: left;
+  text-decoration: none;
+  font-size: 0.85rem;
+  padding: 10px 12px;
+  cursor: pointer;
+}
+
+.profile-menu a:hover,
+.profile-menu button:hover {
+  background: var(--surface-2);
+}
+
+.theme-toggle {
+  height: 38px;
+  width: 38px;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+  color: var(--text-muted);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background 150ms ease, border-color 150ms ease, color 150ms ease;
+}
+
+.theme-toggle:hover {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  color: var(--accent-hover);
 }
 
 /* ---------- Content ---------- */
@@ -227,6 +271,13 @@
   font-size: clamp(1.6rem, 3vw, 2.1rem);
   font-weight: 700;
   letter-spacing: -0.03em;
+}
+
+.customer-name {
+  color: var(--accent-hover);
+  font-family: 'Avenir Next', 'Segoe UI', sans-serif;
+  font-weight: 800;
+  letter-spacing: -0.02em;
 }
 
 .subtitle {
@@ -347,6 +398,33 @@
   font-size: 0.8rem;
 }
 
+.balance-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.view-balance-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 28px;
+  width: 28px;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg-raised);
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all 150ms ease;
+}
+
+.view-balance-button:hover {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  color: var(--accent-hover);
+}
+
 .role-badge {
   display: inline-block;
   padding: 3px 10px;
@@ -427,6 +505,23 @@
   font-weight: 500;
 }
 
+.soon-badge.connected {
+  border-color: rgba(22, 199, 132, 0.35);
+  background: var(--up-soft);
+  color: var(--up);
+}
+
+.panel-link {
+  color: var(--accent-hover);
+  font-size: 0.8rem;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.panel-link:hover {
+  text-decoration: underline;
+}
+
 .table-wrap {
   display: grid;
   grid-template-rows: auto 1fr;
@@ -436,6 +531,82 @@
 table {
   width: 100%;
   border-collapse: collapse;
+}
+
+td {
+  padding: 10px 20px;
+  border-bottom: 1px solid var(--border);
+  color: var(--text);
+  font-size: 0.84rem;
+  white-space: nowrap;
+}
+
+td.num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.recent-orders-table th.col-status,
+.recent-orders-table td.col-status {
+  min-width: 140px;
+  padding-left: 14px;
+}
+
+.status-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 8px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--bg-raised);
+  color: var(--text);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+.status-new {
+  color: #1d4ed8;
+  border-color: rgba(29, 78, 216, 0.4);
+  background: rgba(29, 78, 216, 0.14);
+}
+
+.status-filled {
+  color: var(--up);
+  border-color: rgba(22, 199, 132, 0.4);
+  background: var(--up-soft);
+}
+
+.status-rejected {
+  color: var(--down);
+  border-color: rgba(240, 82, 82, 0.4);
+  background: var(--down-soft);
+}
+
+.status-cancelled {
+  color: #6b7280;
+  border-color: rgba(107, 114, 128, 0.4);
+  background: rgba(107, 114, 128, 0.16);
+}
+
+.price-pack {
+  display: inline-grid;
+  grid-auto-flow: column;
+  grid-template-columns: 3ch auto;
+  column-gap: 6px;
+  align-items: baseline;
+}
+
+.currency-prefix {
+  color: var(--text-muted);
+  text-align: left;
+  font-size: 0.78rem;
+}
+
+.price-value {
+  min-width: 8ch;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
 }
 
 th {
@@ -486,6 +657,41 @@ th.num {
   font-size: 0.85rem;
 }
 
+/* Status badge styles for account status (distinct from order status badges) */
+.stat .status-badge {
+  display: inline-block;
+  padding: 4px 12px;
+  border-radius: 6px;
+  background: var(--accent-soft);
+  color: var(--accent-hover);
+  font-size: 0.85rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.stat .status-active {
+  background: var(--up-soft);
+  color: var(--up);
+  border: none;
+}
+
+.stat .status-suspended {
+  background: var(--warn-soft);
+  color: var(--warn);
+  border: none;
+}
+
+.stat .status-closed {
+  background: var(--down-soft);
+  color: var(--down);
+  border: none;
+}
+
+.masked-dots {
+  letter-spacing: 2px;
+}
+
 /* ---------- Responsive ---------- */
 
 @media (max-width: 1024px) {
@@ -499,36 +705,15 @@ th.num {
 }
 
 @media (max-width: 720px) {
-  .topbar {
-    padding: 0 16px;
-  }
-
-  .nav,
-  .account-meta {
-    display: none;
-  }
-
-  .account-chip {
-    padding: 4px;
-  }
-
-  .signout-button span,
-  .funds-button span {
-    display: none;
-  }
-
-  .signout-button,
-  .funds-button {
-    width: 38px;
-    padding: 0;
-    justify-content: center;
-  }
-
   .content {
     padding: 24px 16px 40px;
   }
 
   th {
+    padding: 10px 12px;
+  }
+
+  td {
     padding: 10px 12px;
   }
 

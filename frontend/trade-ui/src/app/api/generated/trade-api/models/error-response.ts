@@ -18,6 +18,8 @@ export interface ErrorResponse {
    * | `ORD-409` | 409 | Insufficient holdings, duplicate order, or order not cancellable |
    * | `CSH-400` | 400 | Withdrawal exceeds the cash available to withdraw |
    * | `CSH-409` | 409 | Duplicate cash movement, or the balance changed concurrently |
+   * | `WTL-404` | 404 | Watchlist item not found |
+   * | `WTL-409` | 409 | Instrument already in watchlist |
    * | `VAL-422` | 422 | Invalid input |
    * | `AUTH-401` | 401 | Unauthorised or invalid token |
    */

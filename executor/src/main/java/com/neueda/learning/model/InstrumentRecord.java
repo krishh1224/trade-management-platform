@@ -9,20 +9,18 @@ public class InstrumentRecord {
     private String name;
     private String assetClass;
     private String currency;
-    private String exchange;
     private Boolean tradable;
 
     public InstrumentRecord() {
     }
 
     public InstrumentRecord(Long instrumentId, String ticker, String name, String assetClass,
-                            String currency, String exchange, Boolean tradable) {
+                            String currency, Boolean tradable) {
         this.instrumentId = instrumentId;
         this.ticker = ticker;
         this.name = name;
         this.assetClass = assetClass;
         this.currency = currency;
-        this.exchange = exchange;
         this.tradable = tradable;
     }
 
@@ -66,14 +64,6 @@ public class InstrumentRecord {
         this.currency = currency;
     }
 
-    public String getExchange() {
-        return exchange;
-    }
-
-    public void setExchange(String exchange) {
-        this.exchange = exchange;
-    }
-
     public Boolean getTradable() {
         return tradable;
     }
@@ -90,7 +80,6 @@ public class InstrumentRecord {
                 ", name='" + name + '\'' +
                 ", assetClass='" + assetClass + '\'' +
                 ", currency='" + currency + '\'' +
-                ", exchange='" + exchange + '\'' +
                 ", tradable=" + tradable +
                 '}';
     }

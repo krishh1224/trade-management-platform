@@ -42,6 +42,37 @@
 	--font-mono: 'JetBrains Mono', 'Cascadia Code', Consolas, monospace;
 }
 
+:root[data-theme='light'] {
+	color-scheme: light;
+
+	--bg: #f6f8fd;
+	--bg-raised: #edf2fb;
+	--bar-bg: rgba(246, 248, 253, 0.9);
+	--surface: #ffffff;
+	--surface-2: #f6f8fd;
+	--surface-hover: #eef3ff;
+	--border: #d6deee;
+	--border-strong: #bfcbdf;
+
+	--text: #1a2438;
+	--text-muted: #4f5f7c;
+	--text-faint: #6c7892;
+
+	--accent: #3f6ef6;
+	--accent-hover: #2d59df;
+	--accent-soft: rgba(63, 110, 246, 0.12);
+
+	--up: #0f8f5f;
+	--up-soft: rgba(15, 143, 95, 0.12);
+	--down: #cf3745;
+	--down-soft: rgba(207, 55, 69, 0.12);
+	--warn: #be7e10;
+	--warn-soft: rgba(190, 126, 16, 0.12);
+
+	--shadow: 0 8px 24px rgba(43, 67, 112, 0.14);
+	--focus-ring: 0 0 0 3px rgba(63, 110, 246, 0.28);
+}
+
 *,
 *::before,
 *::after {
@@ -84,6 +115,93 @@ input {
 :focus-visible {
 	outline: none;
 	box-shadow: var(--focus-ring);
+}
+
+/* ---------- Primary navigation: hamburger on narrow screens ---------- */
+/* Shared by every page's .topbar. Selectors start with `header.topbar` so they
+   outrank each page's encapsulated .topbar / .nav rules. */
+
+.nav-toggle {
+	display: none;
+}
+
+@media (max-width: 900px) {
+	.shell > header.topbar {
+		height: 60px;
+		flex-direction: row;
+		flex-wrap: nowrap;
+		align-items: center;
+		gap: 8px;
+		padding: 0 16px;
+	}
+
+	header.topbar .topbar-left,
+	header.topbar .topbar-right {
+		width: auto;
+		flex-wrap: nowrap;
+		gap: 8px;
+	}
+
+	header.topbar .nav-toggle {
+		display: grid;
+		place-items: center;
+		flex-shrink: 0;
+		width: 38px;
+		height: 38px;
+		padding: 0;
+		border: 1px solid var(--border);
+		border-radius: var(--radius-sm);
+		background: var(--surface);
+		color: var(--text);
+		cursor: pointer;
+	}
+
+	header.topbar .nav {
+		display: none;
+		position: absolute;
+		top: 100%;
+		left: 0;
+		right: 0;
+		flex-direction: column;
+		gap: 2px;
+		max-height: calc(100dvh - 60px);
+		overflow-y: auto;
+		padding: 8px 16px 12px;
+		border-bottom: 1px solid var(--border);
+		background: var(--surface);
+		box-shadow: var(--shadow);
+	}
+
+	header.topbar.nav-open .nav {
+		display: flex;
+	}
+
+	header.topbar .nav-link {
+		padding: 12px;
+		font-size: 0.95rem;
+		text-decoration: none;
+	}
+
+	header.topbar .nav-link.active::after {
+		display: none;
+	}
+
+	header.topbar .account-meta,
+	header.topbar .signout-button span,
+	header.topbar .funds-button span {
+		display: none;
+	}
+
+	header.topbar .account-chip {
+		padding: 4px;
+	}
+
+	header.topbar .signout-button,
+	header.topbar .funds-button {
+		justify-content: center;
+		width: 38px;
+		padding: 0;
+	}
 }
 
 @media (prefers-reduced-motion: reduce) {

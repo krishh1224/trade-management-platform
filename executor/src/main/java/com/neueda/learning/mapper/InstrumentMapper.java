@@ -13,7 +13,7 @@ public interface InstrumentMapper {
     /**
      * Load an instrument by its ID.
      */
-    @Select("SELECT instrument_id, ticker, name, asset_class, currency, exchange, tradable " +
+    @Select("SELECT instrument_id, ticker, name, asset_class, currency, tradable " +
             "FROM instruments WHERE instrument_id = #{instrumentId}")
     InstrumentRecord findById(Long instrumentId);
 }

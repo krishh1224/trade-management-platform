@@ -54,6 +54,7 @@ public class SecurityConfig {
                 // Error dispatches only follow a request that was already authorised, or rejected by the firewall.
                 .dispatcherTypeMatchers(DispatcherType.ERROR).permitAll()
                 .requestMatchers(HttpMethod.GET, "/health").permitAll()
+                .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                 .anyRequest().authenticated()
             )
             .oauth2ResourceServer(oauth2 -> oauth2
@@ -98,7 +99,9 @@ public class SecurityConfig {
             new JwtTimestampValidator(properties.clockSkew()),
             // JwtTimestampValidator accepts a token with no exp at all; the contract requires one.
             new JwtClaimValidator<Object>(JwtClaimNames.EXP, Objects::nonNull),
-            new JwtClaimValidator<Object>(AccountClaims.ACCOUNT_ID, AccountClaims::isValidAccountId)
+            new JwtClaimValidator<Object>(AccountClaims.ACCOUNT_ID, AccountClaims::isValidAccountId),
+            new JwtClaimValidator<String>(JwtClaimNames.ISS,
+                issuer -> Objects.equals(issuer, properties.issuer()))
         ));
         return decoder;
     }

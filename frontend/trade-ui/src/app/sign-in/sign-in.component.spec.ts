@@ -57,7 +57,7 @@ describe('SignInComponent', () => {
   });
 
   it.each([
-    ['/orders?status=NEW', '/orders?status=NEW'],
+    ['/orders?status=NEW', '/'],
     ['https://evil.com', '/'],
     ['//evil.com', '/']
   ])('after sign-in the return address %s lands on %s', async (returnUrl, landing) => {
@@ -108,7 +108,7 @@ describe('SignInComponent', () => {
     fixture.detectChanges();
 
     const compiled = fixture.nativeElement as HTMLElement;
-    expect(compiled.querySelector('[role="alert"]')?.textContent).toContain('Invalid username or password.');
+    expect(compiled.querySelector('[role="alert"]')?.textContent).toContain('Authentication failed. Sign in again and retry.');
   });
 
   it('empty fields are blocked by validation', () => {

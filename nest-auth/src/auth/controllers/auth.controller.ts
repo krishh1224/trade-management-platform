@@ -1,4 +1,4 @@
-import { Body, Controller, Get, HttpCode, HttpStatus, Post, UseGuards, Req } from '@nestjs/common';
+import { Body, Controller, Get, HttpCode, HttpStatus, Patch, Post, Req, UseGuards } from '@nestjs/common';
 import {
   ApiBearerAuth,
   ApiConflictResponse,
@@ -11,7 +11,14 @@ import {
 } from '@nestjs/swagger';
 import { Request } from 'express';
 import { VerifiedAccessTokenPayload } from '../../token/services/auth-token.service';
-import { ErrorResponse, LoginRequest, RegisterRequest, UserResponse } from '../dto/auth.dto';
+import {
+  ChangePasswordRequest,
+  ErrorResponse,
+  LoginRequest,
+  PasswordUpdateResponse,
+  RegisterRequest,
+  UserResponse,
+} from '../dto/auth.dto';
 import { CurrentUser } from '../decorators/current-user.decorator';
 import { JwtAuthGuard } from '../guards/jwt-auth.guard';
 import { RefreshRequest, TokenResponse } from '../dto/refresh.dto';
@@ -55,6 +62,21 @@ export class AuthController {
     @CurrentUser() currentUser: VerifiedAccessTokenPayload,
   ): Promise<UserResponse> {
     return this.authService.me(currentUser);
+  }
+
+  @Patch('password')
+  @UseGuards(JwtAuthGuard)
+  @ApiTags('Profile')
+  @ApiBearerAuth('bearerAuth')
+  @ApiOperation({ operationId: 'updatePassword', summary: 'Update password for authenticated user' })
+  @ApiOkResponse({ description: 'Password updated.', type: PasswordUpdateResponse })
+  @ApiUnauthorizedResponse({ description: 'Authentication failed.', type: ErrorResponse })
+  @ApiInvalidInputResponse()
+  async updatePassword(
+    @CurrentUser() currentUser: VerifiedAccessTokenPayload,
+    @Body() request: ChangePasswordRequest,
+  ): Promise<PasswordUpdateResponse> {
+    return this.authService.updatePassword(currentUser, request);
   }
 
   @Post('refresh')

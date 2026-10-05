@@ -14,7 +14,7 @@ import java.io.IOException;
 @Configuration
 public class RestTemplateConfig {
 
-    @Value("${fauxnance.api-key:}")
+    @Value("${fauxnance.api-key}")
     private String apiKey;
 
     @Bean

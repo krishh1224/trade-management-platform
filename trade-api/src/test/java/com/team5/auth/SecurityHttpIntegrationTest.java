@@ -111,7 +111,8 @@ class SecurityHttpIntegrationTest {
     private static String token(long accountId) throws Exception {
         Base64.Encoder encoder = Base64.getUrlEncoder().withoutPadding();
         String header = encoder.encodeToString("{\"typ\":\"JWT\",\"alg\":\"HS256\"}".getBytes(StandardCharsets.UTF_8));
-        String payload = encoder.encodeToString(("{\"accountId\":" + accountId + ",\"exp\":"
+        // iss must be "auth-service": trade-api rejects tokens from any other issuer.
+        String payload = encoder.encodeToString(("{\"iss\":\"auth-service\",\"accountId\":" + accountId + ",\"exp\":"
             + Instant.now().plusSeconds(600).getEpochSecond() + "}").getBytes(StandardCharsets.UTF_8));
         Mac mac = Mac.getInstance("HmacSHA256");
         mac.init(new SecretKeySpec(SECRET.getBytes(StandardCharsets.UTF_8), "HmacSHA256"));

@@ -8,13 +8,21 @@ const TRADE_PROTECTED_PATH_PATTERNS: readonly RegExp[] = [
   /^\/api\/v1\/orders$/,
   /^\/api\/v1\/orders\/[^/]+$/,
   /^\/api\/v1\/accounts\/[^/]+$/,
+  /^\/api\/v1\/accounts\/[^/]+\/profile$/,
   /^\/api\/v1\/accounts\/[^/]+\/balance$/,
   /^\/api\/v1\/accounts\/[^/]+\/positions$/,
   /^\/api\/v1\/accounts\/[^/]+\/orders$/,
-  /^\/api\/v1\/accounts\/[^/]+\/(deposits|withdrawals|transactions)$/
+  /^\/api\/v1\/accounts\/[^/]+\/(deposits|withdrawals|transactions)$/,
+  /^\/api\/v1\/accounts\/[^/]+\/instruments$/,
+  /^\/api\/v1\/watchlists$/,
+  /^\/api\/v1\/watchlists\/[^/]+$/,
+  /^\/api\/v1\/watchlists\/groups$/
 ];
 
+const ADVISOR_PROTECTED_PATH_PATTERNS: readonly RegExp[] = [/^\/api\/v1\/advisor\/chat$/];
+
 const AUTH_ME_PATH = '/auth/me';
+const AUTH_PASSWORD_PATH = '/auth/password';
 const AUTH_PUBLIC_PATHS = new Set(['/auth/login', '/auth/register', '/auth/refresh']);
 
 /**
@@ -24,6 +32,7 @@ const AUTH_PUBLIC_PATHS = new Set(['/auth/login', '/auth/register', '/auth/refre
 export function bearerTokenInterceptor(urls: ApiUrls): HttpInterceptorFn {
   const tradeOrigin = parseOrigin(urls.tradeApi);
   const authOrigin = parseOrigin(urls.authApi);
+  const advisorOrigin = urls.advisorApi ? parseOrigin(urls.advisorApi) : null;
 
   return (request, next) => {
     const authSession = inject(AuthSessionService);
@@ -38,7 +47,12 @@ export function bearerTokenInterceptor(urls: ApiUrls): HttpInterceptorFn {
       return next(request);
     }
 
-    if (shouldAttachToken(requestUrl, tradeOrigin, authOrigin)) {
+    if (
+      shouldAttachToken(requestUrl, tradeOrigin, authOrigin) ||
+      (advisorOrigin !== null &&
+        requestUrl.origin === advisorOrigin &&
+        ADVISOR_PROTECTED_PATH_PATTERNS.some((pattern) => pattern.test(requestUrl.pathname)))
+    ) {
       return next(
         request.clone({
           setHeaders: { Authorization: `Bearer ${token}` }
@@ -56,7 +70,7 @@ function shouldAttachToken(requestUrl: URL, tradeOrigin: string | null, authOrig
   }
 
   if (authOrigin && requestUrl.origin === authOrigin) {
-    if (requestUrl.pathname === AUTH_ME_PATH) {
+    if (requestUrl.pathname === AUTH_ME_PATH || requestUrl.pathname === AUTH_PASSWORD_PATH) {
       return true;
     }
 
