@@ -5,8 +5,7 @@ import { of, throwError } from 'rxjs';
 import { vi } from 'vitest';
 
 import { AuthService } from '../api/auth.service';
-import { OrderHistoryEntry } from '../api/generated/trade-api/models';
-import { TradeService } from '../api/trade.service';
+import { OrderHistoryRow, TradeService } from '../api/trade.service';
 import { BLOTTER_MAX_POLL_ATTEMPTS, BLOTTER_POLL_INTERVAL_MS, BlotterComponent } from './blotter.component';
 
 const authServiceMock = {
@@ -63,6 +62,49 @@ describe('BlotterComponent', () => {
     expect(rows).toHaveLength(3);
     expect(fixture.componentInstance.orderHistory()[0]?.orderId).toBe('ORD-NEWEST');
     expect(fixture.nativeElement.textContent).toContain('REJECTED');
+  });
+
+  it('uses the settled INR amount so cash after stays exact across USD fills', () => {
+    // Real figures: 5 lakh, then BUY 1 NVDA (233.98 USD) = 22,502.08 INR and BUY 1 AAPL = 32,095.14 INR.
+    tradeServiceMock.getBalance.mockReturnValue(of({ cashBalance: 445402.78, currency: 'INR' }));
+    tradeServiceMock.getOrders.mockReturnValue(
+      of([
+        historyEntry({ orderId: 'ORD-AAPL', symbol: 'AAPL', quantity: 1, executedPrice: 333.73, settlementAmount: 32095.14, createdOn: '2026-10-02T12:00:00Z' }),
+        historyEntry({ orderId: 'ORD-NVDA', symbol: 'NVDA', quantity: 1, executedPrice: 233.98, settlementAmount: 22502.08, createdOn: '2026-10-02T11:00:00Z' }),
+        historyEntry({ orderId: 'ORD-REJ', symbol: 'NVDA', status: 'REJECTED', executedPrice: undefined, createdOn: '2026-10-02T10:00:00Z' })
+      ])
+    );
+
+    const fixture = TestBed.createComponent(BlotterComponent);
+    const component = fixture.componentInstance;
+    component.accountId = 101;
+    fixture.detectChanges();
+
+    expect(component.cashAfterFor('ORD-AAPL')).toBeCloseTo(445402.78, 2);
+    expect(component.cashAfterFor('ORD-NVDA')).toBeCloseTo(477497.92, 2); // + 32,095.14
+    expect(component.cashAfterFor('ORD-REJ')).toBeCloseTo(500000, 2); // + 22,502.08: the 5 lakh before either buy
+  });
+
+  it('rebuilds cash after from INR fills but does not guess past a foreign-currency fill', () => {
+    tradeServiceMock.getOrders.mockReturnValue(
+      of([
+        historyEntry({ orderId: 'ORD-INR-NEW', symbol: 'INFY.NS', quantity: 5, executedPrice: 150, createdOn: '2026-10-02T12:00:00Z' }),
+        historyEntry({ orderId: 'ORD-USD', symbol: 'AAPL', quantity: 1, price: 340, executedPrice: 333.73, createdOn: '2026-10-02T11:00:00Z' }),
+        historyEntry({ orderId: 'ORD-INR-OLD', symbol: 'INFY.NS', quantity: 5, executedPrice: 150, createdOn: '2026-10-02T10:00:00Z' })
+      ])
+    );
+
+    const fixture = TestBed.createComponent(BlotterComponent);
+    const component = fixture.componentInstance;
+    component.accountId = 101;
+    fixture.detectChanges();
+
+    // Current balance is 1000. The newest INR buy (5 x 150 = 750) is undone for the row below it.
+    expect(component.cashAfterFor('ORD-INR-NEW')).toBe(1000);
+    // The USD fill's own cash-after is still exact (it comes from the newer rows)...
+    expect(component.cashAfterFor('ORD-USD')).toBe(1750);
+    // ...but undoing it would subtract 333.73 dollars from rupees, so older rows have no value.
+    expect(component.cashAfterFor('ORD-INR-OLD')).toBeNull();
   });
 
   it('shows NEW orders as still working', () => {
@@ -173,7 +215,7 @@ describe('BlotterComponent', () => {
   });
 });
 
-function historyEntry(overrides: Partial<OrderHistoryEntry>): OrderHistoryEntry {
+function historyEntry(overrides: Partial<OrderHistoryRow>): OrderHistoryRow {
   return {
     accountId: 101,
     createdOn: '2026-10-02T09:00:00Z',

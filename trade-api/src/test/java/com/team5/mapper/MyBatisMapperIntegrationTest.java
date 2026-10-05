@@ -321,12 +321,12 @@ class MyBatisMapperIntegrationTest {
         jdbcTemplate.update(
             """
             INSERT INTO orders (order_id, portfolio_id, instrument_id, side, quantity, price, status, idempotency_key,
-                                created_at, updated_at, executed_price)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                                created_at, updated_at, executed_price, fx_rate, settlement_currency, settlement_amount)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             910001L, 201L, 301L, "BUY", 10L, new BigDecimal("1200.0000"), "FILLED", "history-executor-fill",
             OffsetDateTime.parse("2026-09-10T10:00:00Z"), OffsetDateTime.parse("2026-09-10T10:00:00Z"),
-            new BigDecimal("1187.5000")
+            new BigDecimal("1187.5000"), new BigDecimal("96.17096200"), "INR", new BigDecimal("1142066.4200")
         );
         // Filled before the executor existed: no executed_price, filled at its limit price.
         jdbcTemplate.update(
@@ -347,6 +347,11 @@ class MyBatisMapperIntegrationTest {
         assertEquals(0, new BigDecimal("1200.00").compareTo(byKey.get("history-executor-fill").price()));
         assertEquals(0, new BigDecimal("1150.00").compareTo(byKey.get("history-legacy-fill").executedPrice()));
         assertNull(byKey.get("history-working").executedPrice());
+
+        // Cash actually moved, in the account's currency; null when the executor never recorded it.
+        assertEquals(0, new BigDecimal("1142066.42").compareTo(byKey.get("history-executor-fill").settlementAmount()));
+        assertNull(byKey.get("history-legacy-fill").settlementAmount());
+        assertNull(byKey.get("history-working").settlementAmount());
     }
 
     private void insertOrder(Long orderId, String status, String idempotencyKey) {
