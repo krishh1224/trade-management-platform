@@ -160,7 +160,8 @@
                 <ul class="instrument-dropdown" role="listbox" aria-label="Instrument suggestions">
                   @for (option of filteredInstrumentOptions(); track option.symbol) {
                     <li>
-                      <button type="button" (click)="selectInstrument(option)">
+                      <!-- mousedown keeps focus in the input, so the list cannot close before a slow click lands -->
+                      <button type="button" (mousedown)="$event.preventDefault()" (click)="selectInstrument(option)">
                         <span class="instrument-symbol">{{ option.symbol }}</span>
                         <span class="instrument-meta">{{ option.currency }} • {{ option.name }}</span>
                       </button>
