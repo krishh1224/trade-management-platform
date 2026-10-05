@@ -1,0 +1,204 @@
+<div class="shell">
+  <header class="topbar">
+    <div class="topbar-left">
+      <div class="brand">
+        <svg class="brand-mark" viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M2 20L12 3l10 17h-5.2L12 11.6 7.2 20z" fill="currentColor" /></svg>
+        <span class="brand-name">Artha</span>
+      </div>
+
+      <nav class="nav" aria-label="Primary">
+        <a class="nav-link" routerLink="/">Dashboard</a>
+        <span class="nav-link disabled" aria-disabled="true">Portfolio</span>
+        <span class="nav-link active" aria-current="page">Orders</span>
+        <a class="nav-link" routerLink="/blotter">Blotter</a>
+        <a class="nav-link" routerLink="/watchlist">Watchlist</a>
+        <a class="nav-link" routerLink="/advisor">Advisor</a>
+      </nav>
+    </div>
+
+    <div class="topbar-right">
+      <div class="profile-menu-wrap">
+        <button class="account-chip profile-trigger" type="button" (click)="toggleProfileMenu()" [attr.aria-expanded]="profileMenuOpen()" aria-haspopup="menu">
+          <span class="avatar" aria-hidden="true">
+            <svg viewBox="0 0 24 24" width="16" height="16"><circle cx="12" cy="8" r="4" fill="none" stroke="currentColor" stroke-width="2" /><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" /></svg>
+          </span>
+          <span class="account-meta">
+            <strong>{{ claims() ? 'Account ' + claims()!.accountId : 'Signed in' }}</strong>
+            <small>{{ role() }}</small>
+          </span>
+          <svg class="caret" viewBox="0 0 24 24" width="14" height="14" aria-hidden="true"><path d="M6 9l6 6 6-6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" /></svg>
+        </button>
+
+        @if (profileMenuOpen()) {
+          <div class="profile-menu" role="menu">
+            <a role="menuitem" routerLink="/profile" (click)="closeProfileMenu()">Profile</a>
+            <button role="menuitem" type="button" (click)="signOut()">Logout</button>
+          </div>
+        }
+      </div>
+
+      <button class="theme-toggle" type="button" (click)="toggleTheme()" [attr.aria-label]="theme() === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'">
+        @if (theme() === 'dark') {
+          <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><circle cx="12" cy="12" r="5" fill="none" stroke="currentColor" stroke-width="2" /><path d="M12 2v2M12 20v2M4.93 4.93l1.42 1.42M17.65 17.65l1.42 1.42M2 12h2M20 12h2M4.93 19.07l1.42-1.42M17.65 6.35l1.42-1.42" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" /></svg>
+        } @else {
+          <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" /></svg>
+        }
+      </button>
+    </div>
+  </header>
+
+  <main class="content">
+    <section class="welcome">
+      <p class="eyebrow">Orders</p>
+      <h1>Place order</h1>
+    </section>
+
+    <section class="ticket" aria-label="Order ticket">
+      <header class="ticket-header">
+        <h2>Order ticket</h2>
+        <span class="live-badge">Connected</span>
+      </header>
+
+      <form class="order-form" [formGroup]="orderForm" (ngSubmit)="submitOrder()" novalidate>
+        <div class="field-grid field-grid-2">
+          <div class="field-group">
+            <label for="order-account">Account</label>
+            <input
+              id="order-account"
+              type="text"
+              data-testid="order-account"
+              [value]="accountId() === null ? 'Unavailable' : accountId()"
+              readonly
+              aria-readonly="true"
+            />
+          </div>
+
+          <div class="field-group">
+            <label for="order-side">Side</label>
+            <select id="order-side" formControlName="side" data-testid="order-side">
+              <option value="BUY">BUY</option>
+              <option value="SELL">SELL</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="field-group">
+          <label for="order-symbol">Instrument</label>
+          <div class="instrument-autocomplete">
+            <input
+              id="order-symbol"
+              type="text"
+              data-testid="order-symbol"
+              formControlName="symbol"
+              placeholder="INFY.NS"
+              autocomplete="off"
+              [class.invalid]="orderForm.controls.symbol.touched && orderForm.controls.symbol.invalid"
+              (input)="onInstrumentInput()"
+              (focus)="onInstrumentFocus()"
+              (blur)="onInstrumentBlur()"
+            />
+            @if (showInstrumentDropdown() && filteredInstrumentOptions().length > 0) {
+              <ul class="instrument-dropdown" role="listbox" aria-label="Instrument suggestions">
+                @for (option of filteredInstrumentOptions(); track option.symbol) {
+                  <li>
+                    <button type="button" (click)="selectInstrument(option)">
+                      <span class="instrument-symbol">{{ option.symbol }}</span>
+                      <span class="instrument-meta">{{ option.currency }} • {{ option.name }}</span>
+                    </button>
+                  </li>
+                }
+              </ul>
+            }
+          </div>
+          @if (instrumentsLoading()) {
+            <small>Loading instruments...</small>
+          } @else if (instrumentsError()) {
+            <small class="field-error-text">{{ instrumentsError() }}</small>
+          }
+          @if (orderForm.controls.symbol.touched && orderForm.controls.symbol.hasError('required')) {
+            <div class="field-error">Instrument symbol is required.</div>
+          }
+          @if (orderForm.controls.symbol.touched && orderForm.controls.symbol.hasError('pattern')) {
+            <div class="field-error">Use a valid symbol (for example AAPL, INFY.NS, FX:EURUSD or X:BTCUSDT).</div>
+          }
+        </div>
+
+        <div class="field-grid field-grid-2">
+          <div class="field-group">
+            <label for="order-quantity">Quantity</label>
+            <input
+              id="order-quantity"
+              type="number"
+              inputmode="numeric"
+              min="1"
+              step="1"
+              formControlName="quantity"
+              data-testid="order-quantity"
+              [class.invalid]="orderForm.controls.quantity.touched && orderForm.controls.quantity.invalid"
+            />
+            @if (orderForm.controls.quantity.touched && orderForm.controls.quantity.hasError('required')) {
+              <div class="field-error">Quantity is required.</div>
+            }
+            @if (orderForm.controls.quantity.touched && orderForm.controls.quantity.hasError('pattern')) {
+              <div class="field-error">Quantity must be a whole number above zero.</div>
+            }
+          </div>
+
+          <div class="field-group">
+            <label for="order-price">Price ({{ currentSymbolCurrency() }})</label>
+            <input
+              id="order-price"
+              type="text"
+              data-testid="order-price"
+              inputmode="decimal"
+              formControlName="price"
+              [placeholder]="currentSymbolCurrency() + ' 150.00'"
+              [class.invalid]="orderForm.controls.price.touched && orderForm.controls.price.invalid"
+            />
+            @if (orderForm.controls.price.touched && orderForm.controls.price.hasError('required')) {
+              <div class="field-error">Price is required.</div>
+            }
+            @if (orderForm.controls.price.touched && orderForm.controls.price.hasError('priceFormat')) {
+              <div class="field-error">Price must be above zero with at most two decimal places.</div>
+            }
+            @if (orderForm.controls.price.touched && orderForm.controls.price.hasError('pricePositive')) {
+              <div class="field-error">Price must be above zero.</div>
+            }
+          </div>
+        </div>
+
+        @if (settlementNote()) {
+          <small class="settlement-note" data-testid="order-settlement-note">{{ settlementNote() }}</small>
+        }
+
+        @if (orderErrorMessage()) {
+          <div class="form-error" role="alert">{{ orderErrorMessage() }}</div>
+        }
+
+        @if (accountStatusError()) {
+          <div class="form-error" role="alert">Account is not active. {{ accountStatusError() }}</div>
+        }
+
+        @if (orderSuccessMessage()) {
+          <div class="form-success" role="status">
+            <span>{{ orderSuccessMessage() }}</span>
+            @if (orderStatus(); as status) {
+              <span class="status-chip">{{ status }}</span>
+            }
+          </div>
+        }
+
+        <button class="submit-order-button" type="submit" data-testid="order-submit" [disabled]="orderSubmitting() || !canPlaceOrder()">
+          @if (!canPlaceOrder() && accountStatus() && accountStatus() !== 'ACTIVE') {
+            {{ accountStatus() === 'SUSPENDED' ? 'Account suspended' : 'Account closed' }}
+          } @else if (orderSubmitting()) {
+            Placing order…
+          } @else {
+            Place order
+          }
+        </button>
+      </form>
+    </section>
+  </main>
+  <app-footer></app-footer>
+</div>

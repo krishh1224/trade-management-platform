@@ -18,6 +18,17 @@
     WHERE a.acc_id = #{accountId}
   </select>
 
+  <select id="getClientProfile" resultType="com.team5.dto.response.ClientProfileResponse">
+    SELECT
+      c.acc_id AS accountId,
+      c.name AS name,
+      c.email AS email,
+      c.phone AS phone,
+      c.dob AS dob
+    FROM clients c
+    WHERE c.acc_id = #{accountId}
+  </select>
+
   <select id="getBalance" resultType="com.team5.dto.response.BalanceResponse">
     SELECT
       a.acc_id AS accountId,
@@ -49,10 +60,14 @@
       o.side AS side,
       CAST(o.quantity AS INTEGER) AS quantity,
       o.price AS price,
-      CASE WHEN o.status = 'FILLED' THEN o.price ELSE NULL END AS executedPrice,
+      <!-- executed_price is what the Trade Executor filled at. Rows filled before the executor
+           existed (Sprint 6 synchronous fills, seed data) have no executed_price and filled at
+           their limit price, so fall back to it for those only. -->
+      CASE WHEN o.status = 'FILLED' THEN COALESCE(o.executed_price, o.price) ELSE NULL END AS executedPrice,
       o.status AS status,
       o.idempotency_key AS idempotencyKey,
-      o.created_at AS createdOn
+      o.created_at AS createdOn,
+      CASE WHEN o.status = 'FILLED' THEN o.settlement_amount ELSE NULL END AS settlementAmount
     FROM orders o
     INNER JOIN portfolio p ON p.portfolio_id = o.portfolio_id
     INNER JOIN instruments i ON i.instrument_id = o.instrument_id
@@ -68,6 +83,19 @@
     </if>
     <!-- Allowlist: ordering is fixed to created_at DESC only; no user-provided sort column/direction is accepted. -->
     ORDER BY o.created_at DESC
+  </select>
+
+  <select id="getInstruments" resultType="com.team5.dto.response.InstrumentOptionResponse">
+    SELECT
+      i.ticker AS symbol,
+      i.name AS name,
+      i.currency AS currency
+    FROM instruments i
+    WHERE i.tradable = TRUE
+    <if test="prefix != null and prefix != ''">
+      AND UPPER(i.name) LIKE CONCAT(UPPER(#{prefix}), '%')
+    </if>
+    ORDER BY i.name ASC, i.ticker ASC
   </select>
 
   <select id="findAccountForOrder" resultType="map">

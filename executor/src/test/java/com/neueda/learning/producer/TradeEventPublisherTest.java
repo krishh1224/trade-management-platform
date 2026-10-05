@@ -59,6 +59,23 @@ class TradeEventPublisherTest {
     }
 
     @Test
+    void publishOrderFilled_includesSettlementFiguresForConvertedTrade() {
+        when(kafkaTemplate.send(eq("trade-events"), eq("101"), anyString()))
+            .thenReturn(CompletableFuture.completedFuture(sendResult()));
+
+        publisher.publishOrderFilled(520L, 101L, new BigDecimal("333.73"), EXECUTED_ON, 2, "AAPL", "BUY",
+            new BigDecimal("96.17096200"), "INR", new BigDecimal("64190.27"));
+
+        ArgumentCaptor<String> payloadCaptor = ArgumentCaptor.forClass(String.class);
+        verify(kafkaTemplate).send(eq("trade-events"), eq("101"), payloadCaptor.capture());
+        String payload = payloadCaptor.getValue();
+        assertTrue(payload.contains("\"executedPrice\":333.73"));
+        assertTrue(payload.contains("\"fxRate\":96.17096200"));
+        assertTrue(payload.contains("\"settlementCurrency\":\"INR\""));
+        assertTrue(payload.contains("\"settlementAmount\":64190.27"));
+    }
+
+    @Test
     void publishOrderRejected_sendsEnvelopeToTradeEventsTopicUsingAccountIdKey() {
         when(kafkaTemplate.send(eq("trade-events"), eq("102"), anyString()))
             .thenReturn(CompletableFuture.completedFuture(sendResult()));

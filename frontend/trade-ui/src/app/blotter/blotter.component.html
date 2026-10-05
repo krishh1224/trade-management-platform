@@ -1,0 +1,213 @@
+<div class="shell">
+  <header class="topbar">
+    <div class="topbar-left">
+      <div class="brand">
+        <svg class="brand-mark" viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M2 20L12 3l10 17h-5.2L12 11.6 7.2 20z" fill="currentColor" /></svg>
+        <span class="brand-name">Artha</span>
+      </div>
+
+      <nav class="nav" aria-label="Primary">
+        <a class="nav-link" routerLink="/">Dashboard</a>
+        <span class="nav-link disabled" aria-disabled="true">Portfolio</span>
+        <a class="nav-link" routerLink="/orders">Orders</a>
+        <span class="nav-link active" aria-current="page">Blotter</span>
+        <a class="nav-link" routerLink="/watchlist">Watchlist</a>
+        <a class="nav-link" routerLink="/advisor">Advisor</a>
+      </nav>
+    </div>
+
+    <div class="topbar-right">
+      <div class="profile-menu-wrap">
+        <button class="account-chip profile-trigger" type="button" (click)="toggleProfileMenu()" [attr.aria-expanded]="profileMenuOpen()" aria-haspopup="menu">
+          <span class="avatar" aria-hidden="true">
+            <svg viewBox="0 0 24 24" width="16" height="16"><circle cx="12" cy="8" r="4" fill="none" stroke="currentColor" stroke-width="2" /><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" /></svg>
+          </span>
+          <span class="account-meta">
+            <strong>{{ claims() ? 'Account ' + claims()!.accountId : 'Signed in' }}</strong>
+            <small>{{ role() }}</small>
+          </span>
+          <svg class="caret" viewBox="0 0 24 24" width="14" height="14" aria-hidden="true"><path d="M6 9l6 6 6-6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" /></svg>
+        </button>
+
+        @if (profileMenuOpen()) {
+          <div class="profile-menu" role="menu">
+            <a role="menuitem" routerLink="/profile" (click)="closeProfileMenu()">Profile</a>
+            <button role="menuitem" type="button" (click)="signOut()">Logout</button>
+          </div>
+        }
+      </div>
+
+      <button class="theme-toggle" type="button" (click)="toggleTheme()" [attr.aria-label]="theme() === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'">
+        @if (theme() === 'dark') {
+          <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><circle cx="12" cy="12" r="5" fill="none" stroke="currentColor" stroke-width="2" /><path d="M12 2v2M12 20v2M4.93 4.93l1.42 1.42M17.65 17.65l1.42 1.42M2 12h2M20 12h2M4.93 19.07l1.42-1.42M17.65 6.35l1.42-1.42" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" /></svg>
+        } @else {
+          <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" /></svg>
+        }
+      </button>
+    </div>
+  </header>
+
+  <main class="content">
+    <section class="welcome">
+      <p class="eyebrow">Blotter</p>
+      <h1>Order history</h1>
+      <p class="subtitle">Latest orders across all states.</p>
+    </section>
+
+    <section class="blotter" aria-label="Order history">
+      <header class="blotter-header">
+        <div class="history-heading">
+          <h2>History</h2>
+          <div class="summary-chips" aria-label="Order status summary">
+            <button
+              type="button"
+              class="summary-chip filled"
+              [class.active]="isStatusFilterActive('FILLED')"
+              [attr.aria-pressed]="isStatusFilterActive('FILLED')"
+              (click)="setStatusFilter('FILLED')"
+            >
+              Filled {{ filledOrderCount() }}
+            </button>
+            <button
+              type="button"
+              class="summary-chip rejected"
+              [class.active]="isStatusFilterActive('REJECTED')"
+              [attr.aria-pressed]="isStatusFilterActive('REJECTED')"
+              (click)="setStatusFilter('REJECTED')"
+            >
+              Rejected {{ rejectedOrderCount() }}
+            </button>
+            <button
+              type="button"
+              class="summary-chip working"
+              [class.active]="isStatusFilterActive('NEW')"
+              [attr.aria-pressed]="isStatusFilterActive('NEW')"
+              (click)="setStatusFilter('NEW')"
+            >
+              NEW {{ newOrderCount() }}
+            </button>
+          </div>
+        </div>
+        <div class="header-actions">
+          <button class="clear-filters-button" type="button" (click)="clearFilters()">Clear filters</button>
+          <button
+            class="refresh-history-button"
+            type="button"
+            (click)="refreshOrderHistory()"
+            [disabled]="historyLoading()"
+            data-testid="refresh-history-button"
+          >
+            {{ historyLoading() ? 'Refreshing…' : 'Refresh' }}
+          </button>
+        </div>
+      </header>
+
+      @if (pollingActive()) {
+        <p class="polling-hint" role="status">
+          Auto-refreshing while NEW orders are still working (attempt {{ pollAttemptsUsed() }} of {{ maxPollAttempts }}).
+        </p>
+      }
+
+      @if (historyLoading()) {
+        <div class="history-state" role="status">Loading order history…</div>
+      } @else if (historyErrorMessage()) {
+        <div class="history-state error" role="alert">{{ historyErrorMessage() }}</div>
+      } @else if (orderHistory().length === 0) {
+        <div class="history-state" role="status">No orders yet for this account.</div>
+      } @else {
+        <div class="filter-strip" aria-label="Table filters">
+          <div class="filter-group">
+            <span class="filter-label">Side</span>
+            <div class="filter-buttons">
+              <button type="button" class="filter-button" [class.active]="selectedSideFilter() === 'ALL'" (click)="setSideFilter('ALL')">All</button>
+              <button type="button" class="filter-button" [class.active]="selectedSideFilter() === 'BUY'" (click)="setSideFilter('BUY')">BUY</button>
+              <button type="button" class="filter-button" [class.active]="selectedSideFilter() === 'SELL'" (click)="setSideFilter('SELL')">SELL</button>
+            </div>
+          </div>
+          <div class="filter-group">
+            <span class="filter-label">Created At</span>
+            <div class="filter-buttons">
+              <button type="button" class="filter-button" [class.active]="selectedCreatedAtFilter() === 'ALL'" (click)="setCreatedAtFilter('ALL')">All</button>
+              <button type="button" class="filter-button" [class.active]="selectedCreatedAtFilter() === 'TODAY'" (click)="setCreatedAtFilter('TODAY')">Today</button>
+              <button type="button" class="filter-button" [class.active]="selectedCreatedAtFilter() === 'LAST_7_DAYS'" (click)="setCreatedAtFilter('LAST_7_DAYS')">7D</button>
+              <button type="button" class="filter-button" [class.active]="selectedCreatedAtFilter() === 'LAST_30_DAYS'" (click)="setCreatedAtFilter('LAST_30_DAYS')">30D</button>
+            </div>
+          </div>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th scope="col">Created</th>
+                <th scope="col">Symbol</th>
+                <th scope="col">Side</th>
+                <th scope="col" class="num">Qty</th>
+                <th scope="col" class="num">Requested</th>
+                <th scope="col" class="num col-filled">Filled At</th>
+                <th scope="col" class="num col-cash-after">Cash After</th>
+                <th scope="col" class="col-status">Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (entry of filteredOrderHistory(); track entry.orderId) {
+                <tr data-testid="history-row">
+                  <td>{{ entry.createdOn | date: 'short' }}</td>
+                  <td>{{ entry.symbol }}</td>
+                  <td>
+                    <span class="side-badge" [class.side-buy]="entry.side === 'BUY'" [class.side-sell]="entry.side === 'SELL'">
+                      {{ entry.side }}
+                    </span>
+                  </td>
+                  <td class="num">{{ entry.quantity | number: '1.0-0' }}</td>
+                  <td class="num">
+                    <span class="price-pack">
+                      <span class="currency-prefix">{{ currencyForSymbol(entry.symbol) }}</span>
+                      <span class="price-value">{{ entry.price | number: '1.2-2' }}</span>
+                    </span>
+                  </td>
+                  <td class="num col-filled">
+                    @if (entry.executedPrice === null || entry.executedPrice === undefined) {
+                      —
+                    } @else {
+                      <span class="price-pack">
+                        <span class="currency-prefix">{{ currencyForSymbol(entry.symbol) }}</span>
+                        <span class="price-value">{{ entry.executedPrice | number: '1.2-2' }}</span>
+                      </span>
+                    }
+                  </td>
+                  <td class="num col-cash-after">
+                    @if (cashAfterLoading()) {
+                      Loading...
+                    } @else if (cashAfterFor(entry.orderId) === null) {
+                      —
+                    } @else {
+                      <span class="price-pack">
+                        <span class="currency-prefix">{{ cashAfterCurrency() }}</span>
+                        <span class="price-value">{{ cashAfterFor(entry.orderId)! | number: '1.2-2' }}</span>
+                      </span>
+                    }
+                  </td>
+                  <td class="col-status">
+                    <span
+                      class="status-badge"
+                      [class.status-new]="entry.status === 'NEW'"
+                      [class.status-filled]="entry.status === 'FILLED'"
+                      [class.status-rejected]="entry.status === 'REJECTED'"
+                      [class.status-cancelled]="entry.status === 'CANCELLED'"
+                    >
+                      {{ statusBadgeText(entry.status) }}
+                    </span>
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+        @if (filteredOrderHistory().length === 0) {
+          <div class="history-state" role="status">No orders match the selected filters.</div>
+        }
+      }
+    </section>
+  </main>
+  <app-footer></app-footer>
+</div>

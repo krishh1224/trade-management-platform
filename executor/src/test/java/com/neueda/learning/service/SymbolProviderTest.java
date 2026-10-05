@@ -1,6 +1,7 @@
 package com.neueda.learning.service;
 
 import com.neueda.learning.mapper.PortfolioHoldingMapper;
+import com.neueda.learning.mapper.WatchlistSymbolMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mock;
@@ -22,12 +23,15 @@ class SymbolProviderTest {
     @Mock
     private PortfolioHoldingMapper holdingMapper;
 
+    @Mock
+    private WatchlistSymbolMapper watchlistSymbolMapper;
+
     private SymbolProvider symbolProvider;
 
     @BeforeEach
     void setUp() {
         MockitoAnnotations.openMocks(this);
-        symbolProvider = new SymbolProvider(holdingMapper);
+        symbolProvider = new SymbolProvider(holdingMapper, watchlistSymbolMapper);
     }
 
     /**
@@ -36,6 +40,7 @@ class SymbolProviderTest {
     @Test
     void testEmptyHoldings_ReturnsEmptySet() {
         when(holdingMapper.findAllHeldSymbols()).thenReturn(List.of());
+        when(watchlistSymbolMapper.findAllWatchlistSymbols()).thenReturn(List.of());
 
         Set<String> symbols = symbolProvider.getSymbolsToPoll();
 
@@ -48,6 +53,7 @@ class SymbolProviderTest {
     @Test
     void testSingleHolding_ReturnsSingleSymbol() {
         when(holdingMapper.findAllHeldSymbols()).thenReturn(List.of("INFY.NS"));
+        when(watchlistSymbolMapper.findAllWatchlistSymbols()).thenReturn(List.of());
 
         Set<String> symbols = symbolProvider.getSymbolsToPoll();
 
@@ -62,6 +68,7 @@ class SymbolProviderTest {
     void testMultipleDistinctHoldings_ReturnsAllSymbols() {
         List<String> tickers = Arrays.asList("INFY.NS", "RELIANCE.NS", "TATASTEEL.BO");
         when(holdingMapper.findAllHeldSymbols()).thenReturn(tickers);
+        when(watchlistSymbolMapper.findAllWatchlistSymbols()).thenReturn(List.of());
 
         Set<String> symbols = symbolProvider.getSymbolsToPoll();
 
@@ -81,13 +88,15 @@ class SymbolProviderTest {
         // converts to Set for additional safety
         List<String> tickers = Arrays.asList("INFY.NS", "RELIANCE.NS", "INFY.NS");
         when(holdingMapper.findAllHeldSymbols()).thenReturn(tickers);
+        when(watchlistSymbolMapper.findAllWatchlistSymbols()).thenReturn(List.of("INFY.NS", "ITC.NS"));
 
         Set<String> symbols = symbolProvider.getSymbolsToPoll();
 
-        // Set should deduplicate
-        assertEquals(2, symbols.size());
+        // Set should deduplicate across holdings and watchlists
+        assertEquals(3, symbols.size());
         assertTrue(symbols.contains("INFY.NS"));
         assertTrue(symbols.contains("RELIANCE.NS"));
+        assertTrue(symbols.contains("ITC.NS"));
     }
 
     /**
@@ -105,6 +114,7 @@ class SymbolProviderTest {
             "ITC.NS"
         );
         when(holdingMapper.findAllHeldSymbols()).thenReturn(tickers);
+        when(watchlistSymbolMapper.findAllWatchlistSymbols()).thenReturn(List.of());
 
         Set<String> symbols = symbolProvider.getSymbolsToPoll();
 
@@ -112,5 +122,17 @@ class SymbolProviderTest {
         for (String ticker : tickers) {
             assertTrue(symbols.contains(ticker));
         }
+    }
+
+    @Test
+    void testWatchlistOnlySymbols_AreIncluded() {
+        when(holdingMapper.findAllHeldSymbols()).thenReturn(List.of());
+        when(watchlistSymbolMapper.findAllWatchlistSymbols()).thenReturn(List.of("SBIN.NS", "INFY.NS"));
+
+        Set<String> symbols = symbolProvider.getSymbolsToPoll();
+
+        assertEquals(2, symbols.size());
+        assertTrue(symbols.contains("SBIN.NS"));
+        assertTrue(symbols.contains("INFY.NS"));
     }
 }

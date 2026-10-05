@@ -163,7 +163,7 @@ class ApiAuthFlowTest {
     }
 
     private static String validPayload(long accountId) {
-        return "{\"accountId\":" + accountId + ",\"exp\":" + epochOffset(600) + "}";
+        return "{\"accountId\":" + accountId + ",\"iss\":\"auth-service\",\"exp\":" + epochOffset(600) + "}";
     }
 
     private static long epochOffset(long seconds) {

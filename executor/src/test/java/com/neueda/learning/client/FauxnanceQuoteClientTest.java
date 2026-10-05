@@ -55,6 +55,7 @@ class FauxnanceQuoteClientTest {
                                 new BigDecimal("499.654321")
                         )
                 );
+        response.data.changePercent = new BigDecimal("1.23");
 
         when(restTemplate.exchange(
                 contains("/quotes/" + symbol),
@@ -70,6 +71,7 @@ class FauxnanceQuoteClientTest {
         // Should be scaled to 2 decimals
         assertEquals(new BigDecimal("498.12"), quote.getBid());
         assertEquals(new BigDecimal("499.65"), quote.getAsk());
+        assertEquals(new BigDecimal("1.23"), quote.getChangePct());
 
         verify(restTemplate, times(1)).exchange(anyString(), eq(HttpMethod.GET), any(), eq(FauxnanceQuoteClient.FauxnanceQuoteResponse.class));
     }
@@ -119,6 +121,58 @@ class FauxnanceQuoteClientTest {
         assertEquals(symbol, quote.getSymbol());
 
         verify(restTemplate, times(2)).exchange(anyString(), eq(HttpMethod.GET), any(), eq(FauxnanceQuoteClient.FauxnanceQuoteResponse.class));
+    }
+
+    /**
+     * Test: FX rates keep full precision (FX:INRUSD 0.010399 would round to 0.01 at 2dp).
+     */
+    @Test
+    void testFxRateKeepsFullPrecision() {
+        FauxnanceQuoteClient.FauxnanceQuoteResponse response =
+                new FauxnanceQuoteClient.FauxnanceQuoteResponse(
+                        new FauxnanceQuoteClient.FauxnanceQuoteResponse.Data(
+                                new BigDecimal("0.010399"),
+                                new BigDecimal("0.010401"),
+                                "USD"
+                        )
+                );
+
+        when(restTemplate.exchange(
+                eq("http://localhost:8081/quotes/FX:INRUSD"),
+                eq(HttpMethod.GET),
+                any(),
+                eq(FauxnanceQuoteClient.FauxnanceQuoteResponse.class)
+        )).thenReturn(new ResponseEntity<>(response, HttpStatus.OK));
+
+        Quote rate = quoteClient.getFxRate("INR", "USD");
+
+        assertEquals("FX:INRUSD", rate.getSymbol());
+        assertEquals(new BigDecimal("0.010399"), rate.getBid());
+        assertEquals(new BigDecimal("0.010401"), rate.getAsk());
+    }
+
+    /**
+     * Test: an FX pair quoted in a currency other than the target is not used.
+     */
+    @Test
+    void testFxRateInUnexpectedCurrencyIsUnavailable() {
+        FauxnanceQuoteClient.FauxnanceQuoteResponse response =
+                new FauxnanceQuoteClient.FauxnanceQuoteResponse(
+                        new FauxnanceQuoteClient.FauxnanceQuoteResponse.Data(
+                                new BigDecimal("96.169038"),
+                                new BigDecimal("96.170962"),
+                                "USD"
+                        )
+                );
+
+        when(restTemplate.exchange(anyString(), eq(HttpMethod.GET), any(), eq(FauxnanceQuoteClient.FauxnanceQuoteResponse.class)))
+                .thenReturn(new ResponseEntity<>(response, HttpStatus.OK));
+
+        QuoteUnavailableException exception = assertThrows(QuoteUnavailableException.class, () ->
+                quoteClient.getFxRate("USD", "INR")
+        );
+
+        assertTrue(exception.getMessage().contains("expected INR"));
     }
 
     /**

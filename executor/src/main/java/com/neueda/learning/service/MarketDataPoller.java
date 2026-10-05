@@ -3,7 +3,11 @@ package com.neueda.learning.service;
 import com.neueda.learning.client.FauxnanceQuoteClient;
 import com.neueda.learning.domain.Quote;
 import com.neueda.learning.exception.QuoteUnavailableException;
+import com.neueda.learning.mapper.MarketQuoteSnapshotMapper;
 import com.neueda.learning.producer.MarketDataPublisher;
+import java.math.BigDecimal;
+import java.math.RoundingMode;
+import java.time.OffsetDateTime;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -33,15 +37,18 @@ public class MarketDataPoller {
     private final SymbolProvider symbolProvider;
     private final FauxnanceQuoteClient fauxnanceClient;
     private final MarketDataPublisher publisher;
+    private final MarketQuoteSnapshotMapper marketQuoteSnapshotMapper;
     private final long pollIntervalSeconds;
 
     public MarketDataPoller(SymbolProvider symbolProvider,
                             FauxnanceQuoteClient fauxnanceClient,
                             MarketDataPublisher publisher,
-                            @Value("${market-data.poll-interval-seconds:60}") long pollIntervalSeconds) {
+                            MarketQuoteSnapshotMapper marketQuoteSnapshotMapper,
+                            @Value("${market-data.poll-interval-seconds:600}") long pollIntervalSeconds) {
         this.symbolProvider = symbolProvider;
         this.fauxnanceClient = fauxnanceClient;
         this.publisher = publisher;
+        this.marketQuoteSnapshotMapper = marketQuoteSnapshotMapper;
         this.pollIntervalSeconds = pollIntervalSeconds;
 
         // Validate interval at startup
@@ -52,7 +59,7 @@ public class MarketDataPoller {
      * Scheduled task that polls market data.
      * Runs every POLL_INTERVAL_SECONDS.
      */
-    @Scheduled(fixedRateString = "${market-data.poll-interval-seconds:60}", timeUnit = java.util.concurrent.TimeUnit.SECONDS)
+    @Scheduled(fixedRateString = "${market-data.poll-interval-seconds:600}", timeUnit = java.util.concurrent.TimeUnit.SECONDS)
     public void pollMarketData() {
         try {
             logger.info("Market-data polling invocation started");
@@ -61,7 +68,7 @@ public class MarketDataPoller {
             Set<String> symbols = symbolProvider.getSymbolsToPoll();
             
             if (symbols.isEmpty()) {
-                logger.info("No symbols to poll - empty holdings");
+                logger.info("No symbols to poll - empty holdings/watchlists");
                 return;
             }
 
@@ -82,6 +89,10 @@ public class MarketDataPoller {
                 for (String symbol : batch) {
                     try {
                         Quote quote = fauxnanceClient.getQuote(symbol);
+
+                        BigDecimal lastPrice = midpoint(quote.getBid(), quote.getAsk());
+                        BigDecimal changePct = quote.getChangePct();
+                        marketQuoteSnapshotMapper.upsertSnapshot(symbol, lastPrice, changePct, OffsetDateTime.now());
                         
                         // Publish one Kafka message per quote (keyed by symbol)
                         publisher.publishQuote(symbol, quote);
@@ -146,5 +157,9 @@ public class MarketDataPoller {
         }
         logger.info("Poll interval validation passed: {} seconds (minimum: {} seconds)",
             pollIntervalSeconds, MIN_POLL_INTERVAL_SECONDS);
+    }
+
+    private BigDecimal midpoint(BigDecimal bid, BigDecimal ask) {
+        return bid.add(ask).divide(BigDecimal.valueOf(2), 4, RoundingMode.HALF_UP);
     }
 }

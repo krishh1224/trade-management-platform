@@ -8,6 +8,7 @@ import com.neueda.learning.model.AccountRecord;
 import com.neueda.learning.model.OrderRecord;
 import com.neueda.learning.model.PortfolioHoldingRecord;
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
 import java.time.ZoneId;
@@ -39,6 +40,7 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 public class SettlementService {
     private static final Logger logger = LoggerFactory.getLogger(SettlementService.class);
+    private static final int AVG_COST_SCALE = 4; // portfolio_holdings.avg_cost is DECIMAL(19,4)
 
     private final OrderMapper orderMapper;
     private final AccountMapper accountMapper;
@@ -83,15 +85,26 @@ public class SettlementService {
                     "FILLED",
                     execution.getExecutionPrice(),
                     executedOn,
-                    null // no rejection reason for FILLED
+                    null, // no rejection reason for FILLED
+                    execution.getFxRate(),
+                    execution.getSettlementCurrency(),
+                    execution.getSettlementAmount()
                 );
             } else {
+                // Truncate rejection reason to fit VARCHAR(255) column
+                String rejectionReason = execution.getReason();
+                if (rejectionReason != null && rejectionReason.length() > 255) {
+                    rejectionReason = rejectionReason.substring(0, 252) + "...";
+                }
                 claimedRows = orderMapper.claimOrderIfNew(
                     order.getOrderId(),
                     "REJECTED",
                     null, // no execution price for REJECTED
                     executedOn,
-                    execution.getReason() // rejection reason
+                    rejectionReason,
+                    null, // nothing settles on a REJECTED order
+                    null,
+                    null
                 );
             }
 
@@ -109,9 +122,15 @@ public class SettlementService {
                 return SettlementResult.success();
             }
 
-            // 2. FILLED: Update account balance with optimistic locking
+            // 2. FILLED: Update account balance with optimistic locking.
+            //    Cash moves by the settlement amount in the account's base currency, which
+            //    TradeExecutionService has already converted at the FX rate. Results built without
+            //    settlement figures (same-currency callers) fall back to price x quantity.
+            BigDecimal cashAmount = execution.getSettlementAmount() != null
+                ? execution.getSettlementAmount()
+                : execution.getExecutionPrice().multiply(new BigDecimal(quantity));
             SettlementResult accountResult = updateAccountBalance(
-                accountId, order.getSide(), quantity, execution.getExecutionPrice()
+                accountId, order.getSide(), cashAmount
             );
             if (!accountResult.isSuccess()) {
                 return accountResult; // Transaction will rollback
@@ -140,14 +159,10 @@ public class SettlementService {
      *
      * @param accountId the account ID
      * @param side BUY or SELL
-     * @param quantity the fill quantity
-     * @param executionPrice the execution price
+     * @param tradeValue the cash amount to move, in the account's base currency
      * @return SettlementResult
      */
-    private SettlementResult updateAccountBalance(Long accountId, String side, Integer quantity,
-                                                   BigDecimal executionPrice) {
-        BigDecimal tradeValue = executionPrice.multiply(new BigDecimal(quantity));
-
+    private SettlementResult updateAccountBalance(Long accountId, String side, BigDecimal tradeValue) {
         for (int attempt = 1; attempt <= maxRetries; attempt++) {
             // Read current account state
             AccountRecord account = accountMapper.findById(accountId);
@@ -222,15 +237,25 @@ public class SettlementService {
                 logger.info("Created new holding {} for portfolio {} instrument {}: quantity={}",
                     holdingId, portfolioId, instrumentId, quantity);
             } else {
-                // Existing holding: increase quantity
+                // Existing holding: increase quantity and recalculate the weighted average cost
+                // (in the instrument's currency, like executionPrice):
+                //   newAvg = (oldQty * oldAvg + fillQty * fillPrice) / (oldQty + fillQty)
                 long newQuantity = holding.getQuantity() + quantity;
-                int updated = holdingMapper.updateQuantity(holding.getPortfolioHoldingId(), newQuantity);
+                BigDecimal oldCost = holding.getAvgCost() == null
+                    ? BigDecimal.ZERO
+                    : holding.getAvgCost().multiply(BigDecimal.valueOf(holding.getQuantity()));
+                BigDecimal newAvgCost = oldCost
+                    .add(executionPrice.multiply(BigDecimal.valueOf(quantity)))
+                    .divide(BigDecimal.valueOf(newQuantity), AVG_COST_SCALE, RoundingMode.HALF_UP);
+                int updated = holdingMapper.updateQuantityAndAvgCost(
+                    holding.getPortfolioHoldingId(), newQuantity, newAvgCost);
                 if (updated != 1) {
                     return SettlementResult.error("Failed to update holding for portfolio " + portfolioId +
                             " instrument " + instrumentId);
                 }
-                logger.info("Updated holding {} quantity: {} -> {}",
-                    holding.getPortfolioHoldingId(), holding.getQuantity(), newQuantity);
+                logger.info("Updated holding {} quantity: {} -> {}, avg cost: {} -> {}",
+                    holding.getPortfolioHoldingId(), holding.getQuantity(), newQuantity,
+                    holding.getAvgCost(), newAvgCost);
             }
         } else if ("SELL".equalsIgnoreCase(side)) {
             if (holding == null || holding.getQuantity() < quantity) {
@@ -238,12 +263,17 @@ public class SettlementService {
                         ", available " + (holding == null ? 0 : holding.getQuantity()));
             }
 
-            // Existing holding: decrease quantity
+            // Existing holding: decrease quantity. Average cost is left unchanged by a sell.
             long newQuantity = holding.getQuantity() - quantity;
             if (newQuantity == 0) {
-                // Option 1: Delete the holding (not implemented here)
-                // Option 2: Keep with zero quantity (implemented here per requirements)
-                // For now, we keep it; production code should decide deletion policy
+                // portfolio_holdings has CHECK (quantity > 0), so a fully sold position is removed
+                // rather than kept at zero (zero positions are not reported anyway).
+                int deleted = holdingMapper.deleteHolding(holding.getPortfolioHoldingId());
+                if (deleted != 1) {
+                    return SettlementResult.error("Failed to remove fully sold holding for SELL");
+                }
+                logger.info("Removed holding {} (fully sold {} units)", holding.getPortfolioHoldingId(), quantity);
+                return SettlementResult.success();
             }
 
             int updated = holdingMapper.updateQuantity(holding.getPortfolioHoldingId(), newQuantity);

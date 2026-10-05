@@ -51,8 +51,114 @@ class TradeExecutionServiceTest {
     @BeforeEach
     void setUp() {
         executionService = new TradeExecutionService(
-                orderMapper, portfolioMapper, accountMapper, instrumentMapper, quoteClient
+                orderMapper, portfolioMapper, accountMapper, instrumentMapper, quoteClient,
+                new CurrencyConversionService(quoteClient)
         );
+    }
+
+    // ==================== Currency conversion (USD instrument, INR account) ====================
+
+    private static final Quote USDINR = new Quote("FX:USDINR", new BigDecimal("96.169038"), new BigDecimal("96.170962"));
+    private static final Quote AAPL = new Quote("AAPL", new BigDecimal("333.65"), new BigDecimal("333.73"));
+
+    private void stubUsdOrder(long orderId, String side, int quantity, String limit, String inrBalance) {
+        long portfolioId = 900L;
+        long accountId = 901L;
+        long instrumentId = 307L;
+        when(orderMapper.findById(orderId)).thenReturn(new OrderRecord(
+                orderId, portfolioId, instrumentId, quantity, new BigDecimal(limit), "NEW", side, "fx-" + orderId,
+                LocalDateTime.now(), LocalDateTime.now(), null));
+        when(portfolioMapper.findById(portfolioId)).thenReturn(new PortfolioRecord(
+                portfolioId, "Main", accountId, "ACTIVE", LocalDateTime.now(), LocalDateTime.now()));
+        when(accountMapper.findById(accountId)).thenReturn(new AccountRecord(
+                accountId, 1L, "1000000101", "LOW", "INR", new BigDecimal(inrBalance), "ACTIVE", 1L,
+                LocalDateTime.now(), LocalDateTime.now()));
+        when(instrumentMapper.findById(instrumentId)).thenReturn(new InstrumentRecord(
+                instrumentId, "AAPL", "Apple Inc.", "EQUITY", "USD", true));
+    }
+
+    @Test
+    void usdBuyOnInrAccount_FillsAndSettlesInInrAtFxAsk() {
+        stubUsdOrder(20L, "BUY", 2, "340.00", "98000.00");
+        when(quoteClient.getFxRate("USD", "INR")).thenReturn(USDINR);
+        when(quoteClient.getQuote("AAPL")).thenReturn(AAPL);
+
+        ExecutionResult result = executionService.executeOrder(20L);
+
+        assertEquals(ExecutionStatus.FILLED, result.getStatus());
+        assertEquals(new BigDecimal("333.73"), result.getExecutionPrice()); // still in USD
+        assertEquals(new BigDecimal("96.17096200"), result.getFxRate());    // ask side
+        assertEquals("INR", result.getSettlementCurrency());
+        // 2 x 333.73 USD = 667.46 USD x 96.170962 = 64190.2703 -> 64190.27 INR
+        assertEquals(new BigDecimal("64190.27"), result.getSettlementAmount());
+    }
+
+    @Test
+    void usdBuyOnInrAccount_RejectsWhenInrCostExceedsBalance() {
+        // Limit cost is 680 USD, which a raw comparison against 60000 would pass.
+        // Converted it is 680 x 96.170962 = 65396.25 INR > 60000 INR.
+        stubUsdOrder(21L, "BUY", 2, "340.00", "60000.00");
+        when(quoteClient.getFxRate("USD", "INR")).thenReturn(USDINR);
+
+        ExecutionResult result = executionService.executeOrder(21L);
+
+        assertEquals(ExecutionStatus.REJECTED, result.getStatus());
+        assertTrue(result.getReason().contains("Insufficient funds"));
+        assertTrue(result.getReason().contains("65396.25 INR"));
+        verify(quoteClient, never()).getQuote(any());
+    }
+
+    @Test
+    void usdSellOnInrAccount_SettlesAtFxBid() {
+        stubUsdOrder(22L, "SELL", 2, "330.00", "1000.00");
+        when(quoteClient.getFxRate("USD", "INR")).thenReturn(USDINR);
+        when(quoteClient.getQuote("AAPL")).thenReturn(AAPL);
+
+        ExecutionResult result = executionService.executeOrder(22L);
+
+        assertEquals(ExecutionStatus.FILLED, result.getStatus());
+        assertEquals(new BigDecimal("333.65"), result.getExecutionPrice());
+        assertEquals(new BigDecimal("96.16903800"), result.getFxRate());    // bid side
+        // 2 x 333.65 USD = 667.30 USD x 96.169038 = 64173.5991 -> 64173.60 INR
+        assertEquals(new BigDecimal("64173.60"), result.getSettlementAmount());
+    }
+
+    @Test
+    void usdOrder_RejectsWhenFxRateUnavailable() {
+        stubUsdOrder(23L, "BUY", 2, "340.00", "98000.00");
+        when(quoteClient.getFxRate("USD", "INR")).thenThrow(new QuoteUnavailableException("FX down"));
+
+        ExecutionResult result = executionService.executeOrder(23L);
+
+        assertEquals(ExecutionStatus.REJECTED, result.getStatus());
+        assertNull(result.getExecutionPrice());
+        assertTrue(result.getReason().startsWith("FX rate unavailable"));
+        verify(quoteClient, never()).getQuote(any());
+    }
+
+    @Test
+    void sameCurrencyOrder_NeverCallsFxAndSettlesAtPriceTimesQuantity() {
+        long orderId = 24L;
+        when(orderMapper.findById(orderId)).thenReturn(new OrderRecord(
+                orderId, 902L, 301L, 10, new BigDecimal("500.00"), "NEW", "BUY", "inr-24",
+                LocalDateTime.now(), LocalDateTime.now(), null));
+        when(portfolioMapper.findById(902L)).thenReturn(new PortfolioRecord(
+                902L, "Main", 903L, "ACTIVE", LocalDateTime.now(), LocalDateTime.now()));
+        when(accountMapper.findById(903L)).thenReturn(new AccountRecord(
+                903L, 1L, "1000000103", "LOW", "INR", new BigDecimal("10000.00"), "ACTIVE", 1L,
+                LocalDateTime.now(), LocalDateTime.now()));
+        when(instrumentMapper.findById(301L)).thenReturn(new InstrumentRecord(
+                301L, "INFY.NS", "Infosys", "EQUITY", "INR", true));
+        when(quoteClient.getQuote("INFY.NS")).thenReturn(
+                new Quote("INFY.NS", new BigDecimal("490.00"), new BigDecimal("499.00")));
+
+        ExecutionResult result = executionService.executeOrder(orderId);
+
+        assertEquals(ExecutionStatus.FILLED, result.getStatus());
+        assertEquals(0, BigDecimal.ONE.compareTo(result.getFxRate()));
+        assertEquals("INR", result.getSettlementCurrency());
+        assertEquals(new BigDecimal("4990.00"), result.getSettlementAmount());
+        verify(quoteClient, never()).getFxRate(any(), any());
     }
 
     /**
@@ -77,13 +183,13 @@ class TradeExecutionServiceTest {
         );
 
         AccountRecord account = new AccountRecord(
-                accountId, 1L, "1234567890", "CONSERVATIVE", "USD",
+                accountId, 1L, "1234567890", "CONSERVATIVE", "INR",
                 new BigDecimal("10000.00"), "ACTIVE", 1L,
                 LocalDateTime.now(), LocalDateTime.now()
         );
 
         InstrumentRecord instrument = new InstrumentRecord(
-                instrumentId, "INFY.NS", "Infosys", "EQUITY", "INR", "NSE", true
+                instrumentId, "INFY.NS", "Infosys", "EQUITY", "INR", true
         );
 
         Quote quote = new Quote("INFY.NS", new BigDecimal("490.00"), new BigDecimal("499.00"));
@@ -123,13 +229,13 @@ class TradeExecutionServiceTest {
         );
 
         AccountRecord account = new AccountRecord(
-                accountId, 1L, "1234567890", "CONSERVATIVE", "USD",
+                accountId, 1L, "1234567890", "CONSERVATIVE", "INR",
                 new BigDecimal("5000.00"), "ACTIVE", 1L,
                 LocalDateTime.now(), LocalDateTime.now()
         );
 
         InstrumentRecord instrument = new InstrumentRecord(
-                instrumentId, "INFY.NS", "Infosys", "EQUITY", "INR", "NSE", true
+                instrumentId, "INFY.NS", "Infosys", "EQUITY", "INR", true
         );
 
         Quote quote = new Quote("INFY.NS", new BigDecimal("501.00"), new BigDecimal("510.00"));
@@ -168,13 +274,13 @@ class TradeExecutionServiceTest {
         );
 
         AccountRecord account = new AccountRecord(
-                accountId, 1L, "1234567890", "CONSERVATIVE", "USD",
+                accountId, 1L, "1234567890", "CONSERVATIVE", "INR",
                 new BigDecimal("10000.00"), "ACTIVE", 1L,
                 LocalDateTime.now(), LocalDateTime.now()
         );
 
         InstrumentRecord instrument = new InstrumentRecord(
-                instrumentId, "INFY.NS", "Infosys", "EQUITY", "INR", "NSE", true
+                instrumentId, "INFY.NS", "Infosys", "EQUITY", "INR", true
         );
 
         Quote quote = new Quote("INFY.NS", new BigDecimal("500.00"), new BigDecimal("510.00"));  // ask > limit
@@ -214,13 +320,13 @@ class TradeExecutionServiceTest {
         );
 
         AccountRecord account = new AccountRecord(
-                accountId, 1L, "1234567890", "CONSERVATIVE", "USD",
+                accountId, 1L, "1234567890", "CONSERVATIVE", "INR",
                 new BigDecimal("1000.00"), "ACTIVE", 1L,  // insufficient balance
                 LocalDateTime.now(), LocalDateTime.now()
         );
 
         InstrumentRecord instrument = new InstrumentRecord(
-                instrumentId, "INFY.NS", "Infosys", "EQUITY", "INR", "NSE", true
+                instrumentId, "INFY.NS", "Infosys", "EQUITY", "INR", true
         );
 
         when(orderMapper.findById(orderId)).thenReturn(order);
@@ -256,13 +362,13 @@ class TradeExecutionServiceTest {
         );
 
         AccountRecord account = new AccountRecord(
-                accountId, 1L, "1234567890", "CONSERVATIVE", "USD",
+                accountId, 1L, "1234567890", "CONSERVATIVE", "INR",
                 new BigDecimal("10000.00"), "SUSPENDED", 1L,  // account is suspended
                 LocalDateTime.now(), LocalDateTime.now()
         );
 
         InstrumentRecord instrument = new InstrumentRecord(
-                instrumentId, "INFY.NS", "Infosys", "EQUITY", "INR", "NSE", true
+                instrumentId, "INFY.NS", "Infosys", "EQUITY", "INR", true
         );
 
         when(orderMapper.findById(orderId)).thenReturn(order);
@@ -298,13 +404,13 @@ class TradeExecutionServiceTest {
         );
 
         AccountRecord account = new AccountRecord(
-                accountId, 1L, "1234567890", "CONSERVATIVE", "USD",
+                accountId, 1L, "1234567890", "CONSERVATIVE", "INR",
                 new BigDecimal("10000.00"), "ACTIVE", 1L,
                 LocalDateTime.now(), LocalDateTime.now()
         );
 
         InstrumentRecord instrument = new InstrumentRecord(
-                instrumentId, "INFY.NS", "Infosys", "EQUITY", "INR", "NSE", true
+                instrumentId, "INFY.NS", "Infosys", "EQUITY", "INR", true
         );
 
         when(orderMapper.findById(orderId)).thenReturn(order);
@@ -366,13 +472,13 @@ class TradeExecutionServiceTest {
         );
 
         AccountRecord account = new AccountRecord(
-                accountId, 1L, "1234567890", "CONSERVATIVE", "USD",
+                accountId, 1L, "1234567890", "CONSERVATIVE", "INR",
                 new BigDecimal("10000.00"), "ACTIVE", 1L,
                 LocalDateTime.now(), LocalDateTime.now()
         );
 
         InstrumentRecord instrument = new InstrumentRecord(
-                instrumentId, "INFY.NS", "Infosys", "EQUITY", "INR", "NSE", false  // not tradable
+                instrumentId, "INFY.NS", "Infosys", "EQUITY", "INR", false  // not tradable
         );
 
         when(orderMapper.findById(orderId)).thenReturn(order);

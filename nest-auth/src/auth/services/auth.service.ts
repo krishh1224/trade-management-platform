@@ -5,7 +5,13 @@ import { AuthTokenService, VerifiedAccessTokenPayload } from '../../token/servic
 import { RefreshTokenService } from '../../token/services/refresh-token.service';
 import { CredentialsRepository } from '../../credentials/credentials.repository';
 import { PasswordService } from '../../credentials/password.service';
-import { LoginRequest, RegisterRequest, UserResponse } from '../dto/auth.dto';
+import {
+  ChangePasswordRequest,
+  LoginRequest,
+  PasswordUpdateResponse,
+  RegisterRequest,
+  UserResponse,
+} from '../dto/auth.dto';
 import { TokenResponse } from '../dto/refresh.dto';
 import { LoginThrottleService } from './login-throttle.service';
 
@@ -189,6 +195,35 @@ export class AuthService {
       roles: [...currentUser.roles],
       createdOn: credential.createdOn.toISOString(),
     };
+  }
+
+  async updatePassword(
+    currentUser: VerifiedAccessTokenPayload,
+    request: ChangePasswordRequest,
+  ): Promise<PasswordUpdateResponse> {
+    const credential = await this.credentialsRepository.findByAccountId(currentUser.accountId);
+    if (!credential) {
+      throw this.unauthorised();
+    }
+
+    const passwordMatches = await this.passwordService.verify(
+      request.currentPassword,
+      credential.passwordHash,
+    );
+    if (!passwordMatches) {
+      throw this.unauthorised();
+    }
+
+    const nextPasswordHash = await this.passwordService.hash(request.newPassword);
+    const updated = await this.credentialsRepository.updatePasswordHash(
+      currentUser.accountId,
+      nextPasswordHash,
+    );
+    if (!updated) {
+      throw this.unauthorised();
+    }
+
+    return { message: 'Password updated successfully.' };
   }
 
   private unauthorised(): HttpException {
