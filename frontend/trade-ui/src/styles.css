@@ -125,6 +125,10 @@ input {
 	display: none;
 }
 
+header.topbar .nav-link {
+	text-decoration: none;
+}
+
 @media (max-width: 900px) {
 	.shell > header.topbar {
 		height: 60px;
@@ -179,7 +183,6 @@ input {
 	header.topbar .nav-link {
 		padding: 12px;
 		font-size: 0.95rem;
-		text-decoration: none;
 	}
 
 	header.topbar .nav-link.active::after {
