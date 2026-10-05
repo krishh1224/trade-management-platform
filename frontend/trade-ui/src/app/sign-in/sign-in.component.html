@@ -5,7 +5,17 @@
       Artha
     </span>
 
-    <button class="nav-cta" type="button" (click)="scrollTo('sign-in')">Sign in</button>
+    <div class="nav-actions">
+      <button class="theme-toggle" type="button" (click)="toggleTheme()" [attr.aria-label]="theme() === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'" data-testid="theme-toggle">
+        @if (theme() === 'dark') {
+          <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><circle cx="12" cy="12" r="5" fill="none" stroke="currentColor" stroke-width="2" /><path d="M12 2v2M12 20v2M4.93 4.93l1.42 1.42M17.65 17.65l1.42 1.42M2 12h2M20 12h2M4.93 19.07l1.42-1.42M17.65 6.35l1.42-1.42" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" /></svg>
+        } @else {
+          <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" /></svg>
+        }
+      </button>
+
+      <button class="nav-cta" type="button" (click)="scrollTo('sign-in')">Sign in</button>
+    </div>
   </div>
 </header>
 
