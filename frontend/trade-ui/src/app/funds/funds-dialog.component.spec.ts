@@ -106,7 +106,6 @@ describe('FundsDialogComponent', () => {
     expect(trade.getBalance).toHaveBeenCalledWith(101);
     expect(trade.getCashTransactions).toHaveBeenCalledWith(101, 10);
     expect(el(fixture, 'funds-balance')?.textContent).toContain('2,00,000.00');
-    expect(el(fixture, 'funds-available')?.textContent).toContain('2,00,000.00');
     expect(el(fixture, 'funds-activity-empty')?.textContent).toContain('No deposits or withdrawals yet.');
   });
 

@@ -9,7 +9,7 @@
   <div class="panel">
     <header class="panel-head">
       <div>
-        <h2 id="funds-title">Add / Withdraw funds</h2>
+        <h2 id="funds-title">Wallet</h2>
         <p>
           Account <span class="mono">#{{ store.accountId() }}</span>
         </p>
@@ -25,16 +25,6 @@
         <strong class="mono" data-testid="funds-balance">
           @if (store.balance(); as balance) {
             {{ money(balance.cashBalance) }}
-          } @else {
-            —
-          }
-        </strong>
-      </div>
-      <div class="wallet-figure">
-        <span class="label">Available to withdraw</span>
-        <strong class="mono" data-testid="funds-available">
-          @if (store.balance()) {
-            {{ money(store.available()) }}
           } @else {
             —
           }
