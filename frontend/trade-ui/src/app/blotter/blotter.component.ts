@@ -14,7 +14,10 @@ import { FooterComponent } from '../shared/footer.component';
 export const BLOTTER_POLL_INTERVAL_MS = 3_000;
 export const BLOTTER_MAX_POLL_ATTEMPTS = 10;
 
-type StatusFilter = 'ALL' | 'FILLED' | 'REJECTED' | 'NEW';
+// Orders placed through the API are shown as ORD-<uuid>; the cancel endpoint takes the bare UUID.
+// Older seed rows are ORD-<number> and cannot be addressed by it.
+const ORDER_UUID_PATTERN = /^ORD-([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/i;
+
 type SideFilter = 'ALL' | 'BUY' | 'SELL';
 type CreatedAtFilter = 'ALL' | 'TODAY' | 'LAST_7_DAYS' | 'LAST_30_DAYS';
 
@@ -52,16 +55,21 @@ export class BlotterComponent implements OnInit, OnChanges {
   readonly pollingActive = signal(false);
   readonly pollAttemptsUsed = signal(0);
   readonly maxPollAttempts = BLOTTER_MAX_POLL_ATTEMPTS;
-  readonly selectedStatusFilter = signal<StatusFilter>('ALL');
+  /** Statuses to show; empty means every status. Any combination can be selected. */
+  readonly selectedStatuses = signal<ReadonlySet<OrderStatus>>(new Set());
   readonly selectedSideFilter = signal<SideFilter>('ALL');
   readonly selectedCreatedAtFilter = signal<CreatedAtFilter>('ALL');
+  readonly confirmingCancelId = signal<string | null>(null);
+  readonly cancellingId = signal<string | null>(null);
+  readonly cancelFeedback = signal<{ kind: 'success' | 'error'; text: string } | null>(null);
   readonly newOrderCount = computed(() => this.orderHistory().filter((entry) => entry.status === 'NEW').length);
   readonly rejectedOrderCount = computed(() => this.orderHistory().filter((entry) => entry.status === 'REJECTED').length);
   readonly filledOrderCount = computed(() => this.orderHistory().filter((entry) => entry.status === 'FILLED').length);
+  readonly cancelledOrderCount = computed(() => this.orderHistory().filter((entry) => entry.status === 'CANCELLED').length);
   readonly filteredOrderHistory = computed(() =>
     this.orderHistory().filter((entry) => {
-      const statusFilter = this.selectedStatusFilter();
-      if (statusFilter !== 'ALL' && entry.status !== statusFilter) {
+      const statuses = this.selectedStatuses();
+      if (statuses.size > 0 && !statuses.has(entry.status)) {
         return false;
       }
 
@@ -145,8 +153,14 @@ export class BlotterComponent implements OnInit, OnChanges {
     this.fetchOrderHistory({ showLoading: true, resetPollingBound: true });
   }
 
-  setStatusFilter(filter: StatusFilter): void {
-    this.selectedStatusFilter.update((current) => (current === filter ? 'ALL' : filter));
+  toggleStatusFilter(status: OrderStatus): void {
+    this.selectedStatuses.update((current) => {
+      const next = new Set(current);
+      if (!next.delete(status)) {
+        next.add(status);
+      }
+      return next;
+    });
   }
 
   setSideFilter(filter: SideFilter): void {
@@ -157,12 +171,12 @@ export class BlotterComponent implements OnInit, OnChanges {
     this.selectedCreatedAtFilter.set(filter);
   }
 
-  isStatusFilterActive(filter: StatusFilter): boolean {
-    return this.selectedStatusFilter() === filter;
+  isStatusFilterActive(status: OrderStatus): boolean {
+    return this.selectedStatuses().has(status);
   }
 
   clearFilters(): void {
-    this.selectedStatusFilter.set('ALL');
+    this.selectedStatuses.set(new Set());
     this.selectedSideFilter.set('ALL');
     this.selectedCreatedAtFilter.set('ALL');
   }
@@ -188,6 +202,55 @@ export class BlotterComponent implements OnInit, OnChanges {
 
   currencyForSymbol(symbol: string): string {
     return currencyForSymbol(symbol);
+  }
+
+  /** Only working orders can be cancelled; trade-api enforces the same rule and returns ORD-409 otherwise. */
+  canCancel(entry: OrderHistoryRow): boolean {
+    return entry.status === 'NEW' && this.orderUuid(entry.orderId) !== null;
+  }
+
+  askCancel(entry: OrderHistoryRow): void {
+    this.cancelFeedback.set(null);
+    this.confirmingCancelId.set(entry.orderId);
+  }
+
+  dismissCancel(): void {
+    this.confirmingCancelId.set(null);
+  }
+
+  confirmCancel(entry: OrderHistoryRow): void {
+    const uuid = this.orderUuid(entry.orderId);
+    if (uuid === null || this.cancellingId() !== null) {
+      return;
+    }
+
+    this.cancellingId.set(entry.orderId);
+    this.tradeService
+      .cancelOrder(uuid)
+      .pipe(
+        finalize(() => {
+          this.cancellingId.set(null);
+          this.confirmingCancelId.set(null);
+        })
+      )
+      .subscribe({
+        next: () => {
+          // Show the result straight away; the refresh below confirms it from the server.
+          this.orderHistory.update((rows) =>
+            rows.map((row) => (row.orderId === entry.orderId ? { ...row, status: 'CANCELLED' } : row))
+          );
+          this.cancelFeedback.set({ kind: 'success', text: `Order ${entry.symbol} ${entry.side} x ${entry.quantity} cancelled.` });
+          this.fetchOrderHistory({ showLoading: false, resetPollingBound: true });
+        },
+        error: (error: unknown) => {
+          // Usually ORD-409: the executor filled or rejected it first. Refreshing shows what happened.
+          this.cancelFeedback.set({
+            kind: 'error',
+            text: toUserFacingErrorMessage(error, { fallbackMessage: 'Could not cancel this order. Refresh and try again.' })
+          });
+          this.fetchOrderHistory({ showLoading: false, resetPollingBound: true });
+        }
+      });
   }
 
   private fetchOrderHistory(options: { showLoading: boolean; resetPollingBound: boolean }): void {
@@ -337,6 +400,10 @@ export class BlotterComponent implements OnInit, OnChanges {
 
     const lookbackMs = filter === 'LAST_7_DAYS' ? 7 * 24 * 60 * 60 * 1000 : 30 * 24 * 60 * 60 * 1000;
     return createdMs >= now.getTime() - lookbackMs;
+  }
+
+  private orderUuid(orderId: string): string | null {
+    return ORDER_UUID_PATTERN.exec(orderId)?.[1] ?? null;
   }
 
   private toReadableHistoryError(error: unknown): string {

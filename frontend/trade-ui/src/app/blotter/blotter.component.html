@@ -74,33 +74,51 @@
       <header class="blotter-header">
         <div class="history-heading">
           <h2>History</h2>
-          <div class="summary-chips" aria-label="Order status summary">
+          <!-- Each chip toggles independently: pick one or more statuses, or none to see everything. -->
+          <div class="summary-chips" role="group" aria-label="Filter by status" [class.filtering]="selectedStatuses().size > 0">
             <button
               type="button"
               class="summary-chip filled"
+              data-testid="status-chip-FILLED"
               [class.active]="isStatusFilterActive('FILLED')"
               [attr.aria-pressed]="isStatusFilterActive('FILLED')"
-              (click)="setStatusFilter('FILLED')"
+              (click)="toggleStatusFilter('FILLED')"
             >
+              @if (isStatusFilterActive('FILLED')) { <span aria-hidden="true">✓</span> }
               Filled {{ filledOrderCount() }}
             </button>
             <button
               type="button"
               class="summary-chip rejected"
+              data-testid="status-chip-REJECTED"
               [class.active]="isStatusFilterActive('REJECTED')"
               [attr.aria-pressed]="isStatusFilterActive('REJECTED')"
-              (click)="setStatusFilter('REJECTED')"
+              (click)="toggleStatusFilter('REJECTED')"
             >
+              @if (isStatusFilterActive('REJECTED')) { <span aria-hidden="true">✓</span> }
               Rejected {{ rejectedOrderCount() }}
             </button>
             <button
               type="button"
               class="summary-chip working"
+              data-testid="status-chip-NEW"
               [class.active]="isStatusFilterActive('NEW')"
               [attr.aria-pressed]="isStatusFilterActive('NEW')"
-              (click)="setStatusFilter('NEW')"
+              (click)="toggleStatusFilter('NEW')"
             >
+              @if (isStatusFilterActive('NEW')) { <span aria-hidden="true">✓</span> }
               NEW {{ newOrderCount() }}
+            </button>
+            <button
+              type="button"
+              class="summary-chip cancelled"
+              data-testid="status-chip-CANCELLED"
+              [class.active]="isStatusFilterActive('CANCELLED')"
+              [attr.aria-pressed]="isStatusFilterActive('CANCELLED')"
+              (click)="toggleStatusFilter('CANCELLED')"
+            >
+              @if (isStatusFilterActive('CANCELLED')) { <span aria-hidden="true">✓</span> }
+              Cancelled {{ cancelledOrderCount() }}
             </button>
           </div>
         </div>
@@ -121,6 +139,17 @@
       @if (pollingActive()) {
         <p class="polling-hint" role="status">
           Auto-refreshing while NEW orders are still working (attempt {{ pollAttemptsUsed() }} of {{ maxPollAttempts }}).
+        </p>
+      }
+
+      @if (cancelFeedback(); as feedback) {
+        <p
+          class="cancel-feedback"
+          [class.error]="feedback.kind === 'error'"
+          [attr.role]="feedback.kind === 'error' ? 'alert' : 'status'"
+          data-testid="cancel-feedback"
+        >
+          {{ feedback.text }}
         </p>
       }
 
@@ -162,6 +191,7 @@
                 <th scope="col" class="num col-filled">Filled At</th>
                 <th scope="col" class="num col-cash-after">Cash After</th>
                 <th scope="col" class="col-status">Status</th>
+                <th scope="col" class="col-actions"><span class="sr-only">Actions</span></th>
               </tr>
             </thead>
             <tbody>
@@ -213,6 +243,30 @@
                     >
                       {{ statusBadgeText(entry.status) }}
                     </span>
+                  </td>
+                  <td class="col-actions">
+                    @if (canCancel(entry)) {
+                      @if (cancellingId() === entry.orderId) {
+                        <span class="cancel-progress" role="status">Cancelling…</span>
+                      } @else if (confirmingCancelId() === entry.orderId) {
+                        <span class="cancel-confirm">
+                          <span class="cancel-question">Cancel this order?</span>
+                          <button type="button" class="cancel-yes" data-testid="order-cancel-yes" [disabled]="cancellingId() !== null" (click)="confirmCancel(entry)">Yes</button>
+                          <button type="button" class="cancel-no" data-testid="order-cancel-no" (click)="dismissCancel()">No</button>
+                        </span>
+                      } @else {
+                        <button
+                          type="button"
+                          class="cancel-button"
+                          data-testid="order-cancel"
+                          [disabled]="cancellingId() !== null"
+                          [attr.aria-label]="'Cancel ' + entry.side + ' ' + entry.quantity + ' ' + entry.symbol"
+                          (click)="askCancel(entry)"
+                        >
+                          Cancel
+                        </button>
+                      }
+                    }
                   </td>
                 </tr>
               }

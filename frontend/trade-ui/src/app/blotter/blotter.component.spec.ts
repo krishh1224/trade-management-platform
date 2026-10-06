@@ -14,8 +14,11 @@ const authServiceMock = {
 
 const tradeServiceMock = {
   getOrders: vi.fn(),
-  getBalance: vi.fn()
+  getBalance: vi.fn(),
+  cancelOrder: vi.fn()
 };
+
+const WORKING_UUID = '3e701b47-1375-478c-bfef-aa638eff477d';
 
 describe('BlotterComponent', () => {
   beforeEach(async () => {
@@ -29,6 +32,7 @@ describe('BlotterComponent', () => {
     tradeServiceMock.getOrders.mockReturnValue(of([]));
     tradeServiceMock.getBalance.mockReset();
     tradeServiceMock.getBalance.mockReturnValue(of({ cashBalance: 1000, currency: 'INR' }));
+    tradeServiceMock.cancelOrder.mockReset();
 
     await TestBed.configureTestingModule({
       imports: [BlotterComponent],
@@ -195,6 +199,128 @@ describe('BlotterComponent', () => {
     expect(fixture.nativeElement.textContent).toContain('The signed-in account could not be read from this session');
   });
 
+  it('filters by any combination of statuses and clears back to all', () => {
+    tradeServiceMock.getOrders.mockReturnValue(
+      of([
+        historyEntry({ orderId: 'ORD-F', status: 'FILLED', createdOn: '2026-10-02T12:00:00Z' }),
+        historyEntry({ orderId: 'ORD-R', status: 'REJECTED', createdOn: '2026-10-02T11:00:00Z' }),
+        historyEntry({ orderId: 'ORD-N', status: 'NEW', createdOn: '2026-10-02T10:00:00Z' }),
+        historyEntry({ orderId: 'ORD-C', status: 'CANCELLED', createdOn: '2026-10-02T09:00:00Z' })
+      ])
+    );
+
+    const fixture = TestBed.createComponent(BlotterComponent);
+    const component = fixture.componentInstance;
+    component.accountId = 101;
+    fixture.detectChanges();
+    const shown = () => component.filteredOrderHistory().map((row) => row.orderId);
+
+    expect(shown()).toEqual(['ORD-F', 'ORD-R', 'ORD-N', 'ORD-C']);
+
+    click(fixture, 'status-chip-REJECTED');
+    expect(shown()).toEqual(['ORD-R']);
+
+    click(fixture, 'status-chip-CANCELLED');
+    expect(shown()).toEqual(['ORD-R', 'ORD-C']);
+    expect(fixture.nativeElement.querySelector('[data-testid="status-chip-CANCELLED"]')?.getAttribute('aria-pressed')).toBe('true');
+
+    click(fixture, 'status-chip-REJECTED');
+    expect(shown()).toEqual(['ORD-C']);
+
+    component.clearFilters();
+    fixture.detectChanges();
+    expect(shown()).toHaveLength(4);
+    expect(fixture.nativeElement.querySelector('[data-testid="status-chip-CANCELLED"]')?.getAttribute('aria-pressed')).toBe('false');
+  });
+
+  it('offers Cancel only on working orders that have a UUID order id', () => {
+    tradeServiceMock.getOrders.mockReturnValue(
+      of([
+        historyEntry({ orderId: `ORD-${WORKING_UUID}`, status: 'NEW', createdOn: '2026-10-02T12:00:00Z' }),
+        historyEntry({ orderId: 'ORD-123', status: 'NEW', createdOn: '2026-10-02T11:00:00Z' }),
+        historyEntry({ orderId: 'ORD-2e701b47-1375-478c-bfef-aa638eff477d', status: 'FILLED', createdOn: '2026-10-02T10:00:00Z' }),
+        historyEntry({ orderId: 'ORD-1e701b47-1375-478c-bfef-aa638eff477d', status: 'REJECTED', createdOn: '2026-10-02T09:00:00Z' }),
+        historyEntry({ orderId: 'ORD-0e701b47-1375-478c-bfef-aa638eff477d', status: 'CANCELLED', createdOn: '2026-10-02T08:00:00Z' })
+      ])
+    );
+
+    const fixture = TestBed.createComponent(BlotterComponent);
+    fixture.componentInstance.accountId = 101;
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelectorAll('[data-testid="order-cancel"]')).toHaveLength(1);
+  });
+
+  it('cancels a working order after confirmation and marks it cancelled', () => {
+    tradeServiceMock.getOrders.mockReturnValue(
+      of([historyEntry({ orderId: `ORD-${WORKING_UUID}`, status: 'NEW', createdOn: '2026-10-02T12:00:00Z' })])
+    );
+    tradeServiceMock.cancelOrder.mockReturnValue(of({ orderId: `ORD-${WORKING_UUID}`, status: 'CANCELLED' }));
+
+    const fixture = TestBed.createComponent(BlotterComponent);
+    fixture.componentInstance.accountId = 101;
+    fixture.detectChanges();
+
+    tradeServiceMock.getOrders.mockReturnValue(
+      of([historyEntry({ orderId: `ORD-${WORKING_UUID}`, status: 'CANCELLED', createdOn: '2026-10-02T12:00:00Z' })])
+    );
+    click(fixture, 'order-cancel');
+    click(fixture, 'order-cancel-yes');
+
+    expect(tradeServiceMock.cancelOrder).toHaveBeenCalledTimes(1);
+    expect(tradeServiceMock.cancelOrder).toHaveBeenCalledWith(WORKING_UUID);
+    expect(fixture.componentInstance.orderHistory()[0]?.status).toBe('CANCELLED');
+    expect(fixture.nativeElement.querySelector('[data-testid="order-cancel"]')).toBeNull();
+    expect(fixture.nativeElement.querySelector('[data-testid="cancel-feedback"]')?.textContent).toContain('cancelled');
+  });
+
+  it('does nothing when the cancel confirmation is dismissed', () => {
+    tradeServiceMock.getOrders.mockReturnValue(
+      of([historyEntry({ orderId: `ORD-${WORKING_UUID}`, status: 'NEW', createdOn: '2026-10-02T12:00:00Z' })])
+    );
+
+    const fixture = TestBed.createComponent(BlotterComponent);
+    fixture.componentInstance.accountId = 101;
+    fixture.detectChanges();
+
+    click(fixture, 'order-cancel');
+    click(fixture, 'order-cancel-no');
+
+    expect(tradeServiceMock.cancelOrder).not.toHaveBeenCalled();
+    expect(fixture.nativeElement.querySelector('[data-testid="order-cancel"]')).not.toBeNull();
+  });
+
+  it('explains a cancel that lost the race to the executor and refreshes the history', () => {
+    tradeServiceMock.getOrders.mockReturnValue(
+      of([historyEntry({ orderId: `ORD-${WORKING_UUID}`, status: 'NEW', createdOn: '2026-10-02T12:00:00Z' })])
+    );
+    tradeServiceMock.cancelOrder.mockReturnValue(
+      throwError(
+        () =>
+          new HttpErrorResponse({
+            status: 409,
+            error: { errorCode: 'ORD-409', message: 'Invalid order state transition' }
+          })
+      )
+    );
+
+    const fixture = TestBed.createComponent(BlotterComponent);
+    fixture.componentInstance.accountId = 101;
+    fixture.detectChanges();
+
+    tradeServiceMock.getOrders.mockReturnValue(
+      of([historyEntry({ orderId: `ORD-${WORKING_UUID}`, status: 'FILLED', createdOn: '2026-10-02T12:00:00Z' })])
+    );
+    click(fixture, 'order-cancel');
+    click(fixture, 'order-cancel-yes');
+
+    const feedback = fixture.nativeElement.querySelector('[data-testid="cancel-feedback"]') as HTMLElement;
+    expect(feedback.getAttribute('role')).toBe('alert');
+    expect(feedback.textContent).toContain('can no longer be changed');
+    expect(tradeServiceMock.getOrders).toHaveBeenCalledTimes(2);
+    expect(fixture.componentInstance.orderHistory()[0]?.status).toBe('FILLED');
+  });
+
   it('handles API errors gracefully', () => {
     tradeServiceMock.getOrders.mockReturnValue(
       throwError(
@@ -228,6 +354,15 @@ function historyEntry(overrides: Partial<OrderHistoryRow>): OrderHistoryRow {
     executedPrice: 150,
     ...overrides
   };
+}
+
+function click(fixture: { nativeElement: HTMLElement; detectChanges(): void }, testId: string): void {
+  const button = fixture.nativeElement.querySelector(`[data-testid="${testId}"]`) as HTMLButtonElement | null;
+  if (button === null) {
+    throw new Error(`No element with data-testid="${testId}"`);
+  }
+  button.click();
+  fixture.detectChanges();
 }
 
 function buildToken(): string {

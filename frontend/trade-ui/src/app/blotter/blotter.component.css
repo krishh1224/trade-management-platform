@@ -188,6 +188,8 @@
 
 .content {
   display: grid;
+  /* minmax(0, …) lets the wide table scroll inside its card instead of widening the page */
+  grid-template-columns: minmax(0, 1fr);
   gap: 20px;
   width: min(100%, 1240px);
   margin: 0 auto;
@@ -256,8 +258,23 @@
   background: rgba(29, 78, 216, 0.14);
 }
 
+.summary-chip.cancelled {
+  color: #6b7280;
+  border-color: rgba(107, 114, 128, 0.45);
+  background: rgba(107, 114, 128, 0.16);
+}
+
+.summary-chip {
+  gap: 4px;
+}
+
 .summary-chip.active {
   box-shadow: inset 0 0 0 1px currentColor;
+}
+
+/* While a status filter is on, dim the chips that are not part of it. */
+.summary-chips.filtering .summary-chip:not(.active) {
+  opacity: 0.5;
 }
 
 .blotter {
@@ -400,6 +417,8 @@
 }
 
 .table-wrap {
+  /* relative: keeps absolutely positioned children (e.g. .sr-only) inside the scroll area */
+  position: relative;
   overflow-x: auto;
   padding: 8px 20px 20px;
 }
@@ -515,6 +534,91 @@ td.col-status {
   color: #6b7280;
   border-color: rgba(107, 114, 128, 0.4);
   background: rgba(107, 114, 128, 0.16);
+}
+
+/* ---------- Cancel working orders ---------- */
+
+.col-actions {
+  width: 1%;
+  white-space: nowrap;
+  text-align: right;
+}
+
+.cancel-button,
+.cancel-yes,
+.cancel-no {
+  height: 28px;
+  padding: 0 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: border-color 150ms ease, background 150ms ease, color 150ms ease;
+}
+
+.cancel-button:hover:not(:disabled),
+.cancel-yes {
+  border-color: color-mix(in srgb, var(--down) 45%, transparent);
+  background: var(--down-soft);
+  color: var(--down);
+}
+
+.cancel-yes:hover:not(:disabled) {
+  border-color: var(--down);
+}
+
+.cancel-no:hover {
+  border-color: var(--accent);
+  color: var(--text);
+}
+
+.cancel-button:disabled,
+.cancel-yes:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.cancel-confirm {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.cancel-question,
+.cancel-progress {
+  color: var(--text-muted);
+  font-size: 0.78rem;
+}
+
+.cancel-feedback {
+  margin: 10px 20px 0;
+  padding: 8px 12px;
+  border: 1px solid color-mix(in srgb, var(--up) 40%, transparent);
+  border-radius: var(--radius-sm);
+  background: var(--up-soft);
+  color: var(--up);
+  font-size: 0.85rem;
+}
+
+.cancel-feedback.error {
+  border-color: color-mix(in srgb, var(--down) 45%, transparent);
+  background: var(--down-soft);
+  color: var(--down);
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
 }
 
 .price-pack {
