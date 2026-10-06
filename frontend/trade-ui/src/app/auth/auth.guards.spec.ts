@@ -1,6 +1,7 @@
 import { TestBed } from '@angular/core/testing';
 import { ActivatedRouteSnapshot, Router, RouterStateSnapshot, UrlTree, provideRouter } from '@angular/router';
 import { vi } from 'vitest';
+import { firstValueFrom, isObservable, of, throwError } from 'rxjs';
 
 import { AuthService } from '../api/auth.service';
 import { authGuard, guestGuard } from './auth.guards';
@@ -28,46 +29,81 @@ function runGuestGuard(returnUrl?: string) {
   return TestBed.runInInjectionContext(() => guestGuard(snapshot, {} as RouterStateSnapshot));
 }
 
+async function resolveGuardResult(result: ReturnType<typeof runAuthGuard> | ReturnType<typeof runGuestGuard>) {
+  return isObservable(result) ? await firstValueFrom(result) : result;
+}
+
 describe('auth guards', () => {
+  const authServiceMock = {
+    login: vi.fn(),
+    refresh: vi.fn(() => of({
+      accessToken: tokenExpiringAt(Math.floor(Date.now() / 1000) + 900),
+      expiresIn: 900,
+      refreshToken: 'r2',
+      tokenType: 'Bearer' as const
+    }))
+  };
+
   beforeEach(() => {
     localStorage.clear();
-    TestBed.configureTestingModule({ providers: [provideRouter([]), { provide: AuthService, useValue: { login: vi.fn() } }] });
+    authServiceMock.login.mockReset();
+    authServiceMock.refresh.mockClear();
+    authServiceMock.refresh.mockImplementation(() => of({
+      accessToken: tokenExpiringAt(Math.floor(Date.now() / 1000) + 900),
+      expiresIn: 900,
+      refreshToken: 'r2',
+      tokenType: 'Bearer' as const
+    }));
+    TestBed.configureTestingModule({ providers: [provideRouter([]), { provide: AuthService, useValue: authServiceMock }] });
   });
 
   afterEach(() => localStorage.clear());
 
-  it('the guard blocks unauthenticated navigation and redirects to sign-in with the return address', () => {
-    const result = runAuthGuard('/orders?status=NEW') as UrlTree;
+  it('the guard blocks unauthenticated navigation and redirects to sign-in with the return address', async () => {
+    const result = (await resolveGuardResult(runAuthGuard('/orders?status=NEW'))) as UrlTree;
 
     expect(result).toBeInstanceOf(UrlTree);
     expect(TestBed.inject(Router).serializeUrl(result)).toBe('/sign-in?returnUrl=%2Forders%3Fstatus%3DNEW');
   });
 
-  it('the guard allows authenticated navigation', () => {
+  it('the guard allows authenticated navigation', async () => {
     storeSession(tokenExpiringAt(Math.floor(Date.now() / 1000) + 600));
 
-    expect(runAuthGuard('/orders')).toBe(true);
+    expect(await resolveGuardResult(runAuthGuard('/orders'))).toBe(true);
+    expect(authServiceMock.refresh).not.toHaveBeenCalled();
   });
 
-  it('an expired token is treated as signed out', () => {
+  it('an expired token is refreshed and treated as signed in', async () => {
     storeSession(tokenExpiringAt(Math.floor(Date.now() / 1000) - 10));
 
-    expect(runAuthGuard('/orders')).toBeInstanceOf(UrlTree);
-    expect(runGuestGuard()).toBe(true);
+    expect(await resolveGuardResult(runAuthGuard('/orders'))).toBe(true);
+    const guestResult = (await resolveGuardResult(runGuestGuard())) as UrlTree;
+    expect(TestBed.inject(Router).serializeUrl(guestResult)).toBe('/');
+    expect(authServiceMock.refresh).toHaveBeenCalled();
   });
 
-  it('a signed-in visitor on sign-in is sent to a safe return address', () => {
+  it('refresh failure redirects to sign-in', async () => {
+    storeSession(tokenExpiringAt(Math.floor(Date.now() / 1000) - 10));
+    authServiceMock.refresh.mockImplementation(() =>
+      throwError(() => new Error('refresh failed'))
+    );
+
+    const result = (await resolveGuardResult(runAuthGuard('/orders'))) as UrlTree;
+    expect(TestBed.inject(Router).serializeUrl(result)).toBe('/sign-in?returnUrl=%2Forders');
+  });
+
+  it('a signed-in visitor on sign-in is sent to a safe return address', async () => {
     storeSession(tokenExpiringAt(Math.floor(Date.now() / 1000) + 600));
     const router = TestBed.inject(Router);
 
-    expect(router.serializeUrl(runGuestGuard('/orders') as UrlTree)).toBe('/orders');
+    expect(router.serializeUrl((await resolveGuardResult(runGuestGuard('/orders'))) as UrlTree)).toBe('/orders');
   });
 
-  it('an off-origin return address is refused by the guest guard', () => {
+  it('an off-origin return address is refused by the guest guard', async () => {
     storeSession(tokenExpiringAt(Math.floor(Date.now() / 1000) + 600));
     const router = TestBed.inject(Router);
 
-    expect(router.serializeUrl(runGuestGuard('https://evil.com') as UrlTree)).toBe('/');
-    expect(router.serializeUrl(runGuestGuard('//evil.com') as UrlTree)).toBe('/');
+    expect(router.serializeUrl((await resolveGuardResult(runGuestGuard('https://evil.com'))) as UrlTree)).toBe('/');
+    expect(router.serializeUrl((await resolveGuardResult(runGuestGuard('//evil.com'))) as UrlTree)).toBe('/');
   });
 });
