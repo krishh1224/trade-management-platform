@@ -1,18 +1,111 @@
 import { provideHttpClient } from '@angular/common/http';
 import { provideHttpClientTesting } from '@angular/common/http/testing';
+import { signal } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { provideRouter } from '@angular/router';
+import { ActivatedRoute, convertToParamMap, provideRouter, Router } from '@angular/router';
+import { of, throwError } from 'rxjs';
+import { vi } from 'vitest';
 
+import { TradeService } from '../api/trade.service';
+import { AuthSessionService } from '../auth/auth-session.service';
+import { ThemeService } from '../theme/theme.service';
 import { WatchlistComponent } from './watchlist.component';
 
 describe('WatchlistComponent', () => {
   let component: WatchlistComponent;
   let fixture: ComponentFixture<WatchlistComponent>;
 
+  const authSessionMock = {
+    claims: signal({
+      sub: 'alice',
+      accountId: 42,
+      roles: ['USER'],
+      iat: 1,
+      exp: Math.floor(Date.now() / 1000) + 3600
+    }),
+    signOut: vi.fn()
+  };
+
+  const tradeServiceMock = {
+    listWatchlistGroups: vi.fn().mockReturnValue(
+      of([{ watchlistGroupId: 'g1', name: 'Main', createdAt: '2026-01-01T00:00:00Z' }])
+    ),
+    getWatchlist: vi.fn().mockReturnValue(
+      of([
+        {
+          watchlistId: 'w1',
+          watchlistGroupId: 'g1',
+          watchlistName: 'Main',
+          instrumentId: 11,
+          symbol: 'AAPL',
+          instrumentName: 'Apple',
+          addedAt: '2026-01-01T00:00:00Z',
+          lastPrice: 180,
+          changePct: 1.2
+        }
+      ])
+    ),
+    createWatchlistGroup: vi.fn(),
+    getInstruments: vi.fn().mockReturnValue(of([])),
+    addToWatchlist: vi.fn().mockReturnValue(of({})),
+    removeFromWatchlist: vi.fn().mockReturnValue(of(void 0))
+  };
+
+  const theme = signal<'dark' | 'light'>('dark');
+  const themeServiceMock = {
+    theme,
+    initialize: vi.fn(),
+    toggleTheme: vi.fn(() => theme.set(theme() === 'dark' ? 'light' : 'dark'))
+  };
+
+  const routerMock = {
+    navigate: vi.fn().mockResolvedValue(true),
+    navigateByUrl: vi.fn().mockResolvedValue(true)
+  };
+
   beforeEach(async () => {
+    vi.clearAllMocks();
+    authSessionMock.claims.set({
+      sub: 'alice',
+      accountId: 42,
+      roles: ['USER'],
+      iat: 1,
+      exp: Math.floor(Date.now() / 1000) + 3600
+    });
+    tradeServiceMock.listWatchlistGroups.mockReturnValue(
+      of([{ watchlistGroupId: 'g1', name: 'Main', createdAt: '2026-01-01T00:00:00Z' }])
+    );
+    tradeServiceMock.getWatchlist.mockReturnValue(
+      of([
+        {
+          watchlistId: 'w1',
+          watchlistGroupId: 'g1',
+          watchlistName: 'Main',
+          instrumentId: 11,
+          symbol: 'AAPL',
+          instrumentName: 'Apple',
+          addedAt: '2026-01-01T00:00:00Z',
+          lastPrice: 180,
+          changePct: 1.2
+        }
+      ])
+    );
+
     await TestBed.configureTestingModule({
       imports: [WatchlistComponent],
-      providers: [provideRouter([]), provideHttpClient(), provideHttpClientTesting()],
+      providers: [
+        provideRouter([]),
+        provideHttpClient(),
+        provideHttpClientTesting(),
+        { provide: TradeService, useValue: tradeServiceMock },
+        { provide: AuthSessionService, useValue: authSessionMock },
+        { provide: ThemeService, useValue: themeServiceMock },
+        { provide: Router, useValue: routerMock },
+        {
+          provide: ActivatedRoute,
+          useValue: { snapshot: { queryParamMap: convertToParamMap({}) } }
+        }
+      ],
     }).compileComponents();
 
     fixture = TestBed.createComponent(WatchlistComponent);
@@ -22,5 +115,120 @@ describe('WatchlistComponent', () => {
 
   it('should create', () => {
     expect(component).toBeTruthy();
+  });
+
+  it('loads groups and watchlist for the selected group', () => {
+    expect(tradeServiceMock.listWatchlistGroups).toHaveBeenCalledTimes(1);
+    expect(component.selectedGroupId()).toBe('g1');
+    expect(tradeServiceMock.getWatchlist).toHaveBeenCalledWith(42, 'g1');
+    expect(component.rowsForSelectedGroup()).toHaveLength(1);
+  });
+
+  it('selects a group and refreshes watchlist with group filter', () => {
+    component.selectGroup('g2');
+
+    expect(routerMock.navigate).toHaveBeenCalled();
+    expect(tradeServiceMock.getWatchlist).toHaveBeenLastCalledWith(42, 'g2');
+  });
+
+  it('clears group filter and loads unfiltered watchlist', () => {
+    component.selectGroup('g2');
+    component.clearGroupFilter();
+
+    expect(component.selectedGroupId()).toBeNull();
+    expect(tradeServiceMock.getWatchlist).toHaveBeenLastCalledWith(42, undefined);
+  });
+
+  it('creates a group and selects it on success', () => {
+    tradeServiceMock.createWatchlistGroup.mockReturnValue(
+      of({ watchlistGroupId: 'g2', name: 'Tech', createdAt: '2026-01-01T00:00:00Z' })
+    );
+    component.createGroupForm.patchValue({ name: 'Tech' });
+
+    component.createWatchlistGroup();
+
+    expect(tradeServiceMock.createWatchlistGroup).toHaveBeenCalledWith({ name: 'Tech' });
+    expect(component.selectedGroupId()).toBe('g2');
+  });
+
+  it('shows duplicate-name message when group creation returns 409', () => {
+    tradeServiceMock.createWatchlistGroup.mockReturnValue(throwError(() => ({ status: 409 })));
+    component.createGroupForm.patchValue({ name: 'Main' });
+
+    component.createWatchlistGroup();
+
+    expect(component.createGroupError()).toContain('already exists');
+  });
+
+  it('adds instrument using uppercase symbol and selected group', () => {
+    component.addForm.patchValue({ symbol: ' msft ' });
+
+    component.submitAddForm();
+
+    expect(tradeServiceMock.addToWatchlist).toHaveBeenCalledWith({
+      accountId: 42,
+      symbol: 'MSFT',
+      watchlistGroupId: 'g1'
+    });
+    expect(component.addFormSuccess()).toContain('MSFT added');
+  });
+
+  it('shows instrument options while typing and selects one', () => {
+    tradeServiceMock.getInstruments.mockReturnValue(
+      of([{ symbol: 'AAPL', name: 'Apple Inc.', currency: 'USD' }])
+    );
+    component.addForm.patchValue({ symbol: 'AAP' });
+
+    component.onInstrumentInput();
+
+    expect(component.showInstrumentDropdown()).toBe(true);
+    expect(component.filteredInstrumentOptions()).toHaveLength(1);
+    component.selectInstrument(component.filteredInstrumentOptions()[0]);
+    expect(component.addForm.get('symbol')?.value).toBe('AAPL');
+    expect(component.showInstrumentDropdown()).toBe(false);
+  });
+
+  it('hides instrument dropdown when input is empty', () => {
+    component.addForm.patchValue({ symbol: '' });
+
+    component.onInstrumentInput();
+
+    expect(component.showInstrumentDropdown()).toBe(false);
+  });
+
+  it('shows instrument-not-found message when add returns 404', () => {
+    tradeServiceMock.addToWatchlist.mockReturnValueOnce(throwError(() => ({ status: 404 })));
+    component.addForm.patchValue({ symbol: 'UNKNOWN' });
+
+    component.submitAddForm();
+
+    expect(component.addFormError()).toContain('Instrument not found');
+  });
+
+  it('removes row on success and sets error on failure', () => {
+    const row = component.watchlistRows()[0];
+    component.removeFromWatchlist(row);
+    expect(component.watchlistRows()).toHaveLength(0);
+
+    tradeServiceMock.removeFromWatchlist.mockReturnValueOnce(throwError(() => new Error('boom')));
+    component.watchlistRows.set([row]);
+    component.removeFromWatchlist(row);
+    expect(component.watchlistError()).toContain('Failed to remove item');
+  });
+
+  it('toggles theme and profile menu, then signs out', () => {
+    expect(component.theme()).toBe('dark');
+    component.toggleTheme();
+    expect(component.theme()).toBe('light');
+
+    expect(component.profileMenuOpen()).toBe(false);
+    component.toggleProfileMenu();
+    expect(component.profileMenuOpen()).toBe(true);
+    component.closeProfileMenu();
+    expect(component.profileMenuOpen()).toBe(false);
+
+    component.signOut();
+    expect(authSessionMock.signOut).toHaveBeenCalled();
+    expect(routerMock.navigateByUrl).toHaveBeenCalledWith('/sign-in');
   });
 });
