@@ -74,7 +74,7 @@ export interface ClientProfile {
 
 export type PreferenceCurrency = 'INR' | 'USD';
 export type PreferenceTheme = 'LIGHT' | 'DARK';
-export type PreferenceAlertChannel = 'EMAIL' | 'SMS';
+export type PreferenceAlertChannel = 'EMAIL' | 'PUSH' | 'BROWSER' | 'SMS' | 'NONE';
 
 export interface CustomerPreferences {
   currency: PreferenceCurrency;

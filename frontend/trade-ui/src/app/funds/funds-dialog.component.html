@@ -71,7 +71,7 @@
     <form class="transfer" novalidate (submit)="onSubmit($event)">
       <div class="field">
         <div class="field-head">
-          <label for="funds-amount">Amount ({{ store.currency() }})</label>
+          <label for="funds-amount">Amount ({{ store.currency() === 'INR' ? '₹' : store.currency() === 'USD' ? '$' : store.currency() }})</label>
           @if (mode() === 'WITHDRAWAL') {
             <button type="button" class="link-button" data-testid="funds-max" [disabled]="store.available() <= 0" (click)="useMaximum()">
               Max

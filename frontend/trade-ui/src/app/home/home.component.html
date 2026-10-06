@@ -106,7 +106,7 @@
           } @else if (balanceHidden()) {
             <span class="masked-dots">••••••••</span>
           } @else {
-            {{ displayBalanceCurrency() }} {{ displayBalanceAmount()! | number: '1.2-2' }}
+            {{ displayCurrency(displayBalanceCurrency()) }} {{ displayBalanceAmount()! | number: '1.2-2' }}
           }
         </strong>
         <div class="balance-actions">

@@ -34,3 +34,15 @@ export function currencyForSymbol(symbol: string | null | undefined): string {
 
   return 'USD';
 }
+
+/** Display label used in the UI without changing stored or API currency codes. */
+export function currencySymbolForDisplay(currency: string | null | undefined): string {
+  const normalized = (currency ?? '').trim().toUpperCase();
+  if (normalized === 'INR') {
+    return '₹';
+  }
+  if (normalized === 'USD') {
+    return '$';
+  }
+  return normalized;
+}

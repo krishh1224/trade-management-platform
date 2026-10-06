@@ -129,7 +129,7 @@
     SELECT
       COALESCE(cp.currency, a.base_currency) AS currency,
       COALESCE(cp.theme, 'LIGHT') AS theme,
-      COALESCE(cp.alert_channel, 'EMAIL') AS alertChannel
+      COALESCE(cp.alert_channel, 'NONE') AS alertChannel
     FROM accounts a
     LEFT JOIN customer_preferences cp ON cp.acc_id = a.acc_id
     WHERE a.acc_id = #{accountId}

@@ -316,7 +316,7 @@ class AccountControllerTest {
         mockMvc.perform(put("/api/v1/accounts/{id}/preferences", 101L)
                 .with(authenticatedAs(101L))
                 .contentType(MediaType.APPLICATION_JSON)
-                .content("{\"currency\":\"EUR\",\"theme\":\"LIGHT\",\"alertChannel\":\"PUSH\"}"))
+                .content("{\"currency\":\"EUR\",\"theme\":\"LIGHT\",\"alertChannel\":\"PAGER\"}"))
             .andExpect(status().isUnprocessableEntity())
             .andExpect(jsonPath("$.errorCode").value("VAL-422"));
     }

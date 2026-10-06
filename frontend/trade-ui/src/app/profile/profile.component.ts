@@ -53,13 +53,13 @@ export class ProfileComponent {
   readonly preferenceOptions = {
     currencies: ['INR', 'USD'] as const,
     themes: ['LIGHT', 'DARK'] as const,
-    alertChannels: ['EMAIL', 'SMS'] as const
+    alertChannels: ['EMAIL', 'PUSH', 'BROWSER', 'SMS', 'NONE'] as const
   };
 
   readonly preferencesForm = this.formBuilder.nonNullable.group({
     currency: this.formBuilder.nonNullable.control<'INR' | 'USD'>('INR', [Validators.required]),
     theme: this.formBuilder.nonNullable.control<PreferenceTheme>('DARK', [Validators.required]),
-    alertChannel: this.formBuilder.nonNullable.control<PreferenceAlertChannel>('EMAIL', [Validators.required])
+    alertChannel: this.formBuilder.nonNullable.control<PreferenceAlertChannel>('NONE', [Validators.required])
   });
 
   readonly passwordForm = this.formBuilder.nonNullable.group({

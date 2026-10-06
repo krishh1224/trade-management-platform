@@ -14,7 +14,7 @@ public class UpdatePreferencesRequest {
     private String theme;
 
     @NotBlank
-    @Pattern(regexp = "EMAIL|SMS")
+    @Pattern(regexp = "EMAIL|PUSH|BROWSER|SMS|NONE")
     private String alertChannel;
 
     public UpdatePreferencesRequest() {

@@ -151,7 +151,7 @@
             <label for="preference-currency">Currency</label>
             <select id="preference-currency" formControlName="currency">
               @for (currency of preferenceOptions.currencies; track currency) {
-                <option [value]="currency">{{ currency }}</option>
+                <option [value]="currency">{{ currency === 'INR' ? '₹' : currency === 'USD' ? '$' : currency }}</option>
               }
             </select>
           </div>
@@ -169,7 +169,19 @@
             <label for="preference-alert">Alert channel</label>
             <select id="preference-alert" formControlName="alertChannel">
               @for (item of preferenceOptions.alertChannels; track item) {
-                <option [value]="item">{{ item === 'EMAIL' ? 'Email' : 'SMS' }}</option>
+                <option [value]="item">
+                  {{
+                    item === 'EMAIL'
+                      ? 'Email'
+                      : item === 'PUSH'
+                        ? 'Push notifications'
+                        : item === 'BROWSER'
+                          ? 'Browser notifications'
+                          : item === 'SMS'
+                            ? 'SMS'
+                            : 'None'
+                  }}
+                </option>
               }
             </select>
           </div>

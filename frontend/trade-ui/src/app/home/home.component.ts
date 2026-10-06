@@ -8,7 +8,7 @@ import { AccountStatus, OrderHistoryEntry, PositionResponse } from '../api/gener
 import { PreferenceCurrency, TradeService } from '../api/trade.service';
 import { AuthSessionService } from '../auth/auth-session.service';
 import { FundsDialogComponent } from '../funds/funds-dialog.component';
-import { currencyForSymbol } from '../instruments/instrument-currency';
+import { currencyForSymbol, currencySymbolForDisplay } from '../instruments/instrument-currency';
 import { convertBalanceForDisplay } from '../profile/currency-conversion';
 import { ThemeService } from '../theme/theme.service';
 import { FooterComponent } from '../shared/footer.component';
@@ -115,7 +115,11 @@ export class HomeComponent {
   }
 
   currencyForSymbol(symbol: string): string {
-    return currencyForSymbol(symbol);
+    return currencySymbolForDisplay(currencyForSymbol(symbol));
+  }
+
+  displayCurrency(currency: string | null | undefined): string {
+    return currencySymbolForDisplay(currency);
   }
 
   private loadRecentOrders(): void {
