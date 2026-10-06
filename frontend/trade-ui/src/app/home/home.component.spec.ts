@@ -13,6 +13,7 @@ const authServiceMock = {
 
 const tradeServiceMock = {
   getBalance: vi.fn().mockReturnValue(of({ accountId: 1, cashBalance: 0, heldForOrders: 0, availableToWithdraw: 0, currency: 'INR', asOf: '' })),
+  getPreferences: vi.fn().mockReturnValue(of({ currency: 'INR', theme: 'DARK', alertChannel: 'EMAIL' })),
   getCashTransactions: vi.fn().mockReturnValue(of([]))
 };
 

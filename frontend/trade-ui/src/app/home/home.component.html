@@ -101,12 +101,12 @@
         <strong class="stat-value mono">
           @if (balanceLoading()) {
             Loading...
-          } @else if (balanceAmount() === null) {
+          } @else if (displayBalanceAmount() === null) {
             —
           } @else if (balanceHidden()) {
             <span class="masked-dots">••••••••</span>
           } @else {
-            {{ balanceCurrency() }} {{ balanceAmount()! | number: '1.2-2' }}
+            {{ displayBalanceCurrency() }} {{ displayBalanceAmount()! | number: '1.2-2' }}
           }
         </strong>
         <div class="balance-actions">

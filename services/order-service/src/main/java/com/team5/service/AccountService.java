@@ -2,10 +2,12 @@ package com.team5.service;
 
 import com.team5.domain.enums.OrderStatus;
 import com.team5.dto.request.CashMovementRequest;
+import com.team5.dto.request.UpdatePreferencesRequest;
 import com.team5.dto.response.AccountResponse;
 import com.team5.dto.response.BalanceResponse;
 import com.team5.dto.response.CashTransactionResponse;
 import com.team5.dto.response.ClientProfileResponse;
+import com.team5.dto.response.CustomerPreferencesResponse;
 import com.team5.dto.response.InstrumentOptionResponse;
 import com.team5.dto.response.OrderHistoryEntry;
 import com.team5.dto.response.PositionResponse;
@@ -37,4 +39,12 @@ public interface AccountService {
     List<CashTransactionResponse> getCashTransactions(long authenticatedAccountId, Long accountId, int limit);
 
     List<InstrumentOptionResponse> getInstruments(long authenticatedAccountId, Long accountId, String prefix);
+
+    CustomerPreferencesResponse getPreferences(long authenticatedAccountId, Long accountId);
+
+    CustomerPreferencesResponse updatePreferences(
+        long authenticatedAccountId,
+        Long accountId,
+        UpdatePreferencesRequest request
+    );
 }

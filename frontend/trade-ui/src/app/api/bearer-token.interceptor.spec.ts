@@ -112,6 +112,29 @@ describe('bearer token interceptor', () => {
     }
   });
 
+  it('the preferences routes carry the bearer token', () => {
+    const { http, httpMock } = setup('jwt-token');
+
+    http.get('http://trade/api/v1/accounts/101/preferences').subscribe();
+    http.put('http://trade/api/v1/accounts/101/preferences', {
+      currency: 'USD',
+      theme: 'DARK',
+      alertChannel: 'EMAIL'
+    }).subscribe();
+
+    const getReq = httpMock.expectOne(
+      (req) => req.method === 'GET' && req.url === 'http://trade/api/v1/accounts/101/preferences'
+    );
+    expect(getReq.request.headers.get('Authorization')).toBe('Bearer jwt-token');
+    getReq.flush({});
+
+    const putReq = httpMock.expectOne(
+      (req) => req.method === 'PUT' && req.url === 'http://trade/api/v1/accounts/101/preferences'
+    );
+    expect(putReq.request.headers.get('Authorization')).toBe('Bearer jwt-token');
+    putReq.flush({});
+  });
+
   it('the protected auth route carries the bearer token', () => {
     const { http, httpMock } = setup('jwt-token');
 

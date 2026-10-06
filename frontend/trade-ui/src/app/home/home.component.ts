@@ -5,10 +5,11 @@ import { Router } from '@angular/router';
 import { finalize } from 'rxjs';
 
 import { AccountStatus, OrderHistoryEntry, PositionResponse } from '../api/generated/trade-api/models';
-import { TradeService } from '../api/trade.service';
+import { PreferenceCurrency, TradeService } from '../api/trade.service';
 import { AuthSessionService } from '../auth/auth-session.service';
 import { FundsDialogComponent } from '../funds/funds-dialog.component';
 import { currencyForSymbol } from '../instruments/instrument-currency';
+import { convertBalanceForDisplay } from '../profile/currency-conversion';
 import { ThemeService } from '../theme/theme.service';
 import { FooterComponent } from '../shared/footer.component';
 
@@ -33,7 +34,9 @@ export class HomeComponent {
   readonly customerName = signal('Customer');
   readonly theme = this.themeService.theme;
   readonly balanceAmount = signal<number | null>(null);
-  readonly balanceCurrency = signal('INR');
+  readonly accountBaseCurrency = signal<PreferenceCurrency>('INR');
+  readonly preferenceCurrency = signal<PreferenceCurrency>('INR');
+  readonly preferencesLoaded = signal(false);
   readonly balanceLoading = signal(false);
   readonly balanceHidden = signal(true);
   readonly accountStatus = signal<AccountStatus | null>(null);
@@ -62,12 +65,25 @@ export class HomeComponent {
 
   readonly sessionExpired = computed(() => this.secondsLeft() === 0);
 
+  readonly displayBalanceCurrency = computed<PreferenceCurrency>(() => {
+    return this.preferencesLoaded() ? this.preferenceCurrency() : this.accountBaseCurrency();
+  });
+
+  readonly displayBalanceAmount = computed<number | null>(() => {
+    const amount = this.balanceAmount();
+    if (amount === null) {
+      return null;
+    }
+    return convertBalanceForDisplay(amount, this.accountBaseCurrency(), this.displayBalanceCurrency());
+  });
+
   constructor() {
     this.themeService.initialize();
     const timer = setInterval(() => this.now.set(Date.now()), 1000);
     inject(DestroyRef).onDestroy(() => clearInterval(timer));
     this.loadCustomerName();
     this.loadBalance();
+    this.loadPreferences();
     this.loadAccountStatus();
     this.loadPositions();
     this.loadRecentOrders();
@@ -167,7 +183,7 @@ export class HomeComponent {
       .subscribe({
         next: (balance) => {
           this.balanceAmount.set(balance.cashBalance);
-          this.balanceCurrency.set(balance.currency || 'INR');
+          this.accountBaseCurrency.set(balance.currency === 'USD' ? 'USD' : 'INR');
         },
         error: () => {
           this.balanceAmount.set(null);
@@ -211,5 +227,22 @@ export class HomeComponent {
           this.accountStatus.set(null);
         }
       });
+  }
+
+  private loadPreferences(): void {
+    const accountId = this.claims()?.accountId ?? null;
+    if (accountId === null) {
+      return;
+    }
+
+    this.tradeService.getPreferences(accountId).subscribe({
+      next: (preferences) => {
+        this.preferenceCurrency.set(preferences.currency);
+        this.preferencesLoaded.set(true);
+      },
+      error: () => {
+        this.preferencesLoaded.set(false);
+      }
+    });
   }
 }
