@@ -46,11 +46,11 @@ Before running tests, make sure all services are up:
 
 ```bash
 # Terminal 1: Start the Auth API
-cd nest-auth
+cd services/auth-service
 npm start
 
 # Terminal 2: Start the Trade API
-cd trade-api
+cd services/order-service
 ./mvnw spring-boot:run
 
 # Terminal 3: Start the Angular app

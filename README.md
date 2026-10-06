@@ -24,7 +24,7 @@ cp .env.example .env
 docker-compose --profile platform up -d --build
 
 # 4. Create Kafka topics
-./create-topics.sh
+./infrastructure/kafka/scripts/create-topics.sh
 
 # 5. Verify services are running
 docker-compose ps
@@ -102,15 +102,44 @@ See [docs/LOCAL_SETUP.md](docs/LOCAL_SETUP.md)
 
 ---
 
+## 📁 Repository Structure
+
+```text
+frontend/
+└── trade-ui/                 # Angular trading UI (port 4200)
+services/
+├── auth-service/             # NestJS auth service (port 3000)
+├── order-service/            # Spring Boot order / trade API (port 8081)
+└── executor-service/         # Spring Boot Kafka executor (port 8082)
+infrastructure/
+└── kafka/
+    └── scripts/
+        └── create-topics.sh
+databases/
+├── postgresql/
+│   ├── schema.sql            # baseline schema
+│   ├── seed-data.sql         # sample data
+│   ├── migrations/           # V2 onwards
+│   └── scripts/apply.sh      # applies schema, migrations, seed
+└── duckdb/
+    └── analytics/            # Python ETL into DuckDB
+advisor-api/                  # Advisor service (port 8083)
+contracts/                    # OpenAPI contracts
+docs/  design/  scripts/
+```
+
+---
+
 ## 📦 Services Overview
 
 | Service | Tech Stack | Purpose | Port | Docs |
 |---------|-----------|---------|------|------|
-| **Nest Auth** | Node.js, NestJS, TypeScript | JWT token generation & verification | 3000 | [nest-auth/README.md](nest-auth/README.md) |
-| **Trade API** | Java 17, Spring Boot 3.5, MyBatis | REST API for trading (accounts, orders, positions) | 8081 | [trade-api/README.md](trade-api/README.md) |
-| **Trade Executor** | Java 17, Spring Boot 3.5, Kafka | Kafka consumer for asynchronous order execution | 8082 | [executor/README.md](executor/README.md) |
-| **PostgreSQL** | PostgreSQL 16 | Primary persistent database (accounts, orders, positions) | 5432 | [database/README.md](database/README.md) |
-| **Analytics ETL** | Python 3.10+, DuckDB | Extract/transform/load for analytics reporting | - | [analytics/README.md](analytics/README.md) |
+| **Nest Auth** | Node.js, NestJS, TypeScript | JWT token generation & verification | 3000 | [services/auth-service/README.md](services/auth-service/README.md) |
+| **Trade API** | Java 17, Spring Boot 3.5, MyBatis | REST API for trading (accounts, orders, positions) | 8081 | [services/order-service/README.md](services/order-service/README.md) |
+| **Trade Executor** | Java 17, Spring Boot 3.5, Kafka | Kafka consumer for asynchronous order execution | 8082 | [services/executor-service/README.md](services/executor-service/README.md) |
+| **PostgreSQL** | PostgreSQL 16 | Primary persistent database (accounts, orders, positions) | 5432 | [databases/postgresql/README.md](databases/postgresql/README.md) |
+| **Analytics ETL** | Python 3.10+, DuckDB | Extract/transform/load for analytics reporting | - | [databases/duckdb/analytics/README.md](databases/duckdb/analytics/README.md) |
+| **Trade UI** | Angular, TypeScript | Trading front end | 4200 | [frontend/trade-ui/README.md](frontend/trade-ui/README.md) |
 | **Kafka** | Apache Kafka 3.8.0 | Event streaming broker for async order processing | 8085 | [design/kafka.md](design/kafka.md) |
 
 ---
@@ -145,28 +174,28 @@ See [docs/CONFIG_REFERENCE.md](docs/CONFIG_REFERENCE.md) for complete environmen
 
 ```bash
 # Java tests (Trade API + Executor)
-cd trade-api && ./mvnw clean test
-cd executor && ./mvnw clean test
+cd services/order-service && ./mvnw clean test
+cd services/executor-service && ./mvnw clean test
 
 # TypeScript tests (Nest Auth)
-cd nest-auth && npm ci && npm test
+cd services/auth-service && npm ci && npm test
 
 # Python tests (Analytics)
-cd analytics && pytest -v
+cd databases/duckdb/analytics && pytest -v
 ```
 
 ### Test Coverage
 
 ```bash
 # Java coverage
-cd trade-api && ./mvnw clean test jacoco:report
+cd services/order-service && ./mvnw clean test jacoco:report
 # Report: target/site/jacoco/index.html
 
-cd executor && ./mvnw clean test jacoco:report
+cd services/executor-service && ./mvnw clean test jacoco:report
 # Report: target/site/jacoco/index.html
 
 # Node coverage
-cd nest-auth && npm test -- --coverage
+cd services/auth-service && npm test -- --coverage
 ```
 
 ### Integration Tests
@@ -175,7 +204,7 @@ Docker Compose-based end-to-end testing:
 
 ```bash
 docker-compose --profile platform up -d --build
-./create-topics.sh
+./infrastructure/kafka/scripts/create-topics.sh
 # Run integration tests (see integration-tests/ directory)
 ```
 
@@ -192,11 +221,11 @@ docker-compose --profile platform up -d --build
 - **[docs/adr/](docs/adr/)** - Architecture Decision Records
 
 ### Service Documentation
-- [nest-auth/README.md](nest-auth/README.md) - Auth service setup & API
-- [trade-api/README.md](trade-api/README.md) - Trade API setup & design
-- [executor/README.md](executor/README.md) - Executor setup & implementation
-- [analytics/README.md](analytics/README.md) - Analytics ETL setup
-- [database/README.md](database/README.md) - Database schema & migrations
+- [services/auth-service/README.md](services/auth-service/README.md) - Auth service setup & API
+- [services/order-service/README.md](services/order-service/README.md) - Trade API setup & design
+- [services/executor-service/README.md](services/executor-service/README.md) - Executor setup & implementation
+- [databases/duckdb/analytics/README.md](databases/duckdb/analytics/README.md) - Analytics ETL setup
+- [databases/postgresql/README.md](databases/postgresql/README.md) - Database schema & migrations
 
 ---
 
@@ -214,14 +243,14 @@ docker-compose --profile platform up -d --build
 
 ```bash
 # Java services
-cd trade-api && ./mvnw clean package
-cd executor && ./mvnw clean package
+cd services/order-service && ./mvnw clean package
+cd services/executor-service && ./mvnw clean package
 
 # Node service
-cd nest-auth && npm ci && npm run build
+cd services/auth-service && npm ci && npm run build
 
 # Python service
-cd analytics && pip install -r requirements.txt
+cd databases/duckdb/analytics && pip install -r requirements.txt
 ```
 
 ### Common Commands
@@ -289,7 +318,7 @@ http://localhost:8086
 
 ```bash
 docker-compose --profile platform up -d --build
-./create-topics.sh
+./infrastructure/kafka/scripts/create-topics.sh
 ```
 
 ### Production Deployment

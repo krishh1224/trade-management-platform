@@ -59,19 +59,19 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
     volumes:
       - pgdata:/var/lib/postgresql/data
-      - ./database/database/migration/V1_schema.sql:/docker-entrypoint-initdb.d/01_schema.sql:ro
-      - ./database/database/migration/V2_add_settlement_columns.sql:/docker-entrypoint-initdb.d/02_migration_v2.sql:ro
-      - ./database/database/migration/V3_add_credentials.sql:/docker-entrypoint-initdb.d/03_migration_v3.sql:ro
-      - ./database/database/migration/V4_add_refresh_tokens.sql:/docker-entrypoint-initdb.d/04_migration_v4.sql:ro
-      - ./database/database/migration/V5_add_roles_to_credentials.sql:/docker-entrypoint-initdb.d/05_migration_v5.sql:ro
-      - ./database/database/migration/V6_add_external_order_id.sql:/docker-entrypoint-initdb.d/06_migration_v6.sql:ro
-      - ./database/database/migration/V7_add_watchlists.sql:/docker-entrypoint-initdb.d/07_migration_v7.sql:ro
-      - ./database/database/migration/V8_watchlist_groups.sql:/docker-entrypoint-initdb.d/08_migration_v8.sql:ro
-      - ./database/database/migration/V9_market_quote_snapshots.sql:/docker-entrypoint-initdb.d/09_migration_v9.sql:ro
-      - ./database/database/migration/V10_multi_exchange_and_fx.sql:/docker-entrypoint-initdb.d/10_migration_v10.sql:ro
+      - ./databases/postgresql/schema.sql:/docker-entrypoint-initdb.d/01_schema.sql:ro
+      - ./databases/postgresql/migrations/V2_add_settlement_columns.sql:/docker-entrypoint-initdb.d/02_migration_v2.sql:ro
+      - ./databases/postgresql/migrations/V3_add_credentials.sql:/docker-entrypoint-initdb.d/03_migration_v3.sql:ro
+      - ./databases/postgresql/migrations/V4_add_refresh_tokens.sql:/docker-entrypoint-initdb.d/04_migration_v4.sql:ro
+      - ./databases/postgresql/migrations/V5_add_roles_to_credentials.sql:/docker-entrypoint-initdb.d/05_migration_v5.sql:ro
+      - ./databases/postgresql/migrations/V6_add_external_order_id.sql:/docker-entrypoint-initdb.d/06_migration_v6.sql:ro
+      - ./databases/postgresql/migrations/V7_add_watchlists.sql:/docker-entrypoint-initdb.d/07_migration_v7.sql:ro
+      - ./databases/postgresql/migrations/V8_watchlist_groups.sql:/docker-entrypoint-initdb.d/08_migration_v8.sql:ro
+      - ./databases/postgresql/migrations/V9_market_quote_snapshots.sql:/docker-entrypoint-initdb.d/09_migration_v9.sql:ro
+      - ./databases/postgresql/migrations/V10_multi_exchange_and_fx.sql:/docker-entrypoint-initdb.d/10_migration_v10.sql:ro
       
       
-      - ./database/database/seed/001_seed.sql:/docker-entrypoint-initdb.d/99_seed.sql:ro
+      - ./databases/postgresql/seed-data.sql:/docker-entrypoint-initdb.d/99_seed.sql:ro
     ports:
       - "5432:5432"
     healthcheck:
@@ -87,7 +87,7 @@ services:
   # Replaced legacy auth-stub with NestJS implementation
   nest-auth:
     build:
-      context: ./nest-auth
+      context: ./services/auth-service
       dockerfile: Dockerfile
     container_name: nest-auth
     profiles: ["platform"]
@@ -117,7 +117,7 @@ services:
   trade-api:
     build:
       context: .
-      dockerfile: ./trade-api/Dockerfile
+      dockerfile: ./services/order-service/Dockerfile
     container_name: trade-api
     profiles: ["platform"]
     ports:
@@ -151,7 +151,7 @@ services:
   executor:
     build:
       context: .
-      dockerfile: ./executor/Dockerfile
+      dockerfile: ./services/executor-service/Dockerfile
     container_name: executor
     profiles: ["platform"]
     ports:

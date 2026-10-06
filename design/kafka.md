@@ -6,8 +6,8 @@ From the repository root, with the Kafka container running and healthy:
 
 ```bash
 docker-compose -f docker-compose.kafka.yml up -d
-chmod +x create-topics.sh
-./create-topics.sh
+chmod +x infrastructure/kafka/scripts/create-topics.sh
+./infrastructure/kafka/scripts/create-topics.sh
 ```
 
 This creates all six topics (three main, three dead-letter) against an empty
