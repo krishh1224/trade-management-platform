@@ -1,0 +1,196 @@
+<dialog
+  #dialog
+  class="funds-dialog"
+  aria-labelledby="funds-title"
+  data-testid="funds-dialog"
+  (cancel)="onCancel($event)"
+  (click)="onBackdropClick($event)"
+>
+  <div class="panel">
+    <header class="panel-head">
+      <div>
+        <h2 id="funds-title">Wallet</h2>
+        <p>
+          Account <span class="mono">#{{ store.accountId() }}</span>
+        </p>
+      </div>
+      <button class="icon-button" type="button" aria-label="Close" data-testid="funds-close" (click)="close()">
+        <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" /></svg>
+      </button>
+    </header>
+
+    <section class="wallet" aria-label="Wallet">
+      <div class="wallet-figure">
+        <span class="label">Wallet balance</span>
+        <strong class="mono" data-testid="funds-balance">
+          @if (store.balance(); as balance) {
+            {{ money(balance.cashBalance) }}
+          } @else {
+            —
+          }
+        </strong>
+      </div>
+      @if (store.held() > 0) {
+        <p class="held">
+          <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true"><rect x="5" y="11" width="14" height="10" rx="2" fill="none" stroke="currentColor" stroke-width="2" /><path d="M8 11V8a4 4 0 018 0v3" fill="none" stroke="currentColor" stroke-width="2" /></svg>
+          {{ money(store.held()) }} is held for BUY orders that are still working.
+        </p>
+      }
+    </section>
+
+    @if (store.loadError()) {
+      <div class="notice error" role="alert">
+        <span>{{ store.loadError() }}</span>
+        <button type="button" class="link-button" (click)="store.load()">Try again</button>
+      </div>
+    }
+
+    <div class="tabs" role="tablist" aria-label="Transfer direction">
+      <button
+        type="button"
+        role="tab"
+        data-testid="funds-tab-deposit"
+        [attr.aria-selected]="mode() === 'DEPOSIT'"
+        [class.active]="mode() === 'DEPOSIT'"
+        (click)="selectMode('DEPOSIT')"
+      >
+        Deposit
+      </button>
+      <button
+        type="button"
+        role="tab"
+        data-testid="funds-tab-withdraw"
+        [attr.aria-selected]="mode() === 'WITHDRAWAL'"
+        [class.active]="mode() === 'WITHDRAWAL'"
+        (click)="selectMode('WITHDRAWAL')"
+      >
+        Withdraw
+      </button>
+    </div>
+
+    <form class="transfer" novalidate (submit)="onSubmit($event)">
+      <div class="field">
+        <div class="field-head">
+          <label for="funds-amount">Amount ({{ store.currency() }})</label>
+          @if (mode() === 'WITHDRAWAL') {
+            <button type="button" class="link-button" data-testid="funds-max" [disabled]="store.available() <= 0" (click)="useMaximum()">
+              Max
+            </button>
+          }
+        </div>
+        <input
+          id="funds-amount"
+          type="text"
+          inputmode="decimal"
+          autocomplete="off"
+          placeholder="0.00"
+          data-testid="funds-amount"
+          [formControl]="amount"
+          [class.invalid]="amount.touched && amount.invalid"
+          [attr.aria-invalid]="amount.touched && amount.invalid"
+          aria-describedby="funds-amount-hint"
+          (input)="onAmountInput()"
+          (blur)="amount.markAsTouched()"
+        />
+        <span id="funds-amount-hint" class="hint" [class.error-text]="amount.touched && amount.invalid">
+          @if (amount.touched && amount.hasError('required')) {
+            Enter an amount.
+          } @else if (amount.touched && amount.hasError('format')) {
+            Enter an amount above zero with at most two decimals.
+          } @else if (amount.hasError('exceedsAvailable')) {
+            You can withdraw at most {{ money(store.available()) }} right now.
+          } @else if (mode() === 'DEPOSIT') {
+            Money is added to your wallet straight away.
+          } @else {
+            You can withdraw up to {{ money(store.available()) }}.
+          }
+        </span>
+      </div>
+
+      @if (mode() === 'DEPOSIT') {
+        <div class="chips" aria-label="Quick amounts">
+          @for (step of quickAmounts; track step) {
+            <button type="button" class="chip" (click)="addQuickAmount(step)">+{{ money(step) }}</button>
+          }
+        </div>
+      }
+
+      @if (errorMessage()) {
+        <div class="notice error" role="alert" data-testid="funds-error">
+          <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2" /><path d="M12 7v6M12 16.5v.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" /></svg>
+          <span>{{ errorMessage() }}</span>
+        </div>
+      }
+
+      @if (result(); as done) {
+        <div class="notice success" role="status" data-testid="funds-result">
+          <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" /></svg>
+          <span>
+            <strong class="mono">{{ money(done.amount) }}</strong>
+            {{ done.type === 'DEPOSIT' ? 'deposited' : 'withdrawn' }} successfully.
+          </span>
+        </div>
+      }
+
+      @if (confirming()) {
+        <div class="confirm" role="group" aria-labelledby="funds-confirm-title">
+          <div class="confirm-text">
+            <span id="funds-confirm-title" class="label">Confirm withdrawal</span>
+            <strong class="mono confirm-amount">{{ money(parsedAmount() ?? 0) }}</strong>
+            <span class="confirm-from">From account <span class="mono">#{{ store.accountId() }}</span></span>
+          </div>
+          <div class="actions">
+            <button type="button" class="secondary" (click)="cancelConfirm()">Back</button>
+            <button type="submit" class="primary" data-testid="funds-confirm" [disabled]="submitting()">
+              @if (submitting()) {
+                <span class="spinner" aria-hidden="true"></span>
+              }
+              {{ submitting() ? 'Withdrawing…' : 'Confirm withdrawal' }}
+            </button>
+          </div>
+        </div>
+      } @else {
+        <div class="actions">
+          <button type="button" class="secondary" (click)="close()">Close</button>
+          <button
+            type="submit"
+            class="primary"
+            data-testid="funds-submit"
+            [disabled]="amount.invalid || submitting() || !store.balance()"
+          >
+            @if (submitting()) {
+              <span class="spinner" aria-hidden="true"></span>
+            }
+            {{ submitLabel() }}
+          </button>
+        </div>
+      }
+    </form>
+
+    <section class="activity" aria-labelledby="funds-activity-title">
+      <h3 id="funds-activity-title">Recent cash activity</h3>
+      @if (store.activity().length === 0) {
+        <p class="empty" data-testid="funds-activity-empty">
+          {{ store.loading() ? 'Loading…' : 'No deposits or withdrawals yet.' }}
+        </p>
+      } @else {
+        <ul data-testid="funds-activity">
+          @for (entry of store.activity(); track entry.transactionId) {
+            <li>
+              <span class="badge" [class.deposit]="entry.type === 'DEPOSIT'" [class.withdrawal]="entry.type === 'WITHDRAWAL'">
+                @if (entry.type === 'DEPOSIT') {
+                  <svg viewBox="0 0 24 24" width="12" height="12" aria-hidden="true"><path d="M12 5v14M6 13l6 6 6-6" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" /></svg>
+                } @else {
+                  <svg viewBox="0 0 24 24" width="12" height="12" aria-hidden="true"><path d="M12 19V5M6 11l6-6 6 6" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" /></svg>
+                }
+                {{ entry.type }}
+              </span>
+              <strong class="mono">{{ entry.type === 'DEPOSIT' ? '+' : '−' }}{{ money(entry.amount) }}</strong>
+              <time class="mono" [attr.datetime]="entry.createdAt">{{ when(entry.createdAt) }}</time>
+            </li>
+          }
+        </ul>
+      }
+    </section>
+  </div>
+</dialog>

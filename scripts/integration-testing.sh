@@ -335,7 +335,7 @@ LOGIN_STATUS="$(curl -sS \
     -H "Content-Type: application/json" \
     -d "$LOGIN_BODY")"
 LOGIN_RESPONSE="$(cat "$TMP_DIR/login.json")"
-assert_status "$LOGIN_STATUS" "200" "Auth login" "$LOGIN_RESPONSE"
+assert_status "$LOGIN_STATUS" "201" "Auth login" "$LOGIN_RESPONSE"
 ACCESS_TOKEN="$(json_field "$TMP_DIR/login.json" "accessToken")"
 [[ -n "$ACCESS_TOKEN" ]] || fail "Login response did not contain accessToken."
 pass "Received a real bearer token from Auth service"

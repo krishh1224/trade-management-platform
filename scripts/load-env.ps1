@@ -13,13 +13,27 @@ Get-Content $envFile | ForEach-Object {
     if ($line -eq "" -or $line.StartsWith("#")) { return }
     if ($line -match '^\s*([^=]+?)\s*=\s*(.*)\s*$') {
         $name = $matches[1]
-        $value = $matches[2].Trim()
+        # Drop inline comments (" # ..."); a '#' not preceded by whitespace is part of the value.
+        $value = ($matches[2] -replace '\s+#.*$', '').Trim()
         Set-Item -Path "env:$name" -Value $value
     }
+}
+
+# Remove legacy shared SERVER_PORT if present; services now use dedicated variables.
+if (Test-Path Env:SERVER_PORT) {
+    Remove-Item Env:SERVER_PORT
+}
+
+# .env sets SPRING_PROFILES_ACTIVE=platform for Docker; local runs use each service's
+# default "local" profile instead.
+if (Test-Path Env:SPRING_PROFILES_ACTIVE) {
+    Remove-Item Env:SPRING_PROFILES_ACTIVE
 }
 
 # Derive the bootstrap-servers string both Spring services expect from the
 # single KAFKA_HOST value, instead of storing "host:port" redundantly.
 $env:KAFKA_BOOTSTRAP_SERVERS = "$($env:KAFKA_HOST):8085"
+$env:SPRING_KAFKA_BOOTSTRAP_SERVERS = $env:KAFKA_BOOTSTRAP_SERVERS
 
 Write-Host "Loaded env from .env - KAFKA_BOOTSTRAP_SERVERS=$env:KAFKA_BOOTSTRAP_SERVERS"
+Write-Host "Loaded env from .env - SPRING_KAFKA_BOOTSTRAP_SERVERS=$env:SPRING_KAFKA_BOOTSTRAP_SERVERS"

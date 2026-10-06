@@ -80,7 +80,7 @@ Complete documentation of all environment variables used in the Fauxnance Tradin
 - **Required**: No
 - **Default**: `trade_management`
 - **Type**: String (database name)
-- **Notes**: Must match schema in `database/database/migration/V1_schema.sql`
+- **Notes**: Must match schema in `databases/postgresql/schema.sql`
 
 #### POSTGRES_USER
 - **Used By**: All database-accessing services
@@ -137,7 +137,7 @@ Complete documentation of all environment variables used in the Fauxnance Tradin
 - **Required**: No
 - **Default**: `orders`
 - **Type**: String
-- **Notes**: Created by `create-topics.sh` script
+- **Notes**: Created by `infrastructure/kafka/scripts/create-topics.sh`
 
 #### KAFKA_TRADE_EVENTS_TOPIC
 - **Used By**: Trade event publishing
@@ -328,7 +328,7 @@ Complete documentation of all environment variables used in the Fauxnance Tradin
 #### DUCKDB_PATH
 - **Used By**: Analytics ETL (DuckDB database location)
 - **Required**: No
-- **Default**: `./analytics/analytics.duckdb`
+- **Default**: `./databases/duckdb/analytics/analytics.duckdb`
 - **Type**: File path
 - **Notes**: Relative to project root; can be absolute path
 

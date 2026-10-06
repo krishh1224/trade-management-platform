@@ -136,7 +136,7 @@ Expected: `HTTP 200` on all four, with account `101`'s data in the body.
 
 ## Step 6: Test order endpoints (POST / DELETE)
 
-These live in `OrderController` (`trade-api/src/main/java/com/team5/controller/OrderController.java`), not `AccountController`. `symbol` must be a tradable ticker from the seeded `instruments` table (e.g. `INFY.NS`, `RELIANCE.NS`, `TATASTEEL.BO`). `accountId` in the body must match the JWT's `accountId` claim (same `101`).
+These live in `OrderController` (`services/order-service/src/main/java/com/team5/controller/OrderController.java`), not `AccountController`. `symbol` must be a tradable ticker from the seeded `instruments` table (e.g. `INFY.NS`, `RELIANCE.NS`, `TATASTEEL.BO`). `accountId` in the body must match the JWT's `accountId` claim (same `101`).
 
 ### Place an order — `POST /api/v1/orders`
 
@@ -214,6 +214,5 @@ docker-compose --profile platform down -v
 ## Reference
 
 - Full endpoint set:
-  - `AccountController` (`trade-api/src/main/java/com/team5/controller/AccountController.java`): `GET /{id}`, `GET /{id}/balance`, `GET /{id}/positions`, `GET /{id}/orders` — no "list all accounts" endpoint; each JWT is scoped to one account.
-  - `OrderController` (`trade-api/src/main/java/com/team5/controller/OrderController.java`): `POST /api/v1/orders` (place order), `DELETE /api/v1/orders/{id}` (cancel order).
-- General local (non-Docker) JWT workflow: `docs/auth-jwt-local-runbook.md`.
+  - `AccountController` (`services/order-service/src/main/java/com/team5/controller/AccountController.java`): `GET /{id}`, `GET /{id}/balance`, `GET /{id}/positions`, `GET /{id}/orders` — no "list all accounts" endpoint; each JWT is scoped to one account.
+  - `OrderController` (`services/order-service/src/main/java/com/team5/controller/OrderController.java`): `POST /api/v1/orders` (place order), `DELETE /api/v1/orders/{id}` (cancel order).
