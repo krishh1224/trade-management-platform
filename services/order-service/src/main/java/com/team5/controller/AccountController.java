@@ -3,10 +3,12 @@ package com.team5.controller;
 import com.team5.auth.AuthenticatedAccountId;
 import com.team5.domain.enums.OrderStatus;
 import com.team5.dto.request.CashMovementRequest;
+import com.team5.dto.request.UpdatePreferencesRequest;
 import com.team5.dto.response.AccountResponse;
 import com.team5.dto.response.BalanceResponse;
 import com.team5.dto.response.CashTransactionResponse;
 import com.team5.dto.response.ClientProfileResponse;
+import com.team5.dto.response.CustomerPreferencesResponse;
 import com.team5.dto.response.InstrumentOptionResponse;
 import com.team5.dto.response.OrderHistoryEntry;
 import com.team5.dto.response.PositionResponse;
@@ -22,6 +24,7 @@ import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -117,5 +120,22 @@ public class AccountController {
         @AuthenticatedAccountId long authenticatedAccountId
     ) {
         return ResponseEntity.ok(accountService.getInstruments(authenticatedAccountId, id, prefix));
+    }
+
+    @GetMapping("/{id}/preferences")
+    public ResponseEntity<CustomerPreferencesResponse> getPreferences(
+        @PathVariable("id") @Min(1) Long id,
+        @AuthenticatedAccountId long authenticatedAccountId
+    ) {
+        return ResponseEntity.ok(accountService.getPreferences(authenticatedAccountId, id));
+    }
+
+    @PutMapping("/{id}/preferences")
+    public ResponseEntity<CustomerPreferencesResponse> updatePreferences(
+        @PathVariable("id") @Min(1) Long id,
+        @Valid @RequestBody UpdatePreferencesRequest request,
+        @AuthenticatedAccountId long authenticatedAccountId
+    ) {
+        return ResponseEntity.ok(accountService.updatePreferences(authenticatedAccountId, id, request));
     }
 }

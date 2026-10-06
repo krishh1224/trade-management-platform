@@ -7,7 +7,7 @@ import { toUserFacingErrorMessage } from '../api/error-catalogue';
 import { OrderStatus } from '../api/generated/trade-api/models';
 import { OrderHistoryRow, TradeService } from '../api/trade.service';
 import { AuthSessionService } from '../auth/auth-session.service';
-import { currencyForSymbol } from '../instruments/instrument-currency';
+import { currencyForSymbol, currencySymbolForDisplay } from '../instruments/instrument-currency';
 import { ThemeService } from '../theme/theme.service';
 import { FooterComponent } from '../shared/footer.component';
 
@@ -201,7 +201,11 @@ export class BlotterComponent implements OnInit, OnChanges {
   }
 
   currencyForSymbol(symbol: string): string {
-    return currencyForSymbol(symbol);
+    return currencySymbolForDisplay(currencyForSymbol(symbol));
+  }
+
+  cashAfterCurrencyDisplay(): string {
+    return currencySymbolForDisplay(this.cashAfterCurrency());
   }
 
   /** Only working orders can be cancelled; trade-api enforces the same rule and returns ORD-409 otherwise. */

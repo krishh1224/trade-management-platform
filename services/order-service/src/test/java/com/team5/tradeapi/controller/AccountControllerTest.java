@@ -9,6 +9,7 @@ import static org.springframework.security.test.web.servlet.request.SecurityMock
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.options;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -25,9 +26,11 @@ import com.team5.domain.exception.AccountNotFoundException;
 import com.team5.domain.exception.CashMovementConflictException;
 import com.team5.domain.exception.WithdrawalExceedsAvailableException;
 import com.team5.dto.request.CashMovementRequest;
+import com.team5.dto.request.UpdatePreferencesRequest;
 import com.team5.dto.response.AccountResponse;
 import com.team5.dto.response.BalanceResponse;
 import com.team5.dto.response.CashTransactionResponse;
+import com.team5.dto.response.CustomerPreferencesResponse;
 import com.team5.dto.response.OrderHistoryEntry;
 import com.team5.dto.response.PositionResponse;
 import com.team5.service.AccountService;
@@ -276,6 +279,46 @@ class AccountControllerTest {
                 .header("Access-Control-Request-Method", "POST"))
             .andExpect(status().isForbidden())
             .andExpect(header().doesNotExist("Access-Control-Allow-Origin"));
+    }
+
+    @Test
+    void getPreferences_shouldReturnCurrentPreferences() throws Exception {
+        when(accountService.getPreferences(101L, 101L)).thenReturn(
+            new CustomerPreferencesResponse("INR", "DARK", "SMS")
+        );
+
+        mockMvc.perform(get("/api/v1/accounts/{id}/preferences", 101L)
+                .with(authenticatedAs(101L)))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.currency").value("INR"))
+            .andExpect(jsonPath("$.theme").value("DARK"))
+            .andExpect(jsonPath("$.alertChannel").value("SMS"));
+    }
+
+    @Test
+    void updatePreferences_shouldPersistAndReturnUpdatedPreferences() throws Exception {
+        when(accountService.updatePreferences(eq(101L), eq(101L), any(UpdatePreferencesRequest.class))).thenReturn(
+            new CustomerPreferencesResponse("USD", "LIGHT", "EMAIL")
+        );
+
+        mockMvc.perform(put("/api/v1/accounts/{id}/preferences", 101L)
+                .with(authenticatedAs(101L))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"currency\":\"USD\",\"theme\":\"LIGHT\",\"alertChannel\":\"EMAIL\"}"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.currency").value("USD"))
+            .andExpect(jsonPath("$.theme").value("LIGHT"))
+            .andExpect(jsonPath("$.alertChannel").value("EMAIL"));
+    }
+
+    @Test
+    void updatePreferences_shouldReturn422ForInvalidPayload() throws Exception {
+        mockMvc.perform(put("/api/v1/accounts/{id}/preferences", 101L)
+                .with(authenticatedAs(101L))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"currency\":\"EUR\",\"theme\":\"LIGHT\",\"alertChannel\":\"PAGER\"}"))
+            .andExpect(status().isUnprocessableEntity())
+            .andExpect(jsonPath("$.errorCode").value("VAL-422"));
     }
 
     private static CashTransactionResponse cashTransaction(

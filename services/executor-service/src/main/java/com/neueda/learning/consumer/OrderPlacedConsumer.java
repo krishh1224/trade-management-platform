@@ -9,6 +9,7 @@ import com.neueda.learning.mapper.OrderMapper;
 import com.neueda.learning.mapper.PortfolioMapper;
 import com.neueda.learning.model.OrderRecord;
 import com.neueda.learning.model.PortfolioRecord;
+import com.neueda.learning.producer.OrderEventPublisher;
 import com.neueda.learning.producer.TradeEventPublisher;
 import com.neueda.learning.service.SettlementService;
 import com.neueda.learning.service.SettlementService.SettlementResult;
@@ -55,21 +56,25 @@ import org.springframework.stereotype.Component;
 public class OrderPlacedConsumer {
     private static final Logger logger = LoggerFactory.getLogger(OrderPlacedConsumer.class);
     private static final String EXPECTED_EVENT_TYPE = "ORDER_PLACED";
+    private static final String CANCELLED_EVENT_TYPE = "ORDER_CANCELLED";
 
     private final TradeExecutionService executionService;
     private final SettlementService settlementService;
     private final TradeEventPublisher tradeEventPublisher;
+    private final OrderEventPublisher orderEventPublisher;
     private final OrderMapper orderMapper;
     private final PortfolioMapper portfolioMapper;
 
     public OrderPlacedConsumer(TradeExecutionService executionService,
                                SettlementService settlementService,
                                TradeEventPublisher tradeEventPublisher,
+                               OrderEventPublisher orderEventPublisher,
                                OrderMapper orderMapper,
                                PortfolioMapper portfolioMapper) {
         this.executionService = executionService;
         this.settlementService = settlementService;
         this.tradeEventPublisher = tradeEventPublisher;
+        this.orderEventPublisher = orderEventPublisher;
         this.orderMapper = orderMapper;
         this.portfolioMapper = portfolioMapper;
     }
@@ -100,6 +105,14 @@ public class OrderPlacedConsumer {
         }
 
         logger.info("Received ORDER_PLACED: eventId={}", envelope.getEventId());
+
+        // ORDER_CANCELLED events are republished by this service for downstream consumers.
+        // They are not executable and should be acknowledged and skipped.
+        if (CANCELLED_EVENT_TYPE.equalsIgnoreCase(envelope.getEventType())) {
+            logger.info("Received ORDER_CANCELLED event, skipping execution and acknowledging eventId={}", envelope.getEventId());
+            ack.acknowledge();
+            return;
+        }
 
         // Unexpected event types are poison messages for this consumer.
         if (!EXPECTED_EVENT_TYPE.equalsIgnoreCase(envelope.getEventType())) {
@@ -133,19 +146,31 @@ public class OrderPlacedConsumer {
             // Convert UUID to Long for database lookup
             Long orderIdLong = convertUuidToOrderId(orderId);
 
+            // Load the current order state before attempting execution.
+            OrderRecord order = orderMapper.findById(orderIdLong);
+            if (order == null) {
+                throw new PermanentFailureException("ORDER_NOT_FOUND",
+                    "Order not found in database before execution: " + orderIdLong);
+            }
+
+            if ("CANCELLED".equalsIgnoreCase(order.getStatus())) {
+                logger.info("Order {} is CANCELLED, skipping execution and republishing ORDER_CANCELLED", orderIdLong);
+                orderEventPublisher.publishOrderCancelled(payload);
+                ack.acknowledge();
+                return;
+            }
+
+            if (!"NEW".equalsIgnoreCase(order.getStatus())) {
+                logger.info("Order {} status is {}, skipping execution", orderIdLong, order.getStatus());
+                ack.acknowledge();
+                return;
+            }
+
             // 1. Execute the order (get quote, apply decision logic)
             ExecutionResult execution = executionService.executeOrder(orderIdLong);
             logger.info("Execution result for order {}: {}", orderIdLong, execution);
 
-            // 2. Load order and portfolio from database
-            OrderRecord order = orderMapper.findById(orderIdLong);
-            if (order == null) {
-                // Permanent failure: order not found in database
-                // This is a poison message (orderId doesn't exist or was never created)
-                throw new PermanentFailureException("ORDER_NOT_FOUND",
-                    "Order not found in database after execution: " + orderIdLong);
-            }
-
+            // 2. Load portfolio from database
             PortfolioRecord portfolio = portfolioMapper.findById(order.getPortfolioId());
             if (portfolio == null) {
                 // Permanent failure: portfolio not found (data integrity issue)

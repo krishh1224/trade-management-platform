@@ -228,7 +228,7 @@
                       —
                     } @else {
                       <span class="price-pack">
-                        <span class="currency-prefix">{{ cashAfterCurrency() }}</span>
+                        <span class="currency-prefix">{{ cashAfterCurrencyDisplay() }}</span>
                         <span class="price-value">{{ cashAfterFor(entry.orderId)! | number: '1.2-2' }}</span>
                       </span>
                     }

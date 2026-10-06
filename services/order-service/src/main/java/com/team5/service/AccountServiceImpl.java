@@ -8,10 +8,12 @@ import com.team5.domain.exception.AccountNotFoundException;
 import com.team5.domain.exception.CashMovementConflictException;
 import com.team5.domain.exception.WithdrawalExceedsAvailableException;
 import com.team5.dto.request.CashMovementRequest;
+import com.team5.dto.request.UpdatePreferencesRequest;
 import com.team5.dto.response.AccountResponse;
 import com.team5.dto.response.BalanceResponse;
 import com.team5.dto.response.CashTransactionResponse;
 import com.team5.dto.response.ClientProfileResponse;
+import com.team5.dto.response.CustomerPreferencesResponse;
 import com.team5.dto.response.InstrumentOptionResponse;
 import com.team5.dto.response.OrderHistoryEntry;
 import com.team5.dto.response.PositionResponse;
@@ -172,6 +174,29 @@ public class AccountServiceImpl implements AccountService {
     public List<InstrumentOptionResponse> getInstruments(long authenticatedAccountId, Long accountId, String prefix) {
         assertAccountIsReadable(authenticatedAccountId, accountId);
         return accountQueryMapper.getInstruments(prefix);
+    }
+
+    @Override
+    public CustomerPreferencesResponse getPreferences(long authenticatedAccountId, Long accountId) {
+        assertAccountExistsAndAuthorised(authenticatedAccountId, accountId);
+        return accountQueryMapper.getPreferences(accountId);
+    }
+
+    @Override
+    @Transactional
+    public CustomerPreferencesResponse updatePreferences(
+        long authenticatedAccountId,
+        Long accountId,
+        UpdatePreferencesRequest request
+    ) {
+        assertAccountExistsAndAuthorised(authenticatedAccountId, accountId);
+        accountQueryMapper.upsertPreferences(
+            accountId,
+            request.getCurrency(),
+            request.getTheme(),
+            request.getAlertChannel()
+        );
+        return accountQueryMapper.getPreferences(accountId);
     }
 
     private void assertAccountIsReadable(long authenticatedAccountId, Long accountId) {

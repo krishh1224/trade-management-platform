@@ -139,6 +139,67 @@
         </button>
       </form>
     </section>
+
+    <section class="preferences-card" aria-label="Customer preferences">
+      <h2>Preferences</h2>
+
+      @if (preferencesLoading()) {
+        <p>Loading preferences...</p>
+      } @else {
+        <form [formGroup]="preferencesForm" (ngSubmit)="savePreferences()" novalidate>
+          <div class="field-group">
+            <label for="preference-currency">Currency</label>
+            <select id="preference-currency" formControlName="currency">
+              @for (currency of preferenceOptions.currencies; track currency) {
+                <option [value]="currency">{{ currency === 'INR' ? '₹' : currency === 'USD' ? '$' : currency }}</option>
+              }
+            </select>
+          </div>
+
+          <div class="field-group">
+            <label for="preference-theme">Theme</label>
+            <select id="preference-theme" formControlName="theme">
+              @for (item of preferenceOptions.themes; track item) {
+                <option [value]="item">{{ item === 'LIGHT' ? 'Light' : 'Dark' }}</option>
+              }
+            </select>
+          </div>
+
+          <div class="field-group">
+            <label for="preference-alert">Alert channel</label>
+            <select id="preference-alert" formControlName="alertChannel">
+              @for (item of preferenceOptions.alertChannels; track item) {
+                <option [value]="item">
+                  {{
+                    item === 'EMAIL'
+                      ? 'Email'
+                      : item === 'PUSH'
+                        ? 'Push notifications'
+                        : item === 'BROWSER'
+                          ? 'Browser notifications'
+                          : item === 'SMS'
+                            ? 'SMS'
+                            : 'None'
+                  }}
+                </option>
+              }
+            </select>
+          </div>
+
+          @if (preferencesError()) {
+            <p class="error" role="alert">{{ preferencesError() }}</p>
+          }
+
+          @if (preferencesSuccess()) {
+            <p class="success" role="status">{{ preferencesSuccess() }}</p>
+          }
+
+          <button type="submit" [disabled]="preferencesSaving()">
+            {{ preferencesSaving() ? 'Saving...' : 'Save preferences' }}
+          </button>
+        </form>
+      }
+    </section>
   </main>
 
   <app-footer></app-footer>

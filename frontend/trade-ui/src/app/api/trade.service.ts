@@ -72,6 +72,16 @@ export interface ClientProfile {
   dob: string;
 }
 
+export type PreferenceCurrency = 'INR' | 'USD';
+export type PreferenceTheme = 'LIGHT' | 'DARK';
+export type PreferenceAlertChannel = 'EMAIL' | 'PUSH' | 'BROWSER' | 'SMS' | 'NONE';
+
+export interface CustomerPreferences {
+  currency: PreferenceCurrency;
+  theme: PreferenceTheme;
+  alertChannel: PreferenceAlertChannel;
+}
+
 /** Hand-written facade over the generated Trade REST API client. Unwraps the HTTP envelope. */
 @Injectable({ providedIn: 'root' })
 export class TradeService {
@@ -146,5 +156,13 @@ export class TradeService {
 
   getClientProfile(accountId: number): Observable<ClientProfile> {
     return this.http.get<ClientProfile>(`${this.config.rootUrl}/api/v1/accounts/${accountId}/profile`);
+  }
+
+  getPreferences(accountId: number): Observable<CustomerPreferences> {
+    return this.http.get<CustomerPreferences>(`${this.config.rootUrl}/api/v1/accounts/${accountId}/preferences`);
+  }
+
+  updatePreferences(accountId: number, body: CustomerPreferences): Observable<CustomerPreferences> {
+    return this.http.put<CustomerPreferences>(`${this.config.rootUrl}/api/v1/accounts/${accountId}/preferences`, body);
   }
 }

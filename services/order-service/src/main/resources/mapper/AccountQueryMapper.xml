@@ -125,6 +125,26 @@
     ORDER BY i.name ASC, i.ticker ASC
   </select>
 
+  <select id="getPreferences" resultType="com.team5.dto.response.CustomerPreferencesResponse">
+    SELECT
+      COALESCE(cp.currency, a.base_currency) AS currency,
+      COALESCE(cp.theme, 'LIGHT') AS theme,
+      COALESCE(cp.alert_channel, 'NONE') AS alertChannel
+    FROM accounts a
+    LEFT JOIN customer_preferences cp ON cp.acc_id = a.acc_id
+    WHERE a.acc_id = #{accountId}
+  </select>
+
+  <insert id="upsertPreferences">
+    INSERT INTO customer_preferences (acc_id, currency, theme, alert_channel)
+    VALUES (#{accountId}, #{currency}, #{theme}, #{alertChannel})
+    ON CONFLICT (acc_id)
+    DO UPDATE SET
+      currency = EXCLUDED.currency,
+      theme = EXCLUDED.theme,
+      alert_channel = EXCLUDED.alert_channel
+  </insert>
+
   <select id="findAccountForOrder" resultType="map">
     SELECT
       acc_id,

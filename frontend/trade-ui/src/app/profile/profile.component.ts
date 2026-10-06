@@ -5,10 +5,16 @@ import { Router, RouterLink } from '@angular/router';
 import { finalize } from 'rxjs';
 
 import { AuthService } from '../api/auth.service';
-import { ClientProfile, TradeService } from '../api/trade.service';
+import {
+  ClientProfile,
+  CustomerPreferences,
+  PreferenceAlertChannel,
+  PreferenceTheme,
+  TradeService
+} from '../api/trade.service';
 import { AuthSessionService } from '../auth/auth-session.service';
 import { FooterComponent } from '../shared/footer.component';
-import { ThemeService } from '../theme/theme.service';
+import { AppTheme, ThemeService } from '../theme/theme.service';
 
 @Component({
   selector: 'app-profile',
@@ -35,9 +41,26 @@ export class ProfileComponent {
   readonly profileError = signal('');
   readonly profile = signal<ClientProfile | null>(null);
 
+  readonly preferencesLoading = signal(false);
+  readonly preferencesSaving = signal(false);
+  readonly preferencesError = signal('');
+  readonly preferencesSuccess = signal('');
+
   readonly passwordUpdating = signal(false);
   readonly passwordError = signal('');
   readonly passwordSuccess = signal('');
+
+  readonly preferenceOptions = {
+    currencies: ['INR', 'USD'] as const,
+    themes: ['LIGHT', 'DARK'] as const,
+    alertChannels: ['EMAIL', 'PUSH', 'BROWSER', 'SMS', 'NONE'] as const
+  };
+
+  readonly preferencesForm = this.formBuilder.nonNullable.group({
+    currency: this.formBuilder.nonNullable.control<'INR' | 'USD'>('INR', [Validators.required]),
+    theme: this.formBuilder.nonNullable.control<PreferenceTheme>('DARK', [Validators.required]),
+    alertChannel: this.formBuilder.nonNullable.control<PreferenceAlertChannel>('NONE', [Validators.required])
+  });
 
   readonly passwordForm = this.formBuilder.nonNullable.group({
     currentPassword: ['', [Validators.required]],
@@ -55,6 +78,7 @@ export class ProfileComponent {
   constructor() {
     this.themeService.initialize();
     this.loadProfile();
+    this.loadPreferences();
   }
 
   toggleTheme(): void {
@@ -100,6 +124,34 @@ export class ProfileComponent {
       });
   }
 
+  savePreferences(): void {
+    const id = this.accountId();
+    if (id === null || this.preferencesForm.invalid) {
+      this.preferencesForm.markAllAsTouched();
+      return;
+    }
+
+    this.preferencesSaving.set(true);
+    this.preferencesError.set('');
+    this.preferencesSuccess.set('');
+
+    const body: CustomerPreferences = this.preferencesForm.getRawValue();
+
+    this.tradeService
+      .updatePreferences(id, body)
+      .pipe(finalize(() => this.preferencesSaving.set(false)))
+      .subscribe({
+        next: (preferences) => {
+          this.applyPreferencesToForm(preferences);
+          this.themeService.setTheme(this.toAppTheme(preferences.theme));
+          this.preferencesSuccess.set('Preferences saved.');
+        },
+        error: () => {
+          this.preferencesError.set('Unable to save preferences right now.');
+        }
+      });
+  }
+
   private loadProfile(): void {
     const id = this.accountId();
     if (id === null) {
@@ -122,5 +174,36 @@ export class ProfileComponent {
           this.profileError.set('Unable to load profile details right now.');
         }
       });
+  }
+
+  private loadPreferences(): void {
+    const id = this.accountId();
+    if (id === null) {
+      return;
+    }
+
+    this.preferencesLoading.set(true);
+    this.preferencesError.set('');
+
+    this.tradeService
+      .getPreferences(id)
+      .pipe(finalize(() => this.preferencesLoading.set(false)))
+      .subscribe({
+        next: (preferences) => {
+          this.applyPreferencesToForm(preferences);
+          this.themeService.setTheme(this.toAppTheme(preferences.theme));
+        },
+        error: () => {
+          this.preferencesError.set('Unable to load preferences right now.');
+        }
+      });
+  }
+
+  private applyPreferencesToForm(preferences: CustomerPreferences): void {
+    this.preferencesForm.patchValue(preferences);
+  }
+
+  private toAppTheme(theme: PreferenceTheme): AppTheme {
+    return theme === 'DARK' ? 'dark' : 'light';
   }
 }

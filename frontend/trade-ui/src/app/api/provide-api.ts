@@ -3,6 +3,7 @@ import { EnvironmentProviders, Provider, makeEnvironmentProviders } from '@angul
 
 import { ADVISOR_API_URL } from './advisor.service';
 import { bearerTokenInterceptor } from './bearer-token.interceptor';
+import { refreshTokenInterceptor } from './refresh-token.interceptor';
 import { provideApiConfiguration as provideAuthApiConfiguration } from './generated/auth-api/api-configuration';
 import { provideApiConfiguration as provideTradeApiConfiguration } from './generated/trade-api/api-configuration';
 
@@ -22,7 +23,12 @@ const DEFAULT_URLS: Required<ApiUrls> = {
 export function provideApi(urls: Partial<ApiUrls> = {}): EnvironmentProviders {
   const { tradeApi, authApi, advisorApi } = { ...DEFAULT_URLS, ...urls };
   const providers: (Provider | EnvironmentProviders)[] = [
-    provideHttpClient(withInterceptors([bearerTokenInterceptor({ tradeApi, authApi, advisorApi })])),
+    provideHttpClient(
+      withInterceptors([
+        refreshTokenInterceptor({ tradeApi, authApi, advisorApi }),
+        bearerTokenInterceptor({ tradeApi, authApi, advisorApi })
+      ])
+    ),
     provideTradeApiConfiguration(tradeApi),
     provideAuthApiConfiguration(authApi),
     { provide: ADVISOR_API_URL, useValue: advisorApi }

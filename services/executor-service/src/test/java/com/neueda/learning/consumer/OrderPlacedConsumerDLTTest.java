@@ -15,6 +15,7 @@ import com.neueda.learning.mapper.OrderMapper;
 import com.neueda.learning.mapper.PortfolioMapper;
 import com.neueda.learning.model.OrderRecord;
 import com.neueda.learning.model.PortfolioRecord;
+import com.neueda.learning.producer.OrderEventPublisher;
 import com.neueda.learning.producer.TradeEventPublisher;
 import com.neueda.learning.service.SettlementService;
 import com.neueda.learning.service.SettlementService.SettlementResult;
@@ -62,6 +63,9 @@ class OrderPlacedConsumerDLTTest {
     private TradeEventPublisher tradeEventPublisher;
 
     @Mock
+    private OrderEventPublisher orderEventPublisher;
+
+    @Mock
     private OrderMapper orderMapper;
 
     @Mock
@@ -78,6 +82,7 @@ class OrderPlacedConsumerDLTTest {
             executionService,
             settlementService,
             tradeEventPublisher,
+            orderEventPublisher,
             orderMapper,
             portfolioMapper
         );
@@ -129,10 +134,6 @@ class OrderPlacedConsumerDLTTest {
             new OrderPlacedPayload(orderUuid, 100L, "INFY.NS", "BUY", 10, new BigDecimal("500.00"), "key1", OffsetDateTime.now())
         );
 
-        ExecutionResult execution = new ExecutionResult(orderId, ExecutionStatus.REJECTED, null, "Order not found");
-
-        // Mock: execution returns order not found
-        when(executionService.executeOrder(orderId)).thenReturn(execution);
         // Mock: database returns null (order doesn't exist)
         when(orderMapper.findById(orderId)).thenReturn(null);
 
@@ -516,5 +517,44 @@ class OrderPlacedConsumerDLTTest {
             });
 
         verify(acknowledgment, never()).acknowledge();
+    }
+
+    // ==================== Test 11: CANCELLED order → republish and acknowledge ====================
+
+    @Test
+    @DisplayName("Test 11: CANCELLED order should skip execution and republish ORDER_CANCELLED")
+    void testCancelledOrder_SkipExecutionRepublishAndAcknowledge() {
+        // Given
+        long orderId = 8000L;
+        long accountId = 100L;
+        long portfolioId = 200L;
+        long instrumentId = 300L;
+        UUID orderUuid = new UUID(orderId, 0L);
+
+        KafkaEnvelope<OrderPlacedPayload> envelope = new KafkaEnvelope<>(
+            UUID.randomUUID(),
+            "ORDER_PLACED",
+            OffsetDateTime.now(),
+            "test",
+            1,
+            new OrderPlacedPayload(orderUuid, accountId, "INFY.NS", "BUY", 10, new BigDecimal("500.00"), "key1", OffsetDateTime.now())
+        );
+
+        OrderRecord order = new OrderRecord(
+            orderId, portfolioId, instrumentId, 10,
+            new BigDecimal("500.00"), "CANCELLED", "BUY", "key1",
+            LocalDateTime.now(), LocalDateTime.now(), null
+        );
+
+        when(orderMapper.findById(orderId)).thenReturn(order);
+
+        // When
+        consumer.consumeOrderPlaced(envelope, acknowledgment);
+
+        // Then
+        verify(executionService, never()).executeOrder(anyLong());
+        verify(settlementService, never()).settleOrder(any(), any(), any(), any(), any(), any());
+        verify(orderEventPublisher).publishOrderCancelled(any(OrderPlacedPayload.class));
+        verify(acknowledgment).acknowledge();
     }
 }
