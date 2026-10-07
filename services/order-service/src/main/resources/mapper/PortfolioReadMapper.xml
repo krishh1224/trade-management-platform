@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+  PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+  "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!-- Portfolio module: SELECT only. These tables belong to the order and executor modules. -->
+<mapper namespace="com.team5.portfolio.read.PortfolioReadMapper">
+
+  <select id="findCurrencies" resultType="com.team5.portfolio.read.InstrumentCurrency">
+    SELECT
+      i.ticker AS symbol,
+      i.currency AS currency
+    FROM instruments i
+    WHERE i.ticker IN
+    <foreach collection="symbols" item="symbol" open="(" separator="," close=")">
+      #{symbol}
+    </foreach>
+  </select>
+
+  <!-- last resort price when Fauxnance is unreachable; written by the executor's poller -->
+  <select id="findSnapshots" resultType="com.team5.portfolio.read.SnapshotPrice">
+    SELECT
+      s.symbol AS symbol,
+      s.last_price AS lastPrice,
+      i.currency AS currency,
+      s.updated_at AS updatedAt
+    FROM market_quote_snapshots s
+    INNER JOIN instruments i ON i.ticker = s.symbol
+    WHERE s.symbol IN
+    <foreach collection="symbols" item="symbol" open="(" separator="," close=")">
+      #{symbol}
+    </foreach>
+  </select>
+
+</mapper>

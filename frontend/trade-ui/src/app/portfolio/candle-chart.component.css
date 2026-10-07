@@ -1,0 +1,216 @@
+:host {
+  display: block;
+  width: 100%;
+}
+
+.chart-wrap {
+  position: relative;
+}
+
+.chart {
+  display: block;
+  max-width: 100%;
+  overflow: visible;
+  outline: none;
+  cursor: crosshair;
+  user-select: none;
+}
+
+.chart:focus-visible {
+  border-radius: var(--radius-sm);
+  box-shadow: var(--focus-ring);
+}
+
+.grid {
+  stroke: var(--border);
+  stroke-width: 1;
+  stroke-dasharray: 2 4;
+}
+
+.axis {
+  fill: var(--text-faint);
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+}
+
+.candle .wick {
+  stroke-width: 1.2;
+}
+
+.candle.up .wick,
+.candle.up .body {
+  stroke: var(--up);
+  fill: var(--up);
+}
+
+.candle.down .wick,
+.candle.down .body {
+  stroke: var(--down);
+  fill: var(--down);
+}
+
+.candle.flat .wick,
+.candle.flat .body {
+  stroke: var(--text-muted);
+  fill: var(--text-muted);
+}
+
+/* An estimated bar is drawn hollow with a dashed edge so it is never mistaken for an observed one. */
+.candle.synthetic .body {
+  fill-opacity: 0.18;
+  stroke-width: 1.2;
+  stroke-dasharray: 2 2;
+}
+
+.candle.synthetic .wick {
+  stroke-dasharray: 2 2;
+}
+
+.volume {
+  opacity: 0.28;
+}
+
+.volume.up {
+  fill: var(--up);
+}
+
+.volume.down {
+  fill: var(--down);
+}
+
+.last-line {
+  stroke-width: 1;
+  stroke-dasharray: 4 3;
+  opacity: 0.7;
+}
+
+.last-line.up,
+.last-tag.up {
+  stroke: var(--up);
+  fill: var(--up);
+}
+
+.last-line.down,
+.last-tag.down {
+  stroke: var(--down);
+  fill: var(--down);
+}
+
+.last-tag {
+  stroke: none;
+}
+
+.last-label {
+  fill: #fff;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  font-weight: 600;
+}
+
+.crosshair {
+  stroke: var(--text-faint);
+  stroke-width: 1;
+  stroke-dasharray: 3 3;
+  pointer-events: none;
+}
+
+.tooltip {
+  position: absolute;
+  top: 8px;
+  z-index: 2;
+  display: grid;
+  gap: 6px;
+  width: 182px;
+  padding: 10px 12px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
+  background: var(--surface);
+  box-shadow: var(--shadow);
+  font-size: 0.78rem;
+  pointer-events: none;
+}
+
+.tooltip strong {
+  font-weight: 600;
+}
+
+.tooltip .est {
+  justify-self: start;
+  padding: 1px 6px;
+  border: 1px dashed rgba(245, 165, 36, 0.5);
+  border-radius: 999px;
+  background: var(--warn-soft);
+  color: var(--warn);
+  font-size: 0.64rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.tooltip dl {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 2px 12px;
+  margin: 0;
+}
+
+.tooltip dt {
+  color: var(--text-faint);
+}
+
+.tooltip dd {
+  margin: 0;
+  text-align: right;
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+.tooltip .move {
+  font-family: var(--font-mono);
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.tooltip .move.up {
+  color: var(--up);
+}
+
+.tooltip .move.down {
+  color: var(--down);
+}
+
+.legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 16px;
+  margin: 8px 0 0;
+  padding: 0;
+  list-style: none;
+  color: var(--text-faint);
+  font-size: 0.74rem;
+}
+
+.legend li {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.swatch {
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+}
+
+.swatch.up {
+  background: var(--up);
+}
+
+.swatch.down {
+  background: var(--down);
+}
+
+.swatch.est {
+  border: 1px dashed var(--text-muted);
+  background: transparent;
+}

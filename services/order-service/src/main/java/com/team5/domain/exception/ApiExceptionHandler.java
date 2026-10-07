@@ -68,6 +68,9 @@ public class ApiExceptionHandler {
         if ("WTL-409".equals(errorCode)) {
             return HttpStatus.CONFLICT;
         }
+        if ("MKT-503".equals(errorCode)) {
+            return HttpStatus.SERVICE_UNAVAILABLE;
+        }
         log.error("Unmapped domain error code reached ApiExceptionHandler: {}", errorCode);
         return HttpStatus.UNPROCESSABLE_ENTITY;
     }

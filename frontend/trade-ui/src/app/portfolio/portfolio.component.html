@@ -1,0 +1,374 @@
+<div class="shell">
+  <header class="topbar" [class.nav-open]="navOpen()">
+    <div class="topbar-left">
+      <button
+        class="nav-toggle"
+        type="button"
+        aria-controls="primary-nav"
+        [attr.aria-expanded]="navOpen()"
+        [attr.aria-label]="navOpen() ? 'Close menu' : 'Open menu'"
+        (click)="navOpen.set(!navOpen())"
+        data-testid="nav-toggle"
+      >
+        @if (navOpen()) {
+          <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" /></svg>
+        } @else {
+          <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" /></svg>
+        }
+      </button>
+
+      <div class="brand">
+        <svg class="brand-mark" viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M2 20L12 3l10 17h-5.2L12 11.6 7.2 20z" fill="currentColor" /></svg>
+        <span class="brand-name">Artha</span>
+      </div>
+
+      <nav class="nav" id="primary-nav" aria-label="Primary" (click)="navOpen.set(false)">
+        <a class="nav-link" routerLink="/">Dashboard</a>
+        <span class="nav-link active" aria-current="page">Portfolio</span>
+        <a class="nav-link" routerLink="/orders">Orders</a>
+        <a class="nav-link" routerLink="/blotter">Blotter</a>
+        <a class="nav-link" routerLink="/watchlist">Watchlist</a>
+        <a class="nav-link" routerLink="/advisor">Advisor</a>
+      </nav>
+    </div>
+
+    <div class="topbar-right">
+      <button
+        class="funds-button"
+        type="button"
+        data-testid="funds-open"
+        aria-haspopup="dialog"
+        aria-label="Wallet: add or withdraw funds"
+        [attr.aria-expanded]="fundsOpen()"
+        (click)="fundsOpen.set(true)"
+      >
+        <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M4 7a2 2 0 012-2h11v4M4 7v11a2 2 0 002 2h13a1 1 0 001-1v-9a1 1 0 00-1-1H6a2 2 0 01-2-2zM16 14.5h.01" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" /></svg>
+        <span>Wallet</span>
+      </button>
+
+      <div class="profile-menu-wrap">
+        <button class="account-chip profile-trigger" type="button" (click)="toggleProfileMenu()" [attr.aria-expanded]="profileMenuOpen()" aria-haspopup="menu" data-testid="profile-trigger">
+          <span class="avatar" aria-hidden="true">
+            <svg viewBox="0 0 24 24" width="16" height="16"><circle cx="12" cy="8" r="4" fill="none" stroke="currentColor" stroke-width="2" /><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" /></svg>
+          </span>
+          <span class="account-meta">
+            <strong>{{ claims() ? 'Account ' + claims()!.accountId : 'Signed in' }}</strong>
+            <small>{{ role() }}</small>
+          </span>
+          <svg class="caret" viewBox="0 0 24 24" width="14" height="14" aria-hidden="true"><path d="M6 9l6 6 6-6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" /></svg>
+        </button>
+
+        @if (profileMenuOpen()) {
+          <div class="profile-menu" role="menu">
+            <a role="menuitem" routerLink="/profile" (click)="closeProfileMenu()">Profile</a>
+            <button role="menuitem" type="button" (click)="signOut()" data-testid="signout-button">Logout</button>
+          </div>
+        }
+      </div>
+
+      <button class="theme-toggle" type="button" (click)="toggleTheme()" [attr.aria-label]="theme() === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'">
+        @if (theme() === 'dark') {
+          <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><circle cx="12" cy="12" r="5" fill="none" stroke="currentColor" stroke-width="2" /><path d="M12 2v2M12 20v2M4.93 4.93l1.42 1.42M17.65 17.65l1.42 1.42M2 12h2M20 12h2M4.93 19.07l1.42-1.42M17.65 6.35l1.42-1.42" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" /></svg>
+        } @else {
+          <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" /></svg>
+        }
+      </button>
+    </div>
+  </header>
+
+  <main class="content">
+    @if (pricingDown()) {
+      <div class="banner" role="alert" data-testid="pricing-down-banner">
+        <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M12 3l10 17H2L12 3zM12 10v4M12 17h.01" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" /></svg>
+        <span>Live prices are unavailable right now. Your holdings are shown at cost, and trading is not affected.</span>
+        <button type="button" (click)="refresh()" [disabled]="loading()">Try again</button>
+      </div>
+    } @else if (state() === 'partial') {
+      <div class="banner" role="status" data-testid="partial-banner">
+        <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2" /><path d="M12 7v6M12 16.5h.01" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" /></svg>
+        <span>
+          {{ unpricedCount() === 1 ? 'One holding' : 'Some holdings' }} could not be priced, so the totals below leave
+          {{ unpricedCount() === 1 ? 'it' : 'them' }} out.
+        </span>
+      </div>
+    } @else if (state() === 'delayed') {
+      <div class="banner" role="status" data-testid="delayed-banner">
+        <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2" /><path d="M12 7v5l3 2" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" /></svg>
+        <span>Some prices are delayed. They are shown with the time they were last observed.</span>
+      </div>
+    }
+
+    @if (error()) {
+      <div class="banner error" role="alert" data-testid="portfolio-error">
+        <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2" /><path d="M12 7v6M12 16.5h.01" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" /></svg>
+        <span>{{ error() }}</span>
+        <button type="button" (click)="refresh()" [disabled]="loading()">Retry</button>
+      </div>
+    }
+
+    <section class="welcome">
+      <div>
+        <p class="eyebrow">Portfolio</p>
+        <h1>Your holdings, <span class="customer-name">priced</span></h1>
+        <p class="subtitle">
+          @if (summary(); as s) {
+            Valued in <span class="mono">{{ s.baseCurrency }}</span> · as of
+            <span class="mono">{{ timeLabel(s.asOf) }}</span>
+          } @else if (pricingDown()) {
+            Showing holdings at average cost
+          } @else {
+            Latest quotes for everything you hold
+          }
+        </p>
+      </div>
+
+      <div class="toolbar">
+        <span class="state-pill" [attr.data-state]="state()" data-testid="state-pill">
+          <span class="state-dot" aria-hidden="true"></span>{{ stateLabel() }}
+        </span>
+        <button
+          class="icon-button"
+          type="button"
+          data-testid="toggle-values"
+          (click)="toggleValues()"
+          [attr.aria-label]="valuesHidden() ? 'Show amounts' : 'Hide amounts'"
+          [attr.aria-pressed]="valuesHidden()"
+        >
+          @if (valuesHidden()) {
+            <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" /><circle cx="12" cy="12" r="3" fill="none" stroke="currentColor" stroke-width="2" /></svg>
+          } @else {
+            <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" /><line x1="1" y1="1" x2="23" y2="23" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" /></svg>
+          }
+        </button>
+        <button class="refresh-button" type="button" data-testid="refresh" (click)="refresh()" [disabled]="loading()">
+          <svg [class.spin]="loading()" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M20 11a8 8 0 10-2.3 5.7M20 4v7h-7" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" /></svg>
+          <span>Refresh</span>
+        </button>
+      </div>
+    </section>
+
+    <section class="summary" aria-label="Portfolio summary" [attr.aria-busy]="loading()">
+      <article class="stat stat-total">
+        <span class="stat-label">Total value</span>
+        <strong class="stat-value mono" data-testid="total-value">
+          @if (loading()) { <span class="skeleton"></span> } @else { {{ money(summary()?.totalValue) }} }
+        </strong>
+        <span class="stat-hint">Cash plus market value</span>
+      </article>
+
+      <article class="stat">
+        <span class="stat-label">Market value</span>
+        <strong class="stat-value mono" data-testid="market-value">
+          @if (loading()) { <span class="skeleton"></span> } @else { {{ money(summary()?.marketValue) }} }
+        </strong>
+        <span class="stat-hint">Holdings at latest quotes</span>
+      </article>
+
+      <article class="stat">
+        <span class="stat-label">Unrealised P&amp;L</span>
+        <strong class="stat-value mono" data-testid="unrealised-pnl" [class.up]="pnlTone(summary()?.unrealisedPnl) === 'up'" [class.down]="pnlTone(summary()?.unrealisedPnl) === 'down'">
+          @if (loading()) { <span class="skeleton"></span> } @else { {{ money(summary()?.unrealisedPnl, true) }} }
+        </strong>
+        <span class="stat-hint">
+          @if (summary()?.unrealisedPnlPercent != null) {
+            <span class="delta" [class.up]="pnlTone(summary()?.unrealisedPnlPercent) === 'up'" [class.down]="pnlTone(summary()?.unrealisedPnlPercent) === 'down'">{{ percent(summary()?.unrealisedPnlPercent) }}</span>
+            against cost
+          } @else {
+            Changes with every price tick
+          }
+        </span>
+      </article>
+
+      <article class="stat">
+        <span class="stat-label">Realised P&amp;L</span>
+        <strong class="stat-value mono" data-testid="realised-pnl" [class.up]="pnlTone(summary()?.realisedPnl) === 'up'" [class.down]="pnlTone(summary()?.realisedPnl) === 'down'">
+          @if (loading()) { <span class="skeleton"></span> } @else { {{ money(summary()?.realisedPnl, true) }} }
+        </strong>
+        <span class="stat-hint">Booked at sale, never repriced</span>
+      </article>
+
+      <article class="stat">
+        <span class="stat-label">Cost basis</span>
+        <strong class="stat-value mono" data-testid="cost-basis">
+          @if (loading()) { <span class="skeleton"></span> } @else { {{ money(summary()?.costBasis) }} }
+        </strong>
+        <span class="stat-hint">Quantity × average cost</span>
+      </article>
+
+      <article class="stat">
+        <span class="stat-label">Cash</span>
+        <strong class="stat-value mono" data-testid="cash">
+          @if (loading()) { <span class="skeleton"></span> } @else { {{ money(cash()) }} }
+        </strong>
+        <span class="stat-hint">Available in your wallet</span>
+      </article>
+    </section>
+
+    <section class="panel holdings">
+      <header class="panel-header">
+        <div>
+          <h2>Holdings</h2>
+          <p>
+            @if (rows().length > 0) {
+              {{ rows().length }} open {{ rows().length === 1 ? 'position' : 'positions' }}, each priced in its own currency
+            } @else {
+              Open positions with cost, value and profit or loss
+            }
+          </p>
+        </div>
+        <a class="panel-link" routerLink="/orders">Place an order</a>
+      </header>
+
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th scope="col">Symbol</th>
+              <th scope="col" class="num">Qty</th>
+              <th scope="col" class="num">Avg cost</th>
+              <th scope="col" class="num">Last price</th>
+              <th scope="col" class="num">Market value</th>
+              <th scope="col" class="num">Cost basis</th>
+              <th scope="col" class="num">Unrealised P&amp;L</th>
+            </tr>
+          </thead>
+          @if (!loading() && rows().length > 0) {
+            <tbody>
+              @for (row of rows(); track row.symbol) {
+                <tr class="holding-row" [class.expanded]="expandedSymbol() === row.symbol" [attr.data-testid]="'row-' + row.symbol" (click)="toggleRow(row.symbol)">
+                  <td>
+                    <span class="symbol-cell">
+                      <button
+                        class="row-toggle"
+                        type="button"
+                        data-testid="row-toggle"
+                        [attr.aria-expanded]="expandedSymbol() === row.symbol"
+                        [attr.aria-controls]="'history-' + row.symbol"
+                        [attr.aria-label]="(expandedSymbol() === row.symbol ? 'Hide' : 'Show') + ' price history for ' + row.symbol"
+                      >
+                        <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true"><path d="M9 6l6 6-6 6" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" /></svg>
+                      </button>
+                      <strong>{{ row.symbol }}</strong>
+                      <span class="ccy-tag">{{ row.currency }}</span>
+                    </span>
+                  </td>
+                  <td class="num">{{ row.quantity | number: '1.0-0' }}</td>
+                  <td class="num">{{ row.averageCost | number: '1.2-2' }}</td>
+                  <td class="num">
+                    @if (row.lastPrice !== null) {
+                      <span class="price-stack">
+                        <span>{{ row.lastPrice | number: '1.2-2' }}</span>
+                        <small class="as-of" [class.stale]="row.stale" [attr.title]="row.priceAsOf ? 'Observed ' + (row.priceAsOf | date: 'medium') : null">
+                          @if (row.stale) { <span class="stale-chip" data-testid="stale-chip">Delayed</span> }
+                          {{ timeLabel(row.priceAsOf) }}
+                        </small>
+                      </span>
+                    } @else {
+                      <span class="price-stack">
+                        <span class="muted">—</span>
+                        <small class="as-of stale"><span class="stale-chip" data-testid="unpriced-chip">No price</span></small>
+                      </span>
+                    }
+                  </td>
+                  <td class="num">{{ row.marketValue !== null ? (row.marketValue | number: '1.2-2') : '—' }}</td>
+                  <td class="num">{{ row.costBasis | number: '1.2-2' }}</td>
+                  <td class="num">
+                    @if (row.unrealisedPnl !== null) {
+                      <span class="price-stack">
+                        <span class="pnl" [class.up]="pnlTone(row.unrealisedPnl) === 'up'" [class.down]="pnlTone(row.unrealisedPnl) === 'down'">{{ row.unrealisedPnl > 0 ? '+' : '' }}{{ row.unrealisedPnl | number: '1.2-2' }}</span>
+                        <small class="delta" [class.up]="pnlTone(row.unrealisedPnlPercent) === 'up'" [class.down]="pnlTone(row.unrealisedPnlPercent) === 'down'">{{ percent(row.unrealisedPnlPercent) }}</small>
+                      </span>
+                    } @else {
+                      <span class="muted">—</span>
+                    }
+                  </td>
+                </tr>
+                @if (expandedSymbol() === row.symbol) {
+                  <tr class="detail-row" [id]="'history-' + row.symbol" [attr.data-testid]="'history-' + row.symbol">
+                    <td colspan="7">
+                      <div class="history">
+                        <div class="history-head">
+                          <div>
+                            <h3>{{ row.symbol }} price history</h3>
+                            <p>Daily candles in {{ row.currency }}</p>
+                          </div>
+                          <div class="range-tabs" role="tablist" aria-label="History range">
+                            @for (range of candleRanges; track range) {
+                              <button
+                                type="button"
+                                role="tab"
+                                class="range-tab"
+                                [class.active]="candleRange() === range"
+                                [attr.aria-selected]="candleRange() === range"
+                                [attr.data-testid]="'range-' + range"
+                                (click)="selectRange(range)"
+                              >{{ range }}</button>
+                            }
+                          </div>
+                        </div>
+
+                        @if (candleLoad(); as load) {
+                          @if (load.status === 'loading') {
+                            <div class="history-state" data-testid="candles-loading"><span class="skeleton chart-skeleton"></span></div>
+                          } @else if (load.status === 'error') {
+                            <div class="history-state" role="alert" data-testid="candles-error">
+                              <strong>{{ load.message }}</strong>
+                              <button class="refresh-button" type="button" (click)="retryCandles()">Try again</button>
+                            </div>
+                          } @else if (load.data.candles.length === 0) {
+                            <div class="history-state" data-testid="candles-empty"><strong>No history for this range</strong></div>
+                          } @else {
+                            @if (candleStats(); as stats) {
+                              <dl class="history-stats">
+                                <div><dt>Last close</dt><dd class="mono">{{ stats.last | number: '1.2-2' }}</dd></div>
+                                <div>
+                                  <dt>Change over {{ load.data.range }}</dt>
+                                  <dd class="mono" [class.up]="stats.changePercent > 0" [class.down]="stats.changePercent < 0">{{ percent(stats.changePercent) }}</dd>
+                                </div>
+                                <div><dt>Period high</dt><dd class="mono">{{ stats.high | number: '1.2-2' }}</dd></div>
+                                <div><dt>Period low</dt><dd class="mono">{{ stats.low | number: '1.2-2' }}</dd></div>
+                              </dl>
+                            }
+                            @if (load.data.stale) {
+                              <p class="history-note" data-testid="candles-stale">The price feed is unreachable, so this is a saved copy from {{ timeLabel(load.data.asOf) }}.</p>
+                            }
+                            <app-candle-chart [candles]="load.data.candles" [currency]="load.data.currency" />
+                          }
+                        }
+                      </div>
+                    </td>
+                  </tr>
+                }
+              }
+            </tbody>
+          }
+        </table>
+
+        @if (loading()) {
+          <div class="empty">
+            <strong>Pricing your holdings</strong>
+            <span>Fetching the latest quotes. This only takes a moment.</span>
+          </div>
+        } @else if (rows().length === 0 && !error()) {
+          <div class="empty">
+            <span class="empty-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" width="22" height="22"><path d="M4 19V5M4 19h16M8 15l3-4 3 2 5-6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" /></svg>
+            </span>
+            <strong>No open positions</strong>
+            <span>Place an order and your holdings will be priced here.</span>
+          </div>
+        }
+      </div>
+    </section>
+
+    <p class="footnote">
+      Prices come from delayed market data and are cached for up to a minute. A "Delayed" marker means the quote is
+      older than the provider's freshness window; it is shown with the time it was observed, never as live.
+    </p>
+  </main>
+
+  @if (fundsOpen()) {
+    <app-funds-dialog (closed)="fundsOpen.set(false)" />
+  }
+  <app-footer></app-footer>
+</div>

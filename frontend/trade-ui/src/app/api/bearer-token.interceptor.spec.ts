@@ -31,6 +31,24 @@ describe('bearer token interceptor', () => {
     req.flush({});
   });
 
+  it('portfolio endpoints carry the bearer token', () => {
+    const { http, httpMock } = setup('jwt-token');
+
+    http.get('http://trade/api/v1/portfolio/101').subscribe();
+    http.get('http://trade/api/v1/portfolio/101/positions').subscribe();
+    http.get('http://trade/api/v1/portfolio/101/candles/INFY.NS?range=3M').subscribe();
+
+    for (const path of [
+      '/api/v1/portfolio/101',
+      '/api/v1/portfolio/101/positions',
+      '/api/v1/portfolio/101/candles/INFY.NS?range=3M'
+    ]) {
+      const req = httpMock.expectOne(`http://trade${path}`);
+      expect(req.request.headers.get('Authorization')).toBe('Bearer jwt-token');
+      req.flush({});
+    }
+  });
+
   it('watchlist group endpoints carry the bearer token', () => {
     const { http, httpMock } = setup('jwt-token');
 
