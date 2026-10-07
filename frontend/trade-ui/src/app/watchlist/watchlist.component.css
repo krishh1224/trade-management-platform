@@ -490,6 +490,100 @@ input.invalid {
   font-size: 0.83rem;
 }
 
+.group-row {
+  display: flex;
+  gap: 6px;
+  align-items: stretch;
+}
+
+.group-row .group-item {
+  flex: 1;
+  min-width: 0;
+}
+
+.group-delete {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.group-delete:hover {
+  border-color: var(--down);
+  color: var(--down);
+  background: var(--down-soft);
+}
+
+.group-confirm {
+  display: grid;
+  gap: 8px;
+  padding: 10px;
+  border: 1px solid var(--down);
+  border-radius: var(--radius-sm);
+  background: var(--down-soft);
+  font-size: 0.82rem;
+}
+
+.group-confirm p {
+  margin: 0;
+}
+
+.group-confirm-actions {
+  display: flex;
+  gap: 6px;
+}
+
+.danger-button {
+  min-height: 32px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: var(--down);
+  color: #fff;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.danger-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.alert-button {
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text);
+  padding: 0 12px;
+}
+
+.alert-button:hover {
+  border-color: var(--accent);
+  color: var(--accent-hover);
+  background: var(--accent-soft);
+}
+
+.alert-count {
+  display: inline-block;
+  margin-left: 6px;
+  text-decoration: none;
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--accent-hover);
+  font-size: 0.7rem;
+  font-weight: 600;
+}
+
+.currency-prefix {
+  margin-right: 1px;
+  color: var(--text-muted);
+}
+
 @media (max-width: 980px) {
   .workspace {
     grid-template-columns: minmax(0, 1fr);

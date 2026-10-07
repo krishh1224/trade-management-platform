@@ -1,0 +1,702 @@
+openapi: 3.1.0
+
+info:
+  title: Watchlists and Price Alerts API
+  version: 1.0.0
+  summary: A customer's watchlists, the live price of each watched instrument, and price alerts.
+  description: |
+    The watchlists module lives inside the Trade REST API (`com.team5.watchlists`). A customer keeps
+    named watchlists of instruments, sees the latest market price beside each one, and can ask to be
+    told when an instrument's price crosses a threshold. Watching an instrument needs no position and
+    no trade: the module reads market data only, never orders or trade events.
+
+    ## Relationship to trade-api.yaml
+
+    `trade-api.yaml` carries the Sprint 6 subset of the watchlist routes (`Watchlist` tag) and is left
+    unchanged. This file describes the whole module as the server implements it, including the group
+    routes, the price fields on a watchlist entry and the price-alert routes. Where the two differ, this
+    file is the accurate one. In particular the path segment of `DELETE /api/v1/watchlists/{...}` is
+    the watchlist **entry** id (`watchlistId`); `trade-api.yaml` names it `instrumentId`.
+
+    ## Live price
+
+    `lastPrice` is the latest price this module consumed from the `market-data` topic for the symbol
+    (the bid/ask midpoint of the executor's quote). Before the module has seen a quote for a symbol,
+    the executor's last polled snapshot is shown instead; with neither, it is null. `changePct` is the
+    day's move from the executor's snapshot, null when unknown. The browser never calls the market-data
+    provider: every price comes from this API.
+
+    ## Price alerts
+
+    An alert belongs to one watchlist entry of the account (so the instrument keeps being quoted) and
+    has a `direction` and a `threshold`. It is evaluated against every `market-data` quote for its
+    symbol. With `previous` the last price the module saw for that symbol and `current` the new quote:
+
+    | Direction | Crossed when |
+    |---|---|
+    | `ABOVE` | `previous < threshold` and `current >= threshold` |
+    | `BELOW` | `previous > threshold` and `current <= threshold` |
+
+    A price that stays beyond the threshold is not a crossing, so an alert never fires on every quote.
+    Alerts are **one-shot**: the first crossing moves the alert from `ACTIVE` to `TRIGGERED`, records
+    `triggeredAt` and `triggerPrice`, and hands it to the Customer Notifications module, which
+    delivers it on the channel held in Customer Preferences and shows it in the notifications inbox.
+    A triggered alert is never evaluated again; to watch the level again, create a new alert.
+
+    An alert created while the price is already beyond its threshold waits for the price to come back
+    and cross it. Removing a watchlist entry removes its alerts.
+
+    An account holds at most one **active** alert per symbol, direction and threshold (`1500` and
+    `1500.00` are the same level, and the rule spans all of the account's watchlists). A second one
+    would fire on the same quote and send the same message twice, so it is `WTL-409` with the message
+    `Price alert already exists`. Once an alert has triggered, the level can be set again.
+
+    An account may hold at most `maxActiveAlerts` **active** alerts (20 unless configured otherwise
+    with `watchlists.alerts.max-active-per-account`). Creating one more is `VAL-422` with the message
+    `Price alert limit reached`; triggered alerts do not count. The list route reports the limit and
+    the current count so a client can say so before the customer submits.
+
+    There is deliberately no route that triggers an alert or sends a notification.
+
+    ## Authentication and access
+
+    Every route requires a valid signed JWT, verified by the Trade REST API before any route runs. A
+    missing, malformed, expired or wrongly signed token is `AUTH-401`, 401. The token's `accountId`
+    claim must match the account being addressed, wherever that account appears: the `{id}` path
+    parameter, the `accountId` body field, or the owner of the watchlist entry, watchlist group or
+    alert named by id. A mismatch is `ACC-403`, 403, and nothing is read or written. An id that
+    exists for no account is `WTL-404`, 404.
+
+    ## Errors
+
+    The platform catalogue is reused; this module adds no error code. `WTL-404` covers a watchlist
+    entry, a watchlist group and a price alert; the message names which.
+  contact:
+    name: Team 5
+  license:
+    name: Instructional use only
+
+servers:
+  - url: http://localhost:8080
+    description: Local development, run from Docker Compose
+  - url: http://trade-api:8080
+    description: Service name inside the Docker Compose network
+
+tags:
+  - name: Watchlists
+    description: Watchlist groups and the instruments in them, with the latest price.
+  - name: Price alerts
+    description: One-shot alerts on a watched instrument's price crossing a threshold.
+
+security:
+  - bearerAuth: []
+
+paths:
+  /api/v1/watchlists:
+    post:
+      tags: [Watchlists]
+      operationId: addToWatchlist
+      summary: Add an instrument to one of the account's watchlists.
+      description: |
+        Without `watchlistGroupId` the entry goes to the account's first watchlist, which is created
+        (named `Favourite`) if the account has none. The account must be `ACTIVE` and the instrument
+        tradable. The same instrument may sit in several watchlists, once in each.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AddToWatchlistRequest'
+      responses:
+        '201':
+          description: Instrument added.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WatchlistItemResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorised'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          description: Account, instrument or watchlist group not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                account:
+                  value: { errorCode: ACC-404, message: Account not found }
+                instrument:
+                  value: { errorCode: INS-404, message: Instrument not found }
+                group:
+                  value: { errorCode: WTL-404, message: Watchlist item not found }
+        '409':
+          description: The instrument is already in that watchlist.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                duplicate:
+                  value: { errorCode: WTL-409, message: Instrument already in watchlist }
+        '422':
+          $ref: '#/components/responses/InvalidInput'
+    get:
+      tags: [Watchlists]
+      operationId: listWatchlist
+      summary: List the token account's watchlist entries with their latest price, newest first.
+      parameters:
+        - name: groupId
+          in: query
+          required: false
+          description: Only entries in this watchlist group.
+          schema:
+            type: string
+            pattern: '^[1-9][0-9]{0,18}$'
+      responses:
+        '200':
+          description: The entries. Empty when there are none.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/WatchlistItemResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorised'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/WatchlistNotFound'
+        '422':
+          $ref: '#/components/responses/InvalidInput'
+
+  /api/v1/watchlists/groups:
+    get:
+      tags: [Watchlists]
+      operationId: listWatchlistGroups
+      summary: List the token account's watchlists, oldest first.
+      description: An account with no watchlist gets a `Favourite` one created on first read.
+      responses:
+        '200':
+          description: The account's watchlist groups.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/WatchlistGroupResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorised'
+    post:
+      tags: [Watchlists]
+      operationId: createWatchlistGroup
+      summary: Create a named watchlist for the token account.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateWatchlistGroupRequest'
+      responses:
+        '201':
+          description: Watchlist created.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WatchlistGroupResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorised'
+        '409':
+          description: The account already has a watchlist with that name (case-insensitive).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                duplicate:
+                  value: { errorCode: WTL-409, message: Instrument already in watchlist }
+        '422':
+          $ref: '#/components/responses/InvalidInput'
+
+  /api/v1/watchlists/groups/{watchlistGroupId}:
+    delete:
+      tags: [Watchlists]
+      operationId: deleteWatchlistGroup
+      summary: Delete a custom watchlist, with its entries and their price alerts.
+      description: |
+        The `Favourite` watchlist (matched case-insensitively) is the default every add without a
+        group goes to and cannot be deleted: `WTL-409`. Deleting a watchlist removes its entries and
+        their price alerts; notifications already sent stay in the inbox.
+      parameters:
+        - name: watchlistGroupId
+          in: path
+          required: true
+          description: The watchlist's id, as returned in `WatchlistGroupResponse.watchlistGroupId`.
+          schema:
+            type: integer
+            format: int64
+            minimum: 1
+      responses:
+        '204':
+          description: Watchlist deleted.
+        '401':
+          $ref: '#/components/responses/Unauthorised'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/WatchlistNotFound'
+        '409':
+          description: The `Favourite` watchlist cannot be deleted.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                favourite:
+                  value: { errorCode: WTL-409, message: The Favourite watchlist cannot be deleted }
+        '422':
+          $ref: '#/components/responses/InvalidInput'
+
+  /api/v1/watchlists/{watchlistId}:
+    delete:
+      tags: [Watchlists]
+      operationId: removeFromWatchlist
+      summary: Remove a watchlist entry, and with it the entry's price alerts.
+      parameters:
+        - $ref: '#/components/parameters/WatchlistIdPath'
+      responses:
+        '204':
+          description: Entry removed.
+        '401':
+          $ref: '#/components/responses/Unauthorised'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/WatchlistNotFound'
+        '422':
+          $ref: '#/components/responses/InvalidInput'
+
+  /api/v1/accounts/{id}/price-alerts:
+    get:
+      tags: [Price alerts]
+      operationId: listPriceAlerts
+      summary: List the account's price alerts, newest first, with the active-alert limit.
+      parameters:
+        - $ref: '#/components/parameters/AccountIdPath'
+      responses:
+        '200':
+          description: The account's alerts, active and triggered.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PriceAlertListResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorised'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '422':
+          $ref: '#/components/responses/InvalidInput'
+    post:
+      tags: [Price alerts]
+      operationId: createPriceAlert
+      summary: Create an alert on one of the account's watchlist entries.
+      description: |
+        The entry must belong to the account. The alert starts `ACTIVE`. Rejected with `WTL-409`
+        (message `Price alert already exists`) when the account already has an active alert on the
+        same symbol, direction and threshold, and with `VAL-422` (message `Price alert limit reached`)
+        when it already holds `maxActiveAlerts` active alerts.
+      parameters:
+        - $ref: '#/components/parameters/AccountIdPath'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreatePriceAlertRequest'
+      responses:
+        '201':
+          description: Alert created.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PriceAlertResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorised'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          description: The account or the watchlist entry does not exist.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                account:
+                  value: { errorCode: ACC-404, message: Account not found }
+                entry:
+                  value: { errorCode: WTL-404, message: Watchlist item not found }
+        '409':
+          description: An active alert at this level already exists for the account.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                duplicate:
+                  value: { errorCode: WTL-409, message: Price alert already exists }
+        '422':
+          description: A field failed validation, or the active-alert limit is reached.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                invalid:
+                  value: { errorCode: VAL-422, message: Invalid input }
+                limit:
+                  value: { errorCode: VAL-422, message: Price alert limit reached }
+
+  /api/v1/accounts/{id}/price-alerts/{alertId}:
+    get:
+      tags: [Price alerts]
+      operationId: getPriceAlert
+      summary: Read one of the account's price alerts.
+      parameters:
+        - $ref: '#/components/parameters/AccountIdPath'
+        - $ref: '#/components/parameters/AlertIdPath'
+      responses:
+        '200':
+          description: The alert.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PriceAlertResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorised'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/PriceAlertNotFound'
+        '422':
+          $ref: '#/components/responses/InvalidInput'
+    delete:
+      tags: [Price alerts]
+      operationId: deletePriceAlert
+      summary: Delete an alert, active or triggered.
+      description: |
+        Deleting an active alert stops it. Deleting a triggered one only tidies the list: the
+        notification it produced stays in the inbox.
+      parameters:
+        - $ref: '#/components/parameters/AccountIdPath'
+        - $ref: '#/components/parameters/AlertIdPath'
+      responses:
+        '204':
+          description: Alert deleted.
+        '401':
+          $ref: '#/components/responses/Unauthorised'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/PriceAlertNotFound'
+        '422':
+          $ref: '#/components/responses/InvalidInput'
+
+components:
+
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: |
+        A JWT issued by the auth service. The claims contract is defined in `auth-api.yaml`.
+
+  parameters:
+    AccountIdPath:
+      name: id
+      in: path
+      required: true
+      description: The numeric account key, `ACCOUNTS.id`. Must equal the token's `accountId` claim.
+      schema:
+        type: integer
+        format: int64
+        minimum: 1
+      example: 1
+    WatchlistIdPath:
+      name: watchlistId
+      in: path
+      required: true
+      description: The watchlist entry's id, as returned in `WatchlistItemResponse.watchlistId`.
+      schema:
+        type: integer
+        format: int64
+        minimum: 1
+    AlertIdPath:
+      name: alertId
+      in: path
+      required: true
+      description: The alert's id.
+      schema:
+        type: integer
+        format: int64
+        minimum: 1
+      example: 42
+
+  responses:
+    Unauthorised:
+      description: Missing, malformed, expired or wrongly signed token.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          examples:
+            unauthorised:
+              value: { errorCode: AUTH-401, message: Unauthorised }
+    Forbidden:
+      description: |
+        The token's `accountId` claim does not match the account addressed (path, body, or the owner
+        of the entry, group or alert named), or the account is not `ACTIVE`.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          examples:
+            forbidden:
+              value: { errorCode: ACC-403, message: Account not active }
+    WatchlistNotFound:
+      description: No watchlist entry or group with that id exists.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          examples:
+            notFound:
+              value: { errorCode: WTL-404, message: Watchlist item not found }
+    PriceAlertNotFound:
+      description: No price alert with that id exists.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          examples:
+            notFound:
+              value: { errorCode: WTL-404, message: Price alert not found }
+    InvalidInput:
+      description: A path, query or body field failed validation.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          examples:
+            invalid:
+              value: { errorCode: VAL-422, message: Invalid input }
+
+  schemas:
+
+    # Watchlist and group ids are 63-bit random numbers, beyond JavaScript's safe integer range, so
+    # they are sent as decimal strings. Requests accept either a string or a number.
+    LargeId:
+      type: string
+      pattern: '^[1-9][0-9]{0,18}$'
+      example: '7318826194416337412'
+
+    AddToWatchlistRequest:
+      type: object
+      additionalProperties: false
+      required: [accountId, symbol]
+      properties:
+        accountId:
+          type: integer
+          format: int64
+          minimum: 1
+          description: Must equal the token's `accountId` claim.
+          example: 101
+        symbol:
+          type: string
+          minLength: 1
+          maxLength: 20
+          example: RELIANCE.NS
+        watchlistGroupId:
+          $ref: '#/components/schemas/LargeId'
+
+    CreateWatchlistGroupRequest:
+      type: object
+      additionalProperties: false
+      required: [name]
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 50
+          example: Swing ideas
+
+    WatchlistGroupResponse:
+      type: object
+      additionalProperties: false
+      required: [watchlistGroupId, name, createdAt]
+      properties:
+        watchlistGroupId:
+          $ref: '#/components/schemas/LargeId'
+        name:
+          type: string
+          example: Favourite
+        createdAt:
+          type: string
+          format: date-time
+
+    WatchlistItemResponse:
+      type: object
+      additionalProperties: false
+      required: [watchlistId, watchlistGroupId, watchlistName, instrumentId, symbol, instrumentName, addedAt, currency]
+      properties:
+        watchlistId:
+          $ref: '#/components/schemas/LargeId'
+        watchlistGroupId:
+          $ref: '#/components/schemas/LargeId'
+        watchlistName:
+          type: string
+          example: Favourite
+        instrumentId:
+          type: integer
+          format: int64
+          example: 302
+        symbol:
+          type: string
+          example: RELIANCE.NS
+        instrumentName:
+          type: string
+          example: Reliance Industries Limited
+        addedAt:
+          type: string
+          format: date-time
+        lastPrice:
+          type: [number, 'null']
+          description: Latest price in the instrument's currency (see "Live price"). Null when unknown.
+          example: 2875.4500
+        changePct:
+          type: [number, 'null']
+          description: The day's move in percent (`0.09` means 0.09%). Null when unknown.
+          example: 1.25
+        currency:
+          type: string
+          description: ISO 4217 code the instrument is quoted in. `lastPrice` is in this currency.
+          example: INR
+
+    AlertDirection:
+      type: string
+      enum: [ABOVE, BELOW]
+      description: |
+        `ABOVE` fires when the price rises to or through the threshold, `BELOW` when it falls to or
+        through it. See "Price alerts" for the exact rule.
+
+    PriceAlertStatus:
+      type: string
+      enum: [ACTIVE, TRIGGERED]
+      description: |
+        `ACTIVE`: evaluated against every quote. `TRIGGERED`: crossed once and handed to Customer
+        Notifications; never evaluated again.
+
+    CreatePriceAlertRequest:
+      type: object
+      additionalProperties: false
+      required: [watchlistId, direction, threshold]
+      properties:
+        watchlistId:
+          $ref: '#/components/schemas/LargeId'
+        direction:
+          $ref: '#/components/schemas/AlertDirection'
+        threshold:
+          type: number
+          exclusiveMinimum: 0
+          maximum: 999999999999999.9999
+          description: Price in the instrument's currency, at most 4 decimal places.
+          example: 1500.00
+
+    PriceAlertResponse:
+      type: object
+      additionalProperties: false
+      required: [alertId, watchlistId, symbol, instrumentName, direction, threshold, status, createdAt, currency]
+      properties:
+        alertId:
+          type: integer
+          format: int64
+          example: 42
+        watchlistId:
+          $ref: '#/components/schemas/LargeId'
+        symbol:
+          type: string
+          example: INFY.NS
+        instrumentName:
+          type: string
+          example: Infosys Limited
+        direction:
+          $ref: '#/components/schemas/AlertDirection'
+        threshold:
+          type: number
+          example: 1500.00
+        status:
+          $ref: '#/components/schemas/PriceAlertStatus'
+        createdAt:
+          type: string
+          format: date-time
+        triggeredAt:
+          type: [string, 'null']
+          format: date-time
+          description: When the crossing was detected. Null while `ACTIVE`.
+        triggerPrice:
+          type: [number, 'null']
+          description: The quote that crossed the threshold. Null while `ACTIVE`.
+          example: 1502.35
+        lastPrice:
+          type: [number, 'null']
+          description: The instrument's latest price, as on the watchlist. Null when unknown.
+        currency:
+          type: string
+          description: |
+            ISO 4217 code the instrument is quoted in. `threshold`, `triggerPrice` and `lastPrice`
+            are all in this currency.
+          example: INR
+
+    PriceAlertListResponse:
+      type: object
+      additionalProperties: false
+      required: [maxActiveAlerts, activeAlerts, alerts]
+      properties:
+        maxActiveAlerts:
+          type: integer
+          minimum: 1
+          description: How many `ACTIVE` alerts the account may hold at once.
+          example: 20
+        activeAlerts:
+          type: integer
+          minimum: 0
+          description: How many `ACTIVE` alerts the account holds now.
+          example: 3
+        alerts:
+          type: array
+          items:
+            $ref: '#/components/schemas/PriceAlertResponse'
+
+    ErrorResponse:
+      type: object
+      additionalProperties: false
+      required: [errorCode, message]
+      description: The platform error envelope. Clients branch on `errorCode`, never on `message`.
+      properties:
+        errorCode:
+          type: string
+          enum: [AUTH-401, ACC-403, ACC-404, INS-404, WTL-404, WTL-409, VAL-422]
+          description: |
+            | Code | HTTP | Meaning |
+            |---|---|---|
+            | `AUTH-401` | 401 | Missing or invalid token |
+            | `ACC-403` | 403 | Token does not reach this account or resource, or the account is not active |
+            | `ACC-404` | 404 | Account not found |
+            | `INS-404` | 404 | Instrument not found or not tradable |
+            | `WTL-404` | 404 | Watchlist entry, watchlist group or price alert not found |
+            | `WTL-409` | 409 | Instrument already in that watchlist, watchlist name taken, the same active price alert exists, or the Favourite watchlist cannot be deleted |
+            | `VAL-422` | 422 | Invalid input, or the active price-alert limit is reached |
+        message:
+          type: string
