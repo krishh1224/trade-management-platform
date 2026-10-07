@@ -9,7 +9,6 @@ import com.neueda.learning.mapper.OrderMapper;
 import com.neueda.learning.mapper.PortfolioMapper;
 import com.neueda.learning.model.OrderRecord;
 import com.neueda.learning.model.PortfolioRecord;
-import com.neueda.learning.producer.OrderEventPublisher;
 import com.neueda.learning.producer.TradeEventPublisher;
 import com.neueda.learning.service.SettlementService;
 import com.neueda.learning.service.SettlementService.SettlementResult;
@@ -44,6 +43,10 @@ import org.springframework.stereotype.Component;
  * 4. Publish ORDER_FILLED or ORDER_REJECTED event to trade-events topic
  * 5. Acknowledge the consumed message
  *
+ * ORDER_CANCELLED (published to orders by the trade-api after a successful cancel) is not executed:
+ * once the database confirms the order is CANCELLED and belongs to the event's account, it is
+ * announced on trade-events, so trade-events keeps a single writer (this service).
+ *
  * Message acknowledgment is MANUAL and happens only after successful event publishing,
  * ensuring no message loss on error.
  *
@@ -61,20 +64,17 @@ public class OrderPlacedConsumer {
     private final TradeExecutionService executionService;
     private final SettlementService settlementService;
     private final TradeEventPublisher tradeEventPublisher;
-    private final OrderEventPublisher orderEventPublisher;
     private final OrderMapper orderMapper;
     private final PortfolioMapper portfolioMapper;
 
     public OrderPlacedConsumer(TradeExecutionService executionService,
                                SettlementService settlementService,
                                TradeEventPublisher tradeEventPublisher,
-                               OrderEventPublisher orderEventPublisher,
                                OrderMapper orderMapper,
                                PortfolioMapper portfolioMapper) {
         this.executionService = executionService;
         this.settlementService = settlementService;
         this.tradeEventPublisher = tradeEventPublisher;
-        this.orderEventPublisher = orderEventPublisher;
         this.orderMapper = orderMapper;
         this.portfolioMapper = portfolioMapper;
     }
@@ -104,15 +104,13 @@ public class OrderPlacedConsumer {
             throw new PermanentFailureException("MALFORMED_JSON", "Envelope is null after deserialization");
         }
 
-        logger.info("Received ORDER_PLACED: eventId={}", envelope.getEventId());
-
-        // ORDER_CANCELLED events are republished by this service for downstream consumers.
-        // They are not executable and should be acknowledged and skipped.
+        // ORDER_CANCELLED is not executed: confirm it against the database, then announce it on trade-events
         if (CANCELLED_EVENT_TYPE.equalsIgnoreCase(envelope.getEventType())) {
-            logger.info("Received ORDER_CANCELLED event, skipping execution and acknowledging eventId={}", envelope.getEventId());
-            ack.acknowledge();
+            handleOrderCancelled(envelope, ack);
             return;
         }
+
+        logger.info("Received ORDER_PLACED: eventId={}", envelope.getEventId());
 
         // Unexpected event types are poison messages for this consumer.
         if (!EXPECTED_EVENT_TYPE.equalsIgnoreCase(envelope.getEventType())) {
@@ -154,8 +152,8 @@ public class OrderPlacedConsumer {
             }
 
             if ("CANCELLED".equalsIgnoreCase(order.getStatus())) {
-                logger.info("Order {} is CANCELLED, skipping execution and republishing ORDER_CANCELLED", orderIdLong);
-                orderEventPublisher.publishOrderCancelled(payload);
+                // the ORDER_CANCELLED that follows on this partition announces it; nothing to do here
+                logger.info("Order {} is CANCELLED, skipping execution", orderIdLong);
                 ack.acknowledge();
                 return;
             }
@@ -286,6 +284,64 @@ public class OrderPlacedConsumer {
         return errorMessage.contains("version mismatch")
             || errorMessage.contains("concurrent modification")
             || errorMessage.contains("retries");
+    }
+
+    /**
+     * ORDER_CANCELLED from the trade-api: publish it to trade-events only when the database agrees.
+     *
+     * The message is a trigger, not the truth. The order must exist, belong to the event's account
+     * and be CANCELLED in the database; a cancel the database does not show (the order was filled
+     * first, or the message is foreign) is acknowledged without announcing anything.
+     */
+    private void handleOrderCancelled(KafkaEnvelope<OrderPlacedPayload> envelope, Acknowledgment ack) {
+        OrderPlacedPayload payload = envelope.getPayload();
+        if (payload == null || payload.getOrderId() == null) {
+            throw new PermanentFailureException(
+                "MISSING_ORDER_ID",
+                "ORDER_CANCELLED is missing its orderId for eventId=" + envelope.getEventId()
+            );
+        }
+
+        Long orderIdLong = convertUuidToOrderId(payload.getOrderId());
+        logger.info("Received ORDER_CANCELLED: eventId={}, orderId={}", envelope.getEventId(), orderIdLong);
+
+        OrderRecord order;
+        PortfolioRecord portfolio;
+        try {
+            order = orderMapper.findById(orderIdLong);
+            portfolio = order == null ? null : portfolioMapper.findById(order.getPortfolioId());
+        } catch (DataAccessException e) {
+            throw new TransientFailureException("DB_UNAVAILABLE",
+                "Could not load order " + orderIdLong + " for ORDER_CANCELLED: " + e.getMessage());
+        }
+
+        if (order == null) {
+            throw new PermanentFailureException("ORDER_NOT_FOUND",
+                "ORDER_CANCELLED for an order that does not exist: " + orderIdLong);
+        }
+        if (portfolio == null || portfolio.getAccountId() == null
+            || portfolio.getAccountId() != payload.getAccountId()) {
+            throw new PermanentFailureException("ACCOUNT_MISMATCH",
+                "ORDER_CANCELLED for order " + orderIdLong + " does not match the order's account");
+        }
+        if (!"CANCELLED".equalsIgnoreCase(order.getStatus())) {
+            logger.warn("ORDER_CANCELLED for order {} but the database says {}; not announcing a cancel",
+                orderIdLong, order.getStatus());
+            ack.acknowledge();
+            return;
+        }
+
+        // side, quantity and price come from the database; the symbol is the trade-api's ticker
+        tradeEventPublisher.publishOrderCancelled(
+            orderIdLong,
+            portfolio.getAccountId(),
+            payload.getSymbol(),
+            order.getSide(),
+            order.getQuantity(),
+            order.getPrice(),
+            OffsetDateTime.now()
+        );
+        ack.acknowledge();
     }
 
     /**
