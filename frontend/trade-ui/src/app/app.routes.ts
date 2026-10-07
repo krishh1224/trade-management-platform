@@ -1,6 +1,7 @@
 import { Routes } from '@angular/router';
 
 import { AdvisorComponent } from './advisor/advisor.component';
+import { AlertsComponent } from './alerts/alerts.component';
 import { authGuard, guestGuard } from './auth/auth.guards';
 import { BlotterComponent } from './blotter/blotter.component';
 import { HomeComponent } from './home/home.component';
@@ -28,6 +29,7 @@ export const routes: Routes = [
       { path: 'orders', component: OrdersComponent },
       { path: 'blotter', component: BlotterComponent },
       { path: 'watchlist', component: WatchlistComponent },
+      { path: 'alerts', component: AlertsComponent },
       { path: 'advisor', component: AdvisorComponent },
       { path: 'notifications', component: NotificationsComponent },
       { path: 'profile', component: ProfileComponent },

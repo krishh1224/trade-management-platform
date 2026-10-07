@@ -28,6 +28,7 @@
         <a class="nav-link" routerLink="/orders">Orders</a>
         <a class="nav-link" routerLink="/blotter">Blotter</a>
         <a class="nav-link active" aria-current="page" routerLink="/watchlist">Watchlist</a>
+        <a class="nav-link" routerLink="/alerts">Alerts</a>
         <a class="nav-link" routerLink="/advisor">Advisor</a>
       </nav>
     </div>
@@ -101,16 +102,47 @@
               </button>
 
               @for (group of groups(); track group.watchlistGroupId) {
-                <button
-                  type="button"
-                  class="group-item"
-                  [class.active]="selectedGroupId() === group.watchlistGroupId"
-                  (click)="selectGroup(group.watchlistGroupId)"
-                >
-                  {{ group.name }}
-                </button>
+                <div class="group-row">
+                  <button
+                    type="button"
+                    class="group-item"
+                    [class.active]="selectedGroupId() === group.watchlistGroupId"
+                    (click)="selectGroup(group.watchlistGroupId)"
+                  >
+                    {{ group.name }}
+                  </button>
+                  @if (!isFavourite(group)) {
+                    <button
+                      type="button"
+                      class="group-delete"
+                      (click)="requestDeleteGroup(group)"
+                      [attr.aria-label]="'Delete watchlist ' + group.name"
+                      title="Delete watchlist"
+                    >
+                      <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" /></svg>
+                    </button>
+                  }
+                </div>
+                @if (groupPendingDelete() === group.watchlistGroupId) {
+                  <div class="group-confirm" role="alertdialog" [attr.aria-label]="'Delete watchlist ' + group.name">
+                    <p>Delete "{{ group.name }}"? Its instruments and their price alerts are removed too.</p>
+                    <div class="group-confirm-actions">
+                      <button type="button" class="danger-button" [disabled]="groupDeleting()" (click)="confirmDeleteGroup(group)">
+                        @if (groupDeleting()) {
+                          Deleting...
+                        } @else {
+                          Delete
+                        }
+                      </button>
+                      <button type="button" class="remove-button" (click)="cancelDeleteGroup()">Cancel</button>
+                    </div>
+                  </div>
+                }
               }
             </div>
+            @if (groupDeleteError()) {
+              <p class="error-text" role="alert">{{ groupDeleteError() }}</p>
+            }
           }
         </div>
 
@@ -222,13 +254,20 @@
                 <tbody>
                   @for (row of rowsForSelectedGroup(); track row.item.watchlistId) {
                     <tr>
-                      <td class="symbol">{{ row.item.symbol }}</td>
+                      <td class="symbol">
+                        {{ row.item.symbol }}
+                        @if (activeAlertsFor(row) > 0) {
+                          <a class="alert-count" routerLink="/alerts" [attr.aria-label]="activeAlertsFor(row) + ' active price alert(s), open Alerts'">
+                            {{ activeAlertsFor(row) }} alert{{ activeAlertsFor(row) === 1 ? '' : 's' }}
+                          </a>
+                        }
+                      </td>
                       <td>{{ row.item.instrumentName }}</td>
                       <td class="num mono">
                         @if (row.lastPrice === null) {
                           --
                         } @else {
-                          {{ row.lastPrice | number: '1.2-2' }}
+                          <span class="currency-prefix">{{ currencySymbol(row) }}</span>{{ row.lastPrice | number: '1.2-2' }}
                         }
                       </td>
                       <td class="num mono" [class.pos]="(row.changePct ?? 0) >= 0" [class.neg]="(row.changePct ?? 0) < 0">
@@ -241,6 +280,7 @@
                       <td>
                         <div class="actions">
                           <button type="button" class="trade-button" (click)="trade(row)">Trade</button>
+                          <button type="button" class="alert-button" (click)="setAlert(row)" [attr.aria-label]="'Set a price alert on ' + row.item.symbol">Alert</button>
                           <button type="button" class="remove-button" (click)="removeFromWatchlist(row)">Remove</button>
                         </div>
                       </td>

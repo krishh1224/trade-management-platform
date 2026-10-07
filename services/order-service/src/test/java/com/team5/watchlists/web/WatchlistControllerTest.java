@@ -1,4 +1,4 @@
-package com.team5.controller;
+package com.team5.watchlists.web;
 
 import static org.hamcrest.Matchers.hasSize;
 import static org.mockito.ArgumentMatchers.any;
@@ -14,11 +14,11 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import com.team5.auth.AuthWebMvcConfig;
 import com.team5.auth.SecurityConfig;
-import com.team5.domain.exception.WatchlistDuplicateException;
-import com.team5.domain.exception.WatchlistItemNotFoundException;
-import com.team5.dto.request.AddToWatchlistRequest;
-import com.team5.dto.response.WatchlistItemResponse;
-import com.team5.service.WatchlistService;
+import com.team5.watchlists.exception.WatchlistDuplicateException;
+import com.team5.watchlists.exception.WatchlistItemNotFoundException;
+import com.team5.watchlists.dto.AddToWatchlistRequest;
+import com.team5.watchlists.dto.WatchlistItemResponse;
+import com.team5.watchlists.service.WatchlistService;
 import java.math.BigDecimal;
 import java.time.OffsetDateTime;
 import java.util.List;
@@ -33,7 +33,7 @@ import org.springframework.test.web.servlet.MockMvc;
 
 @WebMvcTest(WatchlistController.class)
 @Import({SecurityConfig.class, AuthWebMvcConfig.class})
-class WatchlistControllerIntegrationTest {
+class WatchlistControllerTest {
 
     @Autowired
     private MockMvc mockMvc;
@@ -52,7 +52,8 @@ class WatchlistControllerIntegrationTest {
             "Infosys Limited",
             OffsetDateTime.parse("2026-09-29T09:14:22Z"),
             BigDecimal.valueOf(2500.00),
-            BigDecimal.valueOf(2.50)
+            BigDecimal.valueOf(2.50),
+            "INR"
         ));
 
         mockMvc.perform(post("/api/v1/watchlists")
@@ -130,8 +131,8 @@ class WatchlistControllerIntegrationTest {
     @Test
     void testListWatchlist_Success_200() throws Exception {
         when(watchlistService.listWatchlist(eq(101L), any())).thenReturn(List.of(
-            new WatchlistItemResponse(7001L, 5001L, "Default", 301L, "INFY.NS", "Infosys Limited", OffsetDateTime.parse("2026-09-29T09:14:22Z"), BigDecimal.valueOf(2500.00), BigDecimal.valueOf(2.50)),
-            new WatchlistItemResponse(7002L, 5001L, "Default", 302L, "RELIANCE.NS", "Reliance Industries Limited", OffsetDateTime.parse("2026-09-29T09:15:22Z"), BigDecimal.valueOf(2800.00), BigDecimal.valueOf(1.75))
+            new WatchlistItemResponse(7001L, 5001L, "Default", 301L, "INFY.NS", "Infosys Limited", OffsetDateTime.parse("2026-09-29T09:14:22Z"), BigDecimal.valueOf(2500.00), BigDecimal.valueOf(2.50), "INR"),
+            new WatchlistItemResponse(7002L, 5001L, "Default", 302L, "RELIANCE.NS", "Reliance Industries Limited", OffsetDateTime.parse("2026-09-29T09:15:22Z"), BigDecimal.valueOf(2800.00), BigDecimal.valueOf(1.75), "INR")
         ));
 
         mockMvc.perform(get("/api/v1/watchlists")

@@ -33,6 +33,8 @@ export interface WatchlistItem {
   addedAt: string;
   lastPrice: number | null;
   changePct: number | null;
+  /** ISO 4217 code the instrument is quoted in; lastPrice is in it. */
+  currency: string;
 }
 
 export interface AddToWatchlistRequest {
@@ -49,6 +51,41 @@ export interface WatchlistGroup {
 
 export interface CreateWatchlistGroupRequest {
   name: string;
+}
+
+// contracts/watchlists-api.yaml, tag "Price alerts"
+export type AlertDirection = 'ABOVE' | 'BELOW';
+export type PriceAlertStatus = 'ACTIVE' | 'TRIGGERED';
+
+export interface PriceAlert {
+  alertId: number;
+  /** The watchlist entry the alert hangs off; a 63-bit id, so a string. */
+  watchlistId: string;
+  symbol: string;
+  instrumentName: string;
+  direction: AlertDirection;
+  threshold: number;
+  status: PriceAlertStatus;
+  createdAt: string;
+  /** When the crossing was detected; null while ACTIVE. */
+  triggeredAt: string | null;
+  /** The quote that crossed the threshold; null while ACTIVE. */
+  triggerPrice: number | null;
+  lastPrice: number | null;
+  /** ISO 4217 code the instrument is quoted in; threshold, triggerPrice and lastPrice are in it. */
+  currency: string;
+}
+
+export interface PriceAlertList {
+  maxActiveAlerts: number;
+  activeAlerts: number;
+  alerts: PriceAlert[];
+}
+
+export interface CreatePriceAlertRequest {
+  watchlistId: string;
+  direction: AlertDirection;
+  threshold: number;
 }
 
 export interface InstrumentOption {
@@ -177,6 +214,23 @@ export class TradeService {
 
   createWatchlistGroup(request: CreateWatchlistGroupRequest): Observable<WatchlistGroup> {
     return this.http.post<WatchlistGroup>(`${this.config.rootUrl}/api/v1/watchlists/groups`, request);
+  }
+
+  /** Deletes a custom watchlist with its entries and their price alerts. The Favourite one is refused (WTL-409). */
+  deleteWatchlistGroup(watchlistGroupId: string): Observable<void> {
+    return this.http.delete<void>(`${this.config.rootUrl}/api/v1/watchlists/groups/${watchlistGroupId}`);
+  }
+
+  listPriceAlerts(accountId: number): Observable<PriceAlertList> {
+    return this.http.get<PriceAlertList>(`${this.config.rootUrl}/api/v1/accounts/${accountId}/price-alerts`);
+  }
+
+  createPriceAlert(accountId: number, body: CreatePriceAlertRequest): Observable<PriceAlert> {
+    return this.http.post<PriceAlert>(`${this.config.rootUrl}/api/v1/accounts/${accountId}/price-alerts`, body);
+  }
+
+  deletePriceAlert(accountId: number, alertId: number): Observable<void> {
+    return this.http.delete<void>(`${this.config.rootUrl}/api/v1/accounts/${accountId}/price-alerts/${alertId}`);
   }
 
   getClientProfile(accountId: number): Observable<ClientProfile> {
