@@ -16,6 +16,8 @@ const tradeServiceMock = {
   getAccount: vi.fn(),
   getBalance: vi.fn().mockReturnValue(of({ accountId: 1, cashBalance: 0, heldForOrders: 0, availableToWithdraw: 0, currency: 'INR', asOf: '' })),
   getCashTransactions: vi.fn().mockReturnValue(of([])),
+  getInstruments: vi.fn().mockReturnValue(of([{ symbol: 'AAPL', name: 'Apple', currency: 'USD', assetClass: 'EQUITY' }])),
+  getPreferences: vi.fn().mockReturnValue(of({ currency: 'INR', theme: 'LIGHT', alertChannel: 'NONE' })),
   getPositions: vi.fn(),
   getOrders: vi.fn()
 };
@@ -31,11 +33,15 @@ describe('HomeComponent', () => {
     tradeServiceMock.getBalance.mockReset();
     tradeServiceMock.getPositions.mockReset();
     tradeServiceMock.getOrders.mockReset();
+    tradeServiceMock.getInstruments.mockReset();
+    tradeServiceMock.getPreferences.mockReset();
     tradeServiceMock.getAccount.mockReturnValue(of({ accountId: 101, holderName: 'Team Five', status: 'ACTIVE' }));
     tradeServiceMock.getBalance.mockReturnValue(
       of({ accountId: 101, cashBalance: 25000, heldForOrders: 0, availableToWithdraw: 25000, currency: 'INR', asOf: '' })
     );
     tradeServiceMock.getPositions.mockReturnValue(of([{ symbol: 'AAPL', quantity: 1, averageCost: 100 }]));
+    tradeServiceMock.getInstruments.mockReturnValue(of([{ symbol: 'AAPL', name: 'Apple', currency: 'USD', assetClass: 'EQUITY' }]));
+    tradeServiceMock.getPreferences.mockReturnValue(of({ currency: 'INR', theme: 'LIGHT', alertChannel: 'NONE' }));
     tradeServiceMock.getOrders.mockReturnValue(
       of([
         { orderId: 'o2', symbol: 'AAPL', side: 'BUY', quantity: 1, price: 101, status: 'FILLED', createdOn: '2026-10-01T00:00:00Z' },
@@ -110,7 +116,7 @@ describe('HomeComponent', () => {
     fixture.detectChanges();
 
     expect(component.balanceHidden()).toBe(false);
-    expect((fixture.nativeElement as HTMLElement).textContent).toContain('INR');
+    expect((fixture.nativeElement as HTMLElement).textContent).toContain('₹');
   });
 
   it('keeps only filled orders in recent orders and maps NEW status label', () => {

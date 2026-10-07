@@ -116,7 +116,8 @@
     SELECT
       i.ticker AS symbol,
       i.name AS name,
-      i.currency AS currency
+      i.currency AS currency,
+      i.asset_class AS assetClass
     FROM instruments i
     WHERE i.tradable = TRUE
     <if test="prefix != null and prefix != ''">

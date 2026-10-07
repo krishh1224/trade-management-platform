@@ -28,6 +28,7 @@
         <a class="nav-link" routerLink="/orders">Orders</a>
         <a class="nav-link" routerLink="/blotter">Blotter</a>
         <a class="nav-link" routerLink="/watchlist">Watchlist</a>
+        <a class="nav-link" routerLink="/alerts">Alerts</a>
         <a class="nav-link" routerLink="/advisor">Advisor</a>
       </nav>
     </div>
@@ -135,6 +136,50 @@
           }
         </strong>
         <span class="stat-hint">@if (accountStatus() === 'ACTIVE') {Only active accounts can place orders} @else {Contact support to reactivate}</span>
+      </article>
+
+      <article class="stat stat-chart" data-testid="asset-class-diversification">
+        <span class="stat-label">Asset Class Diversification</span>
+        @if (positionsLoading()) {
+          <div class="chart-empty">Loading diversification...</div>
+        } @else if (assetClassSlices().length === 0) {
+          <div class="chart-empty">Place an order to view allocation.</div>
+        } @else {
+          <div class="pie-layout">
+            <svg class="pie" viewBox="0 0 42 42" role="img" aria-label="Portfolio diversification by asset class">
+              <circle cx="21" cy="21" r="15.915" fill="none" stroke="var(--surface-hover)" stroke-width="7"></circle>
+              @for (slice of assetClassSlices(); track slice.label) {
+                <circle
+                  cx="21"
+                  cy="21"
+                  r="15.915"
+                  fill="none"
+                  [attr.stroke]="slice.color"
+                  stroke-width="7"
+                  stroke-linecap="butt"
+                  pathLength="100"
+                  [attr.stroke-dasharray]="(slice.share * 100).toFixed(4) + ' 100'"
+                  [attr.stroke-dashoffset]="slice.offset"
+                  transform="rotate(-90 21 21)"
+                ></circle>
+              }
+            </svg>
+            <div class="pie-meta">
+              <strong>{{ topAssetClassLabel() }}</strong>
+              <span>Largest bucket by cost basis</span>
+            </div>
+          </div>
+
+          <ul class="pie-legend" aria-label="Diversification legend">
+            @for (slice of assetClassSlices(); track slice.label) {
+              <li>
+                <span class="swatch" [style.background]="slice.color" aria-hidden="true"></span>
+                <span class="legend-label">{{ slice.label }}</span>
+                <span class="legend-value">{{ formatPercent(slice.share) }}</span>
+              </li>
+            }
+          </ul>
+        }
       </article>
     </section>
 

@@ -54,6 +54,23 @@ export type CandleLoad =
   | { status: 'error'; message: string }
   | { status: 'ready'; data: CandlesResponse };
 
+interface AllocationSlice {
+  symbol: string;
+  value: number;
+  share: number;
+  offset: number;
+  color: string;
+}
+
+interface PnlContributionRow {
+  symbol: string;
+  totalPnl: number;
+  width: number;
+  tone: 'up' | 'down' | 'flat';
+}
+
+const CHART_COLORS = ['#2f6df6', '#16c784', '#f5a524', '#f05252', '#8b5cf6', '#0ea5e9'];
+
 @Component({
   selector: 'app-portfolio',
   imports: [RouterLink, DecimalPipe, DatePipe, FooterComponent, FundsDialogComponent, CandleChartComponent],
@@ -125,6 +142,66 @@ export class PortfolioComponent {
       high: Math.max(...bars.map((bar) => bar.high)),
       low: Math.min(...bars.map((bar) => bar.low))
     };
+  });
+
+  readonly allocationSlices = computed<AllocationSlice[]>(() => {
+    const priced = this.rows()
+      .filter((row) => row.marketValue !== null && row.marketValue > 0)
+      .sort((a, b) => (b.marketValue ?? 0) - (a.marketValue ?? 0));
+    if (priced.length === 0) {
+      return [];
+    }
+
+    const total = priced.reduce((sum, row) => sum + (row.marketValue ?? 0), 0);
+    if (total <= 0) {
+      return [];
+    }
+
+    const top = priced.slice(0, 5).map((row) => ({ symbol: row.symbol, value: row.marketValue ?? 0 }));
+    const remainder = priced.slice(5).reduce((sum, row) => sum + (row.marketValue ?? 0), 0);
+    if (remainder > 0) {
+      top.push({ symbol: 'Other', value: remainder });
+    }
+
+    let offset = 0;
+    return top.map((entry, index) => {
+      const share = entry.value / total;
+      const slice: AllocationSlice = {
+        symbol: entry.symbol,
+        value: entry.value,
+        share,
+        offset,
+        color: CHART_COLORS[index % CHART_COLORS.length]
+      };
+      offset -= share * 100;
+      return slice;
+    });
+  });
+
+  readonly largestAllocation = computed(() => this.allocationSlices()[0]?.symbol ?? '—');
+
+  readonly pnlContributionRows = computed<PnlContributionRow[]>(() => {
+    const load = this.pnlLoad();
+    if (!load || load.status !== 'ready' || !load.data.bySymbol || load.data.bySymbol.length === 0) {
+      return [];
+    }
+
+    const sorted = [...load.data.bySymbol]
+      .filter((row) => row.totalPnl !== 0)
+      .sort((a, b) => Math.abs(b.totalPnl) - Math.abs(a.totalPnl))
+      .slice(0, 6);
+
+    if (sorted.length === 0) {
+      return [];
+    }
+
+    const maxAbs = Math.max(...sorted.map((row) => Math.abs(row.totalPnl)));
+    return sorted.map((row) => ({
+      symbol: row.symbol,
+      totalPnl: row.totalPnl,
+      width: Math.max(10, Math.round((Math.abs(row.totalPnl) / maxAbs) * 100)),
+      tone: this.pnlTone(row.totalPnl)
+    }));
   });
 
   constructor() {
@@ -220,6 +297,10 @@ export class PortfolioComponent {
       return '—';
     }
     return `${value > 0 ? '+' : ''}${value.toFixed(2)}%`;
+  }
+
+  ratio(value: number): string {
+    return `${(value * 100).toFixed(1)}%`;
   }
 
   pnlTone(value: number | null | undefined): 'up' | 'down' | 'flat' {

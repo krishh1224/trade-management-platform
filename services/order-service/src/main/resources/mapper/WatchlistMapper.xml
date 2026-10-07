@@ -2,7 +2,20 @@
 <!DOCTYPE mapper
   PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
   "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
-<mapper namespace="com.team5.mapper.WatchlistMapper">
+<mapper namespace="com.team5.watchlists.mapper.WatchlistMapper">
+
+  <!-- Tables written: watchlists, watchlist_groups (owned by this module). Everything else is read only. -->
+
+  <select id="findInstrumentByTicker" resultType="com.team5.watchlists.domain.WatchlistInstrument">
+    SELECT
+      instrument_id AS instrumentId,
+      ticker AS symbol,
+      name,
+      tradable,
+      currency
+    FROM instruments
+    WHERE ticker = #{ticker}
+  </select>
 
   <select id="existsInWatchlist" resultType="boolean">
     SELECT EXISTS (
@@ -29,7 +42,7 @@
     )
   </insert>
 
-  <select id="findWatchlistByAccountId" resultType="com.team5.dto.response.WatchlistItemResponse">
+  <select id="findWatchlistByAccountId" resultType="com.team5.watchlists.dto.WatchlistItemResponse">
     SELECT
       w.watchlist_id AS watchlistId,
       w.watchlist_group_id AS watchlistGroupId,
@@ -38,11 +51,14 @@
       i.ticker AS symbol,
       i.name AS instrumentName,
       w.added_at AS addedAt,
-      mqs.last_price AS lastPrice,
-      mqs.change_pct AS changePct
+      COALESCE(wq.last_price, mqs.last_price) AS lastPrice,
+      mqs.change_pct AS changePct,
+      i.currency
     FROM watchlists w
     INNER JOIN instruments i ON i.instrument_id = w.instrument_id
     INNER JOIN watchlist_groups wg ON wg.watchlist_group_id = w.watchlist_group_id
+    <!-- the price this module last consumed from market-data; the executor's snapshot until it has one -->
+    LEFT JOIN watchlist_quotes wq ON wq.symbol = i.ticker
     LEFT JOIN market_quote_snapshots mqs ON mqs.symbol = i.ticker
     WHERE w.account_id = #{accountId}
     <if test="watchlistGroupId != null">
@@ -51,7 +67,7 @@
     ORDER BY w.added_at DESC
   </select>
 
-  <select id="findWatchlistGroups" resultType="com.team5.dto.response.WatchlistGroupResponse">
+  <select id="findWatchlistGroups" resultType="com.team5.watchlists.dto.WatchlistGroupResponse">
     SELECT
       watchlist_group_id AS watchlistGroupId,
       name,
@@ -61,12 +77,27 @@
     ORDER BY created_at ASC
   </select>
 
-  <select id="findWatchlistGroupById" resultType="java.lang.Long">
-    SELECT watchlist_group_id
+  <select id="findWatchlistGroupOwner" resultType="java.lang.Long">
+    SELECT account_id
     FROM watchlist_groups
+    WHERE watchlist_group_id = #{watchlistGroupId}
+  </select>
+
+  <select id="findWatchlistGroup" resultType="com.team5.watchlists.domain.WatchlistGroupRef">
+    SELECT
+      watchlist_group_id AS watchlistGroupId,
+      account_id AS accountId,
+      name
+    FROM watchlist_groups
+    WHERE watchlist_group_id = #{watchlistGroupId}
+  </select>
+
+  <!-- watchlists.watchlist_group_id and price_alerts.watchlist_id cascade, so entries and alerts go too -->
+  <delete id="deleteWatchlistGroup">
+    DELETE FROM watchlist_groups
     WHERE account_id = #{accountId}
       AND watchlist_group_id = #{watchlistGroupId}
-  </select>
+  </delete>
 
   <select id="findWatchlistGroupByName" resultType="java.lang.Long">
     SELECT watchlist_group_id
@@ -97,11 +128,15 @@
     )
   </insert>
 
-  <select id="findAccountIdByWatchlistId" resultType="java.lang.Long">
-    SELECT account_id
-    FROM watchlists
-    WHERE account_id = #{accountId}
-      AND watchlist_id = #{watchlistId}
+  <select id="findWatchlistEntry" resultType="com.team5.watchlists.domain.WatchlistEntry">
+    SELECT
+      w.watchlist_id AS watchlistId,
+      w.account_id AS accountId,
+      i.ticker AS symbol,
+      i.name AS instrumentName
+    FROM watchlists w
+    INNER JOIN instruments i ON i.instrument_id = w.instrument_id
+    WHERE w.watchlist_id = #{watchlistId}
   </select>
 
   <delete id="deleteWatchlistItem">

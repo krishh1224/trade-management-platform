@@ -3,6 +3,7 @@ import { provideHttpClientTesting } from '@angular/common/http/testing';
 import { signal } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { ActivatedRoute, convertToParamMap, provideRouter, Router } from '@angular/router';
+import { HttpErrorResponse } from '@angular/common/http';
 import { of, throwError } from 'rxjs';
 import { vi } from 'vitest';
 
@@ -11,6 +12,38 @@ import { AuthSessionService } from '../auth/auth-session.service';
 import { ThemeService } from '../theme/theme.service';
 import { WatchlistComponent } from './watchlist.component';
 import { provideNotificationCountStub } from '../notifications/notification-count.testing';
+
+const ACTIVE_ALERT = {
+  alertId: 1,
+  watchlistId: 'w1',
+  symbol: 'AAPL',
+  instrumentName: 'Apple',
+  direction: 'ABOVE' as const,
+  threshold: 190,
+  status: 'ACTIVE' as const,
+  createdAt: '2026-01-01T00:00:00Z',
+  triggeredAt: null,
+  triggerPrice: null,
+  lastPrice: 180
+};
+
+const TRIGGERED_ALERT = {
+  ...ACTIVE_ALERT,
+  alertId: 2,
+  direction: 'BELOW' as const,
+  threshold: 175,
+  status: 'TRIGGERED' as const,
+  triggeredAt: '2026-01-02T10:15:00Z',
+  triggerPrice: 174.5
+};
+
+function alertList(alerts = [ACTIVE_ALERT, TRIGGERED_ALERT], max = 20) {
+  return {
+    maxActiveAlerts: max,
+    activeAlerts: alerts.filter((alert) => alert.status === 'ACTIVE').length,
+    alerts
+  };
+}
 
 describe('WatchlistComponent', () => {
   let component: WatchlistComponent;
@@ -42,14 +75,17 @@ describe('WatchlistComponent', () => {
           instrumentName: 'Apple',
           addedAt: '2026-01-01T00:00:00Z',
           lastPrice: 180,
-          changePct: 1.2
+          changePct: 1.2,
+          currency: 'USD'
         }
       ])
     ),
     createWatchlistGroup: vi.fn(),
     getInstruments: vi.fn().mockReturnValue(of([])),
     addToWatchlist: vi.fn().mockReturnValue(of({})),
-    removeFromWatchlist: vi.fn().mockReturnValue(of(void 0))
+    removeFromWatchlist: vi.fn().mockReturnValue(of(void 0)),
+    listPriceAlerts: vi.fn().mockReturnValue(of(alertList())),
+    deleteWatchlistGroup: vi.fn().mockReturnValue(of(void 0))
   };
 
   const theme = signal<'dark' | 'light'>('dark');
@@ -87,10 +123,13 @@ describe('WatchlistComponent', () => {
           instrumentName: 'Apple',
           addedAt: '2026-01-01T00:00:00Z',
           lastPrice: 180,
-          changePct: 1.2
+          changePct: 1.2,
+          currency: 'USD'
         }
       ])
     );
+
+    tradeServiceMock.listPriceAlerts.mockReturnValue(of(alertList()));
 
     await TestBed.configureTestingModule({
       imports: [WatchlistComponent],
@@ -239,4 +278,105 @@ describe('WatchlistComponent', () => {
     expect(authSessionMock.signOut).toHaveBeenCalled();
     expect(routerMock.navigateByUrl).toHaveBeenCalledWith('/sign-in');
   });
+
+  it('shows the live price beside each watched instrument', () => {
+    const row = fixture.nativeElement.querySelector('table[aria-label="Watchlist table"] tbody tr');
+
+    expect(row.textContent).toContain('AAPL');
+    expect(row.textContent).toContain('$180.00');
+    expect(row.textContent).toContain('+1.20%');
+  });
+
+  it('marks instruments that have active alerts and links the Alert button to the Alerts page', () => {
+    expect(component.activeAlertsFor(component.watchlistRows()[0])).toBe(1);
+    const badge: HTMLAnchorElement = fixture.nativeElement.querySelector('.alert-count');
+    expect(badge.textContent).toContain('1 alert');
+
+    component.setAlert(component.watchlistRows()[0]);
+
+    expect(routerMock.navigate).toHaveBeenCalledWith(['/alerts'], { queryParams: { watchlistId: 'w1' } });
+  });
+
+  it('shows the currency symbol the instrument is quoted in', () => {
+    expect(component.currencySymbol(component.watchlistRows()[0])).toBe('$');
+
+    tradeServiceMock.getWatchlist.mockReturnValue(of([{
+      ...component.watchlistRows()[0].item, watchlistId: 'w2', symbol: 'INFY.NS', currency: 'INR', lastPrice: 1502.35
+    }]));
+    component.selectGroup('g1');
+    fixture.detectChanges();
+
+    const row = fixture.nativeElement.querySelector('table[aria-label="Watchlist table"] tbody tr');
+    expect(row.textContent).toContain('₹1,502.35');
+  });
+
+  it('refreshes alert counts when an instrument is removed', () => {
+    tradeServiceMock.listPriceAlerts.mockClear();
+
+    component.removeFromWatchlist(component.watchlistRows()[0]);
+
+    expect(tradeServiceMock.listPriceAlerts).toHaveBeenCalledTimes(1);
+  });
+
+  describe('deleting a watchlist', () => {
+    const FAVOURITE = { watchlistGroupId: 'g1', name: 'Favourite', createdAt: '2026-01-01T00:00:00Z' };
+    const SWING = { watchlistGroupId: 'g2', name: 'Swing ideas', createdAt: '2026-01-02T00:00:00Z' };
+
+    beforeEach(() => {
+      tradeServiceMock.listWatchlistGroups.mockReturnValue(of([FAVOURITE, SWING]));
+      fixture = TestBed.createComponent(WatchlistComponent);
+      component = fixture.componentInstance;
+      fixture.detectChanges();
+    });
+
+    it('offers delete on custom watchlists only, never on Favourite', () => {
+      const deleteButtons: HTMLButtonElement[] = Array.from(fixture.nativeElement.querySelectorAll('.group-delete'));
+
+      expect(deleteButtons).toHaveLength(1);
+      expect(deleteButtons[0].getAttribute('aria-label')).toBe('Delete watchlist Swing ideas');
+      expect(component.isFavourite(FAVOURITE)).toBe(true);
+      expect(component.isFavourite({ ...FAVOURITE, name: ' favourite ' })).toBe(true);
+      expect(component.isFavourite(SWING)).toBe(false);
+    });
+
+    it('asks for confirmation, and cancelling deletes nothing', () => {
+      component.requestDeleteGroup(SWING);
+      fixture.detectChanges();
+      expect(fixture.nativeElement.querySelector('.group-confirm').textContent).toContain('Delete "Swing ideas"?');
+
+      component.cancelDeleteGroup();
+      fixture.detectChanges();
+
+      expect(fixture.nativeElement.querySelector('.group-confirm')).toBeNull();
+      expect(tradeServiceMock.deleteWatchlistGroup).not.toHaveBeenCalled();
+    });
+
+    it('deletes the selected watchlist, falls back to Favourite and reloads alerts', () => {
+      component.selectGroup('g2');
+      tradeServiceMock.listPriceAlerts.mockClear();
+
+      component.requestDeleteGroup(SWING);
+      component.confirmDeleteGroup(SWING);
+
+      expect(tradeServiceMock.deleteWatchlistGroup).toHaveBeenCalledWith('g2');
+      expect(component.groups().map((group) => group.watchlistGroupId)).toEqual(['g1']);
+      expect(component.selectedGroupId()).toBe('g1');
+      expect(tradeServiceMock.getWatchlist).toHaveBeenLastCalledWith(42, 'g1');
+      expect(tradeServiceMock.listPriceAlerts).toHaveBeenCalledTimes(1);
+      expect(component.groupPendingDelete()).toBeNull();
+    });
+
+    it('shows a catalogue message when the API refuses', () => {
+      tradeServiceMock.deleteWatchlistGroup.mockReturnValueOnce(throwError(() => new HttpErrorResponse({
+        status: 403,
+        error: { errorCode: 'ACC-403', message: 'Account not active' }
+      })));
+
+      component.confirmDeleteGroup(SWING);
+
+      expect(component.groupDeleteError()).toContain('this session cannot access it');
+      expect(component.groups()).toHaveLength(2);
+    });
+  });
+
 });

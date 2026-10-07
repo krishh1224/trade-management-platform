@@ -28,6 +28,7 @@
         <a class="nav-link" routerLink="/orders">Orders</a>
         <a class="nav-link" routerLink="/blotter">Blotter</a>
         <a class="nav-link" routerLink="/watchlist">Watchlist</a>
+        <a class="nav-link" routerLink="/alerts">Alerts</a>
         <a class="nav-link" routerLink="/advisor">Advisor</a>
       </nav>
     </div>
@@ -202,6 +203,84 @@
         </strong>
         <span class="stat-hint">Available in your wallet</span>
       </article>
+    </section>
+
+    <section class="panel analytics-panel" aria-label="Portfolio analytics" data-testid="portfolio-analytics">
+      <header class="panel-header">
+        <div>
+          <h2>Portfolio analytics</h2>
+          <p>Allocation by market value and top contributors to total profit and loss.</p>
+        </div>
+      </header>
+
+      <div class="analytics-grid">
+        <article class="analytics-card">
+          <h3>Allocation by holding</h3>
+          @if (loading()) {
+            <div class="analytics-empty"><span class="skeleton pnl-skeleton"></span></div>
+          } @else if (allocationSlices().length === 0) {
+            <div class="analytics-empty">No priced holdings yet.</div>
+          } @else {
+            <div class="donut-layout">
+              <svg class="donut" viewBox="0 0 42 42" role="img" aria-label="Portfolio allocation by market value">
+                <circle cx="21" cy="21" r="15.915" fill="none" stroke="var(--surface-hover)" stroke-width="7"></circle>
+                @for (slice of allocationSlices(); track slice.symbol) {
+                  <circle
+                    cx="21"
+                    cy="21"
+                    r="15.915"
+                    fill="none"
+                    [attr.stroke]="slice.color"
+                    stroke-width="7"
+                    pathLength="100"
+                    [attr.stroke-dasharray]="(slice.share * 100).toFixed(4) + ' 100'"
+                    [attr.stroke-dashoffset]="slice.offset"
+                    transform="rotate(-90 21 21)"
+                  ></circle>
+                }
+              </svg>
+
+              <div class="donut-meta">
+                <strong>{{ largestAllocation() }}</strong>
+                <span>Largest allocation</span>
+              </div>
+            </div>
+
+            <ul class="donut-legend">
+              @for (slice of allocationSlices(); track slice.symbol) {
+                <li>
+                  <span class="swatch" [style.background]="slice.color" aria-hidden="true"></span>
+                  <span class="legend-label">{{ slice.symbol }}</span>
+                  <span class="legend-value">{{ ratio(slice.share) }}</span>
+                </li>
+              }
+            </ul>
+          }
+        </article>
+
+        <article class="analytics-card">
+          <h3>Top P&amp;L contributors</h3>
+          @if (pnlLoad()?.status === 'loading') {
+            <div class="analytics-empty"><span class="skeleton pnl-skeleton"></span></div>
+          } @else if (pnlContributionRows().length === 0) {
+            <div class="analytics-empty">No realised or unrealised movement yet.</div>
+          } @else {
+            <ul class="pnl-bars" data-testid="pnl-contributors">
+              @for (row of pnlContributionRows(); track row.symbol) {
+                <li>
+                  <div class="bar-label-row">
+                    <span>{{ row.symbol }}</span>
+                    <span class="pnl" [class.up]="row.tone === 'up'" [class.down]="row.tone === 'down'">{{ amount(row.totalPnl) }}</span>
+                  </div>
+                  <div class="bar-track">
+                    <span class="bar-fill" [class.up]="row.tone === 'up'" [class.down]="row.tone === 'down'" [style.width.%]="row.width"></span>
+                  </div>
+                </li>
+              }
+            </ul>
+          }
+        </article>
+      </div>
     </section>
 
     <section class="panel pnl-panel" aria-label="Profit and loss" data-testid="pnl-panel">
