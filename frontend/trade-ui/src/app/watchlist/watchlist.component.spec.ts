@@ -10,6 +10,7 @@ import { TradeService } from '../api/trade.service';
 import { AuthSessionService } from '../auth/auth-session.service';
 import { ThemeService } from '../theme/theme.service';
 import { WatchlistComponent } from './watchlist.component';
+import { provideNotificationCountStub } from '../notifications/notification-count.testing';
 
 describe('WatchlistComponent', () => {
   let component: WatchlistComponent;
@@ -94,6 +95,7 @@ describe('WatchlistComponent', () => {
     await TestBed.configureTestingModule({
       imports: [WatchlistComponent],
       providers: [
+        provideNotificationCountStub(),
         provideRouter([]),
         provideHttpClient(),
         provideHttpClientTesting(),

@@ -12,10 +12,11 @@ import { currencyForSymbol, currencySymbolForDisplay } from '../instruments/inst
 import { convertBalanceForDisplay } from '../profile/currency-conversion';
 import { ThemeService } from '../theme/theme.service';
 import { FooterComponent } from '../shared/footer.component';
+import { NotificationBellComponent } from '../notifications/notification-bell.component';
 
 @Component({
   selector: 'app-home',
-  imports: [RouterLink, DecimalPipe, FooterComponent, FundsDialogComponent],
+  imports: [RouterLink, DecimalPipe, FooterComponent, FundsDialogComponent, NotificationBellComponent],
   templateUrl: './home.component.html',
   styleUrl: './home.component.css'
 })

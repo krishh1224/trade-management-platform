@@ -15,10 +15,12 @@ import {
 import { AuthSessionService } from '../auth/auth-session.service';
 import { FooterComponent } from '../shared/footer.component';
 import { AppTheme, ThemeService } from '../theme/theme.service';
+import { BrowserPushService } from '../notifications/browser-push.service';
+import { NotificationBellComponent } from '../notifications/notification-bell.component';
 
 @Component({
   selector: 'app-profile',
-  imports: [CommonModule, ReactiveFormsModule, RouterLink, FooterComponent],
+  imports: [CommonModule, ReactiveFormsModule, RouterLink, FooterComponent, NotificationBellComponent],
   templateUrl: './profile.component.html',
   styleUrl: './profile.component.css'
 })
@@ -29,6 +31,7 @@ export class ProfileComponent {
   private readonly themeService = inject(ThemeService);
   private readonly router = inject(Router);
   private readonly formBuilder = inject(FormBuilder);
+  private readonly browserPush = inject(BrowserPushService);
 
   readonly claims = this.authSession.claims;
   readonly navOpen = signal(false);
@@ -45,6 +48,10 @@ export class ProfileComponent {
   readonly preferencesSaving = signal(false);
   readonly preferencesError = signal('');
   readonly preferencesSuccess = signal('');
+
+  readonly pushState = this.browserPush.state;
+  readonly pushBusy = this.browserPush.busy;
+  readonly pushError = this.browserPush.error;
 
   readonly passwordUpdating = signal(false);
   readonly passwordError = signal('');
@@ -79,6 +86,21 @@ export class ProfileComponent {
     this.themeService.initialize();
     this.loadProfile();
     this.loadPreferences();
+    void this.browserPush.refresh();
+  }
+
+  enablePush(): void {
+    const accountId = this.accountId();
+    if (accountId !== null) {
+      void this.browserPush.enable(accountId);
+    }
+  }
+
+  disablePush(): void {
+    const accountId = this.accountId();
+    if (accountId !== null) {
+      void this.browserPush.disable(accountId);
+    }
   }
 
   toggleTheme(): void {
