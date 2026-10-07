@@ -19,9 +19,7 @@ const ALL_DOCUMENTED_CODES: PlatformErrorCode[] = [
   'VAL-422',
   'AUTH-401',
   'AUTH-409',
-  'MKT-503',
-  'WTL-404',
-  'WTL-409'
+  'MKT-503'
 ];
 
 describe('error catalogue', () => {

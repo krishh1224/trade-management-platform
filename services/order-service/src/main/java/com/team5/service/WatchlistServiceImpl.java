@@ -1,21 +1,22 @@
-package com.team5.watchlists.service;
+package com.team5.service;
 
+import com.team5.auth.AccountAccessAuthorizer;
+import com.team5.domain.exception.AccountNotActiveException;
+import com.team5.domain.exception.AccountNotFoundException;
 import com.team5.domain.exception.InstrumentNotFoundException;
 import com.team5.domain.exception.OrderConflictException;
-import com.team5.service.AccountService;
-import com.team5.watchlists.domain.WatchlistEntry;
-import com.team5.watchlists.domain.WatchlistGroupRef;
-import com.team5.watchlists.domain.WatchlistInstrument;
-import com.team5.watchlists.dto.AddToWatchlistRequest;
-import com.team5.watchlists.dto.CreateWatchlistGroupRequest;
-import com.team5.watchlists.dto.WatchlistGroupResponse;
-import com.team5.watchlists.dto.WatchlistItemResponse;
-import com.team5.watchlists.exception.FavouriteWatchlistNotDeletableException;
-import com.team5.watchlists.exception.WatchlistDuplicateException;
-import com.team5.watchlists.exception.WatchlistItemNotFoundException;
-import com.team5.watchlists.mapper.WatchlistMapper;
+import com.team5.domain.exception.WatchlistDuplicateException;
+import com.team5.domain.exception.WatchlistItemNotFoundException;
+import com.team5.dto.request.AddToWatchlistRequest;
+import com.team5.dto.request.CreateWatchlistGroupRequest;
+import com.team5.dto.response.WatchlistGroupResponse;
+import com.team5.dto.response.WatchlistItemResponse;
+import com.team5.mapper.AccountQueryMapper;
+import com.team5.mapper.OrderMapper;
+import com.team5.mapper.WatchlistMapper;
 import java.time.OffsetDateTime;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import org.springframework.dao.DataAccessException;
 import org.springframework.stereotype.Service;
@@ -27,34 +28,42 @@ public class WatchlistServiceImpl implements WatchlistService {
     private static final String DEFAULT_WATCHLIST_NAME = "Favourite";
 
     private final WatchlistMapper watchlistMapper;
-    // the accounts module's Java interface: existence, ownership and ACTIVE status of an account
-    private final AccountService accountService;
-    private final WatchlistAccessGuard accessGuard;
+    private final AccountQueryMapper accountQueryMapper;
+    private final OrderMapper orderMapper;
+    private final AccountAccessAuthorizer accountAccessAuthorizer;
 
     public WatchlistServiceImpl(
         WatchlistMapper watchlistMapper,
-        AccountService accountService,
-        WatchlistAccessGuard accessGuard
+        AccountQueryMapper accountQueryMapper,
+        OrderMapper orderMapper,
+        AccountAccessAuthorizer accountAccessAuthorizer
     ) {
         this.watchlistMapper = watchlistMapper;
-        this.accountService = accountService;
-        this.accessGuard = accessGuard;
+        this.accountQueryMapper = accountQueryMapper;
+        this.orderMapper = orderMapper;
+        this.accountAccessAuthorizer = accountAccessAuthorizer;
     }
 
     @Override
     @Transactional
     public WatchlistItemResponse addToWatchlist(long authenticatedAccountId, AddToWatchlistRequest request) {
-        accessGuard.assertSameAccount(authenticatedAccountId, request.getAccountId());
-        // ACC-404 when the account does not exist, ACC-403 when it is not ACTIVE
-        accountService.getAccount(authenticatedAccountId, request.getAccountId());
+        accountAccessAuthorizer.assertAuthorised(authenticatedAccountId, request.getAccountId());
 
-        WatchlistInstrument instrument = watchlistMapper.findInstrumentByTicker(request.getSymbol());
-        if (instrument == null || !Boolean.TRUE.equals(instrument.tradable())) {
+        Map<String, Object> account = accountQueryMapper.findAccountForOrder(request.getAccountId());
+        if (account == null) {
+            throw new AccountNotFoundException();
+        }
+        if (!"ACTIVE".equals(asString(account, "status"))) {
+            throw new AccountNotActiveException();
+        }
+
+        Map<String, Object> instrument = orderMapper.findInstrumentByTicker(request.getSymbol());
+        if (instrument == null || !Boolean.TRUE.equals(asBoolean(instrument, "tradable"))) {
             throw new InstrumentNotFoundException();
         }
 
-        Long instrumentId = instrument.instrumentId();
-        String instrumentName = instrument.name();
+        Long instrumentId = asLong(instrument, "instrument_id");
+        String instrumentName = asString(instrument, "name");
         Long watchlistGroupId = resolveWatchlistGroupId(request.getAccountId(), request.getWatchlistGroupId());
         String watchlistName = resolveWatchlistName(request.getAccountId(), watchlistGroupId);
 
@@ -89,8 +98,7 @@ public class WatchlistServiceImpl implements WatchlistService {
             instrumentName,
             now,
             null,
-            null,
-            instrument.currency()
+            null
         );
     }
 
@@ -136,34 +144,14 @@ public class WatchlistServiceImpl implements WatchlistService {
     @Override
     @Transactional
     public void removeFromWatchlist(long authenticatedAccountId, long watchlistId) {
-        WatchlistEntry entry = watchlistMapper.findWatchlistEntry(watchlistId);
-        if (entry == null) {
+        Long ownerAccountId = watchlistMapper.findAccountIdByWatchlistId(authenticatedAccountId, watchlistId);
+        if (ownerAccountId == null) {
             throw new WatchlistItemNotFoundException();
         }
-        // another account's entry is ACC-403, and nothing is deleted
-        accessGuard.assertSameAccount(authenticatedAccountId, entry.accountId());
+        accountAccessAuthorizer.assertAuthorised(authenticatedAccountId, ownerAccountId);
 
         int deleted = watchlistMapper.deleteWatchlistItem(authenticatedAccountId, watchlistId);
         if (deleted != 1) {
-            throw new WatchlistItemNotFoundException();
-        }
-    }
-
-    @Override
-    @Transactional
-    public void deleteWatchlistGroup(long authenticatedAccountId, long watchlistGroupId) {
-        WatchlistGroupRef group = watchlistMapper.findWatchlistGroup(watchlistGroupId);
-        if (group == null) {
-            throw new WatchlistItemNotFoundException();
-        }
-        // another account's watchlist is ACC-403, and nothing is deleted
-        accessGuard.assertSameAccount(authenticatedAccountId, group.accountId());
-        // the default every add without a group goes to; recreated on demand, so it is simply kept
-        if (DEFAULT_WATCHLIST_NAME.equalsIgnoreCase(group.name())) {
-            throw new FavouriteWatchlistNotDeletableException();
-        }
-
-        if (watchlistMapper.deleteWatchlistGroup(authenticatedAccountId, watchlistGroupId) != 1) {
             throw new WatchlistItemNotFoundException();
         }
     }
@@ -177,11 +165,10 @@ public class WatchlistServiceImpl implements WatchlistService {
     }
 
     private void validateWatchlistGroupOwnership(Long accountId, Long watchlistGroupId) {
-        Long ownerAccountId = watchlistMapper.findWatchlistGroupOwner(watchlistGroupId);
-        if (ownerAccountId == null) {
+        Long existing = watchlistMapper.findWatchlistGroupById(accountId, watchlistGroupId);
+        if (existing == null) {
             throw new WatchlistItemNotFoundException();
         }
-        accessGuard.assertSameAccount(accountId, ownerAccountId);
     }
 
     private Long ensureDefaultGroup(Long accountId) {
@@ -210,5 +197,26 @@ public class WatchlistServiceImpl implements WatchlistService {
     private Long toPositiveLong(UUID uuid) {
         long mixed = uuid.getMostSignificantBits() ^ uuid.getLeastSignificantBits();
         return mixed == Long.MIN_VALUE ? 0L : Math.abs(mixed);
+    }
+
+    private String asString(Map<String, Object> row, String key) {
+        Object value = row.get(key);
+        return value == null ? null : value.toString();
+    }
+
+    private Long asLong(Map<String, Object> row, String key) {
+        Object value = row.get(key);
+        if (value instanceof Number number) {
+            return number.longValue();
+        }
+        throw new OrderConflictException("Unexpected numeric mapping for " + key);
+    }
+
+    private Boolean asBoolean(Map<String, Object> row, String key) {
+        Object value = row.get(key);
+        if (value instanceof Boolean bool) {
+            return bool;
+        }
+        return Boolean.parseBoolean(String.valueOf(value));
     }
 }

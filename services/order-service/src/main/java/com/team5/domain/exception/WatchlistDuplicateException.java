@@ -1,6 +1,4 @@
-package com.team5.watchlists.exception;
-
-import com.team5.domain.exception.DomainException;
+package com.team5.domain.exception;
 
 public class WatchlistDuplicateException extends DomainException {
 

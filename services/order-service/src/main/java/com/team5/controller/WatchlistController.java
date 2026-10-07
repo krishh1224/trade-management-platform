@@ -1,11 +1,11 @@
-package com.team5.watchlists.web;
+package com.team5.controller;
 
 import com.team5.auth.AuthenticatedAccountId;
-import com.team5.watchlists.dto.AddToWatchlistRequest;
-import com.team5.watchlists.dto.CreateWatchlistGroupRequest;
-import com.team5.watchlists.dto.WatchlistGroupResponse;
-import com.team5.watchlists.dto.WatchlistItemResponse;
-import com.team5.watchlists.service.WatchlistService;
+import com.team5.dto.request.AddToWatchlistRequest;
+import com.team5.dto.request.CreateWatchlistGroupRequest;
+import com.team5.dto.response.WatchlistGroupResponse;
+import com.team5.dto.response.WatchlistItemResponse;
+import com.team5.service.WatchlistService;
 import jakarta.validation.Valid;
 import java.util.List;
 import org.springframework.http.HttpStatus;
@@ -63,15 +63,6 @@ public class WatchlistController {
     ) {
         return ResponseEntity.status(HttpStatus.CREATED)
             .body(watchlistService.createWatchlistGroup(authenticatedAccountId, request));
-    }
-
-    @DeleteMapping("/groups/{watchlistGroupId}")
-    @ResponseStatus(HttpStatus.NO_CONTENT)
-    public void deleteWatchlistGroup(
-        @PathVariable long watchlistGroupId,
-        @AuthenticatedAccountId long authenticatedAccountId
-    ) {
-        watchlistService.deleteWatchlistGroup(authenticatedAccountId, watchlistGroupId);
     }
 
     @DeleteMapping("/{watchlistId}")

@@ -1,4 +1,4 @@
-package com.team5.watchlists.dto;
+package com.team5.dto.response;
 
 import com.fasterxml.jackson.databind.annotation.JsonSerialize;
 import com.fasterxml.jackson.databind.ser.std.ToStringSerializer;

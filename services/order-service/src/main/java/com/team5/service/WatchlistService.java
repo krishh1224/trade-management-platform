@@ -1,9 +1,9 @@
-package com.team5.watchlists.service;
+package com.team5.service;
 
-import com.team5.watchlists.dto.AddToWatchlistRequest;
-import com.team5.watchlists.dto.CreateWatchlistGroupRequest;
-import com.team5.watchlists.dto.WatchlistGroupResponse;
-import com.team5.watchlists.dto.WatchlistItemResponse;
+import com.team5.dto.request.AddToWatchlistRequest;
+import com.team5.dto.request.CreateWatchlistGroupRequest;
+import com.team5.dto.response.WatchlistGroupResponse;
+import com.team5.dto.response.WatchlistItemResponse;
 import java.util.List;
 
 public interface WatchlistService {
@@ -19,7 +19,4 @@ public interface WatchlistService {
     WatchlistGroupResponse createWatchlistGroup(long authenticatedAccountId, CreateWatchlistGroupRequest request);
 
     void removeFromWatchlist(long authenticatedAccountId, long watchlistId);
-
-    // a custom watchlist, with its entries and their price alerts; never the Favourite one
-    void deleteWatchlistGroup(long authenticatedAccountId, long watchlistGroupId);
 }

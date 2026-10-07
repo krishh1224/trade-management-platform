@@ -1,4 +1,4 @@
-package com.team5.watchlists.dto;
+package com.team5.dto.response;
 
 import com.fasterxml.jackson.databind.annotation.JsonSerialize;
 import com.fasterxml.jackson.databind.ser.std.ToStringSerializer;
@@ -16,8 +16,6 @@ public record WatchlistItemResponse(
     String instrumentName,
     OffsetDateTime addedAt,
     BigDecimal lastPrice,
-    BigDecimal changePct,
-    // ISO 4217 code the instrument is quoted in (instruments.currency); lastPrice is in it
-    String currency
+    BigDecimal changePct
 ) {
 }

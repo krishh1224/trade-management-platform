@@ -1,4 +1,4 @@
-package com.team5.watchlists.dto;
+package com.team5.dto.request;
 
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;

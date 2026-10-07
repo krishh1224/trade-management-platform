@@ -4,25 +4,16 @@ import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angula
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { finalize } from 'rxjs';
 
-import { toUserFacingErrorMessage } from '../api/error-catalogue';
 import {
   AddToWatchlistRequest,
   InstrumentOption,
-  PriceAlert,
   TradeService,
   WatchlistGroup,
   WatchlistItem
 } from '../api/trade.service';
 import { AuthSessionService } from '../auth/auth-session.service';
-import { currencyForSymbol, currencySymbolForDisplay } from '../instruments/instrument-currency';
 import { ThemeService } from '../theme/theme.service';
 import { NotificationBellComponent } from '../notifications/notification-bell.component';
-
-/** Prices and alert counts are re-read this often while the page is open, as the inbox does. */
-const REFRESH_INTERVAL_MS = 30_000;
-
-/** The default watchlist every add without a group goes to; the API refuses to delete it. */
-const FAVOURITE_WATCHLIST = 'favourite';
 
 interface WatchlistRowView {
   item: WatchlistItem;
@@ -71,25 +62,6 @@ export class WatchlistComponent {
   readonly createGroupSubmitting = signal(false);
   readonly createGroupError = signal('');
 
-  /** The custom watchlist awaiting delete confirmation, or null. */
-  readonly groupPendingDelete = signal<string | null>(null);
-  readonly groupDeleting = signal(false);
-  readonly groupDeleteError = signal('');
-
-  /** Read only for the per-row badge; alerts are managed on the Alerts page. */
-  readonly priceAlerts = signal<PriceAlert[]>([]);
-
-  /** Active alerts per watchlist entry, for the badge beside each symbol. */
-  readonly activeAlertsByEntry = computed(() => {
-    const counts = new Map<string, number>();
-    for (const alert of this.priceAlerts()) {
-      if (alert.status === 'ACTIVE') {
-        counts.set(alert.watchlistId, (counts.get(alert.watchlistId) ?? 0) + 1);
-      }
-    }
-    return counts;
-  });
-
   readonly rowsForSelectedGroup = computed(() => {
     const groupId = this.selectedGroupId();
     if (groupId === null) {
@@ -115,15 +87,7 @@ export class WatchlistComponent {
   constructor() {
     this.themeService.initialize();
     const timer = setInterval(() => this.now.set(Date.now()), 1000);
-    // live prices come from the API's market-data consumer; re-read them and the alert counts quietly
-    const refresh = setInterval(() => {
-      this.loadWatchlist(true);
-      this.loadPriceAlerts();
-    }, REFRESH_INTERVAL_MS);
-    inject(DestroyRef).onDestroy(() => {
-      clearInterval(timer);
-      clearInterval(refresh);
-    });
+    inject(DestroyRef).onDestroy(() => clearInterval(timer));
 
     this.addForm = this.fb.group({
       symbol: ['', [Validators.required, Validators.minLength(1), Validators.maxLength(20)]]
@@ -134,7 +98,6 @@ export class WatchlistComponent {
     });
 
     this.loadGroupsAndWatchlist();
-    this.loadPriceAlerts();
   }
 
   toggleTheme(): void {
@@ -206,51 +169,6 @@ export class WatchlistComponent {
       });
   }
 
-  isFavourite(group: WatchlistGroup): boolean {
-    return group.name.trim().toLowerCase() === FAVOURITE_WATCHLIST;
-  }
-
-  requestDeleteGroup(group: WatchlistGroup): void {
-    this.groupPendingDelete.set(group.watchlistGroupId);
-    this.groupDeleteError.set('');
-  }
-
-  cancelDeleteGroup(): void {
-    this.groupPendingDelete.set(null);
-  }
-
-  confirmDeleteGroup(group: WatchlistGroup): void {
-    this.groupDeleting.set(true);
-    this.groupDeleteError.set('');
-
-    this.tradeService.deleteWatchlistGroup(group.watchlistGroupId)
-      .pipe(finalize(() => this.groupDeleting.set(false)))
-      .subscribe({
-        next: () => {
-          this.groupPendingDelete.set(null);
-          const remaining = this.groups().filter((existing) => existing.watchlistGroupId !== group.watchlistGroupId);
-          this.groups.set(remaining);
-          if (this.selectedGroupId() === group.watchlistGroupId) {
-            const fallback = remaining.find((existing) => this.isFavourite(existing)) ?? remaining[0];
-            if (fallback) {
-              this.selectGroup(fallback.watchlistGroupId);
-            } else {
-              this.clearGroupFilter();
-            }
-          } else {
-            this.loadWatchlist(true);
-          }
-          // the watchlist's entries took their price alerts with them
-          this.loadPriceAlerts();
-        },
-        error: (error) => {
-          this.groupDeleteError.set(
-            toUserFacingErrorMessage(error, { fallbackMessage: 'Unable to delete this watchlist right now.' })
-          );
-        }
-      });
-  }
-
   private loadGroupsAndWatchlist(): void {
     this.groupsLoading.set(true);
     this.groupsError.set('');
@@ -278,16 +196,13 @@ export class WatchlistComponent {
       });
   }
 
-  /** @param silent a background refresh: keeps the table on screen instead of showing "Loading" */
-  private loadWatchlist(silent = false): void {
+  private loadWatchlist(): void {
     if (!this.claims()) {
       return;
     }
 
-    if (!silent) {
-      this.watchlistLoading.set(true);
-      this.watchlistError.set('');
-    }
+    this.watchlistLoading.set(true);
+    this.watchlistError.set('');
 
     this.tradeService.getWatchlist(this.claims()!.accountId, this.selectedGroupId() ?? undefined)
       .pipe(finalize(() => this.watchlistLoading.set(false)))
@@ -391,8 +306,6 @@ export class WatchlistComponent {
     this.tradeService.removeFromWatchlist(row.item.watchlistId).subscribe({
       next: () => {
         this.watchlistRows.update((rows) => rows.filter((existing) => existing.item.watchlistId !== row.item.watchlistId));
-        // the entry's price alerts were removed with it
-        this.loadPriceAlerts();
       },
       error: () => {
         this.watchlistError.set('Failed to remove item. Please try again.');
@@ -402,30 +315,5 @@ export class WatchlistComponent {
 
   trade(row: WatchlistRowView): void {
     void this.router.navigate(['/orders'], { queryParams: { symbol: row.item.symbol } });
-  }
-
-  /** Opens the Alerts page with this instrument already chosen in its form. */
-  setAlert(row: WatchlistRowView): void {
-    void this.router.navigate(['/alerts'], { queryParams: { watchlistId: row.item.watchlistId } });
-  }
-
-  activeAlertsFor(row: WatchlistRowView): number {
-    return this.activeAlertsByEntry().get(row.item.watchlistId) ?? 0;
-  }
-
-  /** ₹ / $ for the currency the instrument is quoted in; the symbol scheme if the API omits it. */
-  currencySymbol(row: WatchlistRowView): string {
-    return currencySymbolForDisplay(row.item.currency ?? currencyForSymbol(row.item.symbol));
-  }
-
-  /** Badge counts only; a failure leaves the last counts in place rather than erroring the page. */
-  private loadPriceAlerts(): void {
-    if (!this.claims()) {
-      return;
-    }
-    this.tradeService.listPriceAlerts(this.claims()!.accountId).subscribe({
-      next: (list) => this.priceAlerts.set(list.alerts),
-      error: () => undefined
-    });
   }
 }
