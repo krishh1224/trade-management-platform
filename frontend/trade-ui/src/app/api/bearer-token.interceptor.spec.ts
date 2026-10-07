@@ -61,6 +61,37 @@ describe('bearer token interceptor', () => {
     req.flush([]);
   });
 
+  // A route missing from the allow-list goes out with no token, gets a 401, and forces a token refresh; a
+  // refresh that fails then signs the user out. The bell and several pages poll these routes on a timer.
+  it.each([
+    '/api/v1/accounts/101/notifications',
+    '/api/v1/accounts/101/notifications/7',
+    '/api/v1/accounts/101/notifications/7/read',
+    '/api/v1/accounts/101/price-alerts',
+    '/api/v1/accounts/101/price-alerts/9',
+    '/api/v1/accounts/101/push-subscription',
+    '/api/v1/accounts/101/push-subscription/config',
+    '/api/v1/watchlists/groups/5001'
+  ])('%s carries the bearer token', (path) => {
+    const { http, httpMock } = setup('jwt-token');
+
+    http.get(`http://trade${path}`).subscribe();
+
+    const req = httpMock.expectOne(`http://trade${path}`);
+    expect(req.request.headers.get('Authorization')).toBe('Bearer jwt-token');
+    req.flush({});
+  });
+
+  it('the advisor signals endpoint on the trade API carries the bearer token', () => {
+    const { http, httpMock } = setup('jwt-token');
+
+    http.get('http://trade/api/v1/accounts/101/advisor/signals').subscribe();
+
+    const req = httpMock.expectOne('http://trade/api/v1/accounts/101/advisor/signals');
+    expect(req.request.headers.get('Authorization')).toBe('Bearer jwt-token');
+    req.flush({ accountId: 101, generatedAt: '2026-10-07T12:30:00Z', signals: [], skipped: [] });
+  });
+
   it('the advisor chat endpoint carries the bearer token, other advisor paths do not', () => {
     TestBed.configureTestingModule({
       providers: [

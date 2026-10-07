@@ -378,6 +378,7 @@
               <th scope="col" class="num">Market value</th>
               <th scope="col" class="num">Cost basis</th>
               <th scope="col" class="num">Unrealised P&amp;L</th>
+              <th scope="col">Advisor</th>
             </tr>
           </thead>
           @if (!loading() && rows().length > 0) {
@@ -430,10 +431,20 @@
                       <span class="muted">—</span>
                     }
                   </td>
+                  <td>
+                    <a
+                      class="advisor-link"
+                      [routerLink]="['/advisor']"
+                      [queryParams]="{ symbol: row.symbol, origin: 'HOLDING' }"
+                      [attr.href]="'/advisor?symbol=' + row.symbol + '&origin=HOLDING'"
+                      [attr.data-testid]="'advisor-link-' + row.symbol"
+                      (click)="$event.stopPropagation()"
+                    >View signal</a>
+                  </td>
                 </tr>
                 @if (expandedSymbol() === row.symbol) {
                   <tr class="detail-row" [id]="'history-' + row.symbol" [attr.data-testid]="'history-' + row.symbol">
-                    <td colspan="7">
+                    <td colspan="8">
                       <div class="history">
                         <div class="history-head">
                           <div>

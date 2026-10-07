@@ -33,7 +33,7 @@ class PnlLedgerMapperIntegrationTest {
     void createLedger() throws Exception {
         jdbcTemplate.execute("CREATE SCHEMA IF NOT EXISTS pnl_ledger_test");
         jdbcTemplate.execute("DROP TABLE IF EXISTS realised_pnl_ledger CASCADE");
-        jdbcTemplate.execute(Files.readString(Path.of("../../databases/postgresql/migrations/V11_realised_pnl_ledger.sql")));
+        jdbcTemplate.execute(Files.readString(Path.of("../../databases/postgresql/migrations/V15_realised_pnl_ledger.sql")));
     }
 
     @Test

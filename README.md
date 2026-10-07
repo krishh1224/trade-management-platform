@@ -109,7 +109,7 @@ frontend/
 └── trade-ui/                 # Angular trading UI (port 4200)
 services/
 ├── auth-service/             # NestJS auth service (port 3000)
-├── order-service/            # Spring Boot order / trade API (port 8081)
+├── order-service/            # Spring Boot order / trade API, incl. the advisor chat (port 8081)
 └── executor-service/         # Spring Boot Kafka executor (port 8082)
 infrastructure/
 └── kafka/
@@ -123,7 +123,6 @@ databases/
 │   └── scripts/apply.sh      # applies schema, migrations, seed
 └── duckdb/
     └── analytics/            # Python ETL into DuckDB
-advisor-api/                  # Advisor service (port 8083)
 contracts/                    # OpenAPI contracts
 docs/  design/  scripts/
 ```

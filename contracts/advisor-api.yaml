@@ -5,8 +5,9 @@ info:
   version: 1.0.0
   summary: Educational portfolio and market research assistant for the Enterprise Trading Platform.
   description: |
-    Binding contract for the advisor-api service. It is separate from trade-api.yaml and
-    auth-api.yaml, which it does not change.
+    Binding contract for the advisor. It is served by the Trade REST API (order-service) as a module beside
+    the order and account routes, not as a separate deployable. It is a separate contract from trade-api.yaml
+    and auth-api.yaml, which it does not change.
 
     ## What the advisor does
 
@@ -40,8 +41,8 @@ info:
     name: Instructional use only
 
 servers:
-  - url: http://localhost:8083
-    description: Local development
+  - url: http://localhost:8081
+    description: Local development, the Trade REST API
 
 tags:
   - name: Advisor
@@ -235,7 +236,7 @@ components:
           description: The data tools the advisor consulted for this reply, in call order without duplicates.
           items:
             type: string
-            enum: [get_portfolio, get_quotes, get_fx_rate, search_instruments, get_order_history]
+            enum: [get_portfolio, get_quotes, get_fx_rate, search_instruments, get_order_history, get_advice_signals]
         model:
           type: string
           description: The AI model that produced the reply.

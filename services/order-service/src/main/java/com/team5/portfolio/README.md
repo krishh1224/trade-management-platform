@@ -85,7 +85,7 @@ ordered by symbol; without it the key is absent. As on the summary, a holding th
 converted contributes nothing to unrealised, and when nothing held can be priced the answer is `503 MKT-503`.
 
 ### Realised P&L: how a sale is booked
-1. **The ledger.** `realised_pnl_ledger` (migration `V11_realised_pnl_ledger.sql`) holds one row per
+1. **The ledger.** `realised_pnl_ledger` (migration `V15_realised_pnl_ledger.sql`) holds one row per
    sold order, keyed by `order_id`. A row is inserted the first time the sale is seen and never updated,
    so the figure does not move with today's price.
 2. **Idempotent.** The insert is `ON CONFLICT (order_id) DO NOTHING`. Reading the ledger a second time, a
@@ -122,7 +122,7 @@ every other. Two accounts refreshing every second still cost 60 calls an hour, n
 
 - **Owned and written:** `realised_pnl_ledger`, the only table this module writes. Its mapper
   (`PnlLedgerMapper.xml`) names no other table in a write, enforced by `PnlLedgerMapperIntegrationTest`.
-  Apply `databases/postgresql/migrations/V11_realised_pnl_ledger.sql` (the existing `apply.sh` picks it up).
+  Apply `databases/postgresql/migrations/V15_realised_pnl_ledger.sql` (the existing `apply.sh` picks it up).
 - **Read only:** `instruments`, `market_quote_snapshots` and `orders`, through `PortfolioReadMapper.xml`,
   which contains `SELECT` statements only (`PortfolioReadMapperReadOnlyTest`). Quantity, average cost and
   cash come through `AccountService`.
