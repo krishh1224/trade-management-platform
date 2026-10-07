@@ -53,7 +53,7 @@ public class AdvisorChatService {
         AdvisorRepository repository,
         AdvisorTools tools,
         @Value("classpath:prompts/advisor-system.md") Resource systemPrompt,
-        @Value("${spring.ai.google.genai.chat.model}") String model
+        @Value("${spring.ai.google.genai.chat.options.model}") String model
     ) {
         this(chatClientBuilder.build(), repository, tools, read(systemPrompt), model, Clock.systemDefaultZone());
     }
@@ -69,7 +69,7 @@ public class AdvisorChatService {
     }
 
     public AdvisorChatResponse chat(long accountId, List<ChatMessage> messages) {
-        if (messages == null || messages.isEmpty() || messages.getLast().role() != ChatRole.USER) {
+        if (messages == null || messages.isEmpty() || messages.get(messages.size() - 1).role() != ChatRole.USER) {
             throw AdvisorException.invalidInput();
         }
 
@@ -84,7 +84,7 @@ public class AdvisorChatService {
                 ? new UserMessage(message.content())
                 : new AssistantMessage(message.content()));
         }
-        String question = messages.getLast().content();
+        String question = messages.get(messages.size() - 1).content();
 
         ToolCallTracker tracker = new ToolCallTracker();
         String reply;

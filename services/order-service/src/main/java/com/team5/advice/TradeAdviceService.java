@@ -1,12 +1,12 @@
 package com.team5.advice;
 
 import com.team5.dto.response.PositionResponse;
-import com.team5.dto.response.WatchlistItemResponse;
 import com.team5.portfolio.PortfolioService;
 import com.team5.portfolio.dto.PricedPositionResponse;
 import com.team5.portfolio.exception.PricingUnavailableException;
 import com.team5.service.AccountService;
-import com.team5.service.WatchlistService;
+import com.team5.watchlists.dto.WatchlistItemResponse;
+import com.team5.watchlists.service.WatchlistService;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.Clock;

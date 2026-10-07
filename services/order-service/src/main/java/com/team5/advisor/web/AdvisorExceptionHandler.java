@@ -4,6 +4,8 @@ import com.team5.advisor.chat.AdvisorException;
 import com.team5.advisor.web.ChatDtos.ErrorResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.core.Ordered;
+import org.springframework.core.annotation.Order;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
@@ -13,11 +15,17 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.HandlerMethodValidationException;
 
-/** Every failure leaves as the contract's ErrorResponse; no stack traces or internal details. */
-@RestControllerAdvice
-public class ApiExceptionHandler {
+/**
+ * Turns advisor failures into the contract's ErrorResponse, with no stack traces or internal details.
+ *
+ * <p>Limited to {@link AdvisorController}: the advisor now shares an application with the trading routes, and a
+ * catch-all handler that answered ADV-503 for everything would otherwise swallow their errors too.
+ */
+@RestControllerAdvice(assignableTypes = AdvisorController.class)
+@Order(Ordered.HIGHEST_PRECEDENCE)
+public class AdvisorExceptionHandler {
 
-    private static final Logger log = LoggerFactory.getLogger(ApiExceptionHandler.class);
+    private static final Logger log = LoggerFactory.getLogger(AdvisorExceptionHandler.class);
 
     @ExceptionHandler(AdvisorException.class)
     ResponseEntity<ErrorResponse> advisor(AdvisorException e) {

@@ -53,27 +53,25 @@ At the beginning of each run, publish this as a 5-item todo list and update stat
 | order-service | `services/order-service` | Java + JaCoCo | trade-api |
 | executor-service | `services/executor-service` | Java + JaCoCo | executor |
 | auth-service | `services/auth-service` | NestJS + Jest coverage | nest-auth |
-| advisor-api | `advisor-api` | Java + JaCoCo (agent attached from the command line) | |
 | trade-ui | `frontend/trade-ui` | Angular + Vitest coverage | |
 | trade-ui-e2e | `frontend/trade-ui` | Playwright (opt-in, no coverage) | |
 | analytics | `databases/duckdb/analytics` | pytest-cov (optional) | |
 
 Scope groups:
-- `services`: order-service, executor-service, auth-service, advisor-api
+- `services`: order-service, executor-service, auth-service
 - `frontend`: trade-ui (add trade-ui-e2e only when named explicitly)
 - `full`: every module above except trade-ui-e2e
 
 Legacy aliases resolve to the current module, so `trade-api` means `order-service`.
 
 ## Changed-File to Module Mapping
-- `services/order-service/**` -> order-service
+- `services/order-service/**` -> order-service (includes the advisor module, `com.team5.advisor`)
 - `services/executor-service/**` -> executor-service
 - `services/auth-service/**` -> auth-service
-- `advisor-api/**` -> advisor-api
 - `frontend/trade-ui/e2e/**`, `frontend/trade-ui/playwright.config.ts` -> trade-ui-e2e (report as impacted; run only if the user opts in)
 - `frontend/trade-ui/**` (everything else) -> trade-ui
 - `databases/duckdb/analytics/**` -> analytics
-- `contracts/*.yaml` -> modules that consume the contract (trade-api.yaml: order-service, trade-ui; auth-api.yaml: auth-service, trade-ui; advisor-api.yaml: advisor-api, trade-ui)
+- `contracts/*.yaml` -> modules that consume the contract (trade-api.yaml: order-service, trade-ui; auth-api.yaml: auth-service, trade-ui; advisor-api.yaml: order-service, trade-ui)
 - `databases/postgresql/**`, `infrastructure/**`, `docker-compose.yml`, `.env*`, `docs/**`, `*.md`: config/docs only; no module run unless requested
 
 ## Script-Free Baseline Commands
@@ -81,7 +79,6 @@ Run each command from the module's own directory.
 - order-service: `mvnw.cmd test jacoco:report`
 - executor-service: `mvnw.cmd test jacoco:report`
 - auth-service: `npm test -- --coverage --coverageReporters=text-summary --coverageReporters=json-summary --watchAll=false`
-- advisor-api: `mvn org.jacoco:jacoco-maven-plugin:0.8.12:prepare-agent test org.jacoco:jacoco-maven-plugin:0.8.12:report` (no Maven wrapper or JaCoCo plugin in its pom, so system Maven is used and JaCoCo is attached on the command line)
 - trade-ui: `npx ng test --watch=false --coverage --coverage-reporters=text-summary --coverage-reporters=json-summary`
 - trade-ui-e2e: `npm run test:e2e` (requires the app stack running; excluded from the coverage gate)
 - analytics: `pytest trade_etl/tests --cov=. --cov-report=term-missing --cov-report=xml` (tests live under `trade_etl/tests`, not the `tests` path in pyproject.toml)

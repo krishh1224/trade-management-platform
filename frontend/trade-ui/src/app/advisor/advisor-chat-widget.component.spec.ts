@@ -34,7 +34,7 @@ describe('AdvisorChatWidgetComponent', () => {
     sessionStorage.clear();
   });
 
-  it('opens the chat widget and sends a question to advisor-api', () => {
+  it('opens the chat widget and sends a question to the advisor', () => {
     advisorServiceMock.chat.mockReturnValue(
       of({
         reply: 'Your largest holding is **ITC.NS**.',

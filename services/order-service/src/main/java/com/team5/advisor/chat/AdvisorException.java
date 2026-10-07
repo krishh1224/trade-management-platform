@@ -23,7 +23,7 @@ public class AdvisorException extends RuntimeException {
     }
 
     public static AdvisorException invalidInput() {
-        return new AdvisorException("VAL-422", HttpStatus.UNPROCESSABLE_CONTENT, "Invalid input");
+        return new AdvisorException("VAL-422", HttpStatus.UNPROCESSABLE_ENTITY, "Invalid input");
     }
 
     public static AdvisorException accountNotFound() {

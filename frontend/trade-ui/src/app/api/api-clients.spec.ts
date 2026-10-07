@@ -144,7 +144,7 @@ describe('generated client facades', () => {
     expect(signals).toBe(1);
   });
 
-  it('sends advisor chat requests to the advisor API', () => {
+  it('sends advisor chat requests to the Trade API, where the advisor now lives', () => {
     const http = setup();
     let reply: string | undefined;
 
@@ -152,7 +152,7 @@ describe('generated client facades', () => {
       .chat([{ role: 'user', content: 'What is my biggest holding?' }])
       .subscribe((response) => (reply = response.reply));
 
-    const req = http.expectOne((r) => r.url === 'http://localhost:8083/api/v1/advisor/chat' && r.method === 'POST');
+    const req = http.expectOne((r) => r.url === 'http://trade/api/v1/advisor/chat' && r.method === 'POST');
     expect(req.request.body).toEqual({ messages: [{ role: 'user', content: 'What is my biggest holding?' }] });
     req.flush({ reply: 'ITC.NS', toolsUsed: ['get_portfolio'], model: 'gemini-2.5-flash', generatedAt: '2026-10-07T12:30:00Z' });
 

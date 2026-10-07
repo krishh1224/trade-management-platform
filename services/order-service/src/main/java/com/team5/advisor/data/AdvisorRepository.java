@@ -6,15 +6,18 @@ import java.util.List;
 import java.util.Optional;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Repository;
+import org.springframework.transaction.annotation.Transactional;
 
 /**
- * Read-only queries over the shared trade_management database (the connection pool is read-only).
+ * Read-only queries over the shared trade_management database. The advisor shares the Trade API's
+ * connection pool, so every call runs in a read-only transaction: Postgres itself rejects a write.
  *
  * Prices come from market_quote_snapshots, written by the Trade Executor's market-data poller;
  * FX rates come from the last settled order in that currency. Nothing here calls Fauxnance,
  * so the advisor uses none of the 2,000-requests-a-day quota.
  */
 @Repository
+@Transactional(readOnly = true)
 public class AdvisorRepository {
 
     private final JdbcClient jdbc;

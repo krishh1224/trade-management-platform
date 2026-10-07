@@ -25,10 +25,14 @@ describe('ProfileComponent', () => {
     signOut: vi.fn()
   };
 
+  const preferences = { currency: 'INR', theme: 'DARK', alertChannel: 'EMAIL' } as const;
+
   const tradeServiceMock = {
     getClientProfile: vi.fn().mockReturnValue(
       of({ accountId: 7, name: 'Alice', email: 'alice@trade.test', phone: '99999', dob: '2000-01-01' })
-    )
+    ),
+    getPreferences: vi.fn().mockReturnValue(of(preferences)),
+    updatePreferences: vi.fn().mockReturnValue(of(preferences))
   };
 
   const authServiceMock = {
@@ -39,6 +43,7 @@ describe('ProfileComponent', () => {
   const themeServiceMock = {
     theme,
     initialize: vi.fn(),
+    setTheme: vi.fn(),
     toggleTheme: vi.fn(() => theme.set(theme() === 'dark' ? 'light' : 'dark'))
   };
 
@@ -54,6 +59,7 @@ describe('ProfileComponent', () => {
     tradeServiceMock.getClientProfile.mockReturnValue(
       of({ accountId: 7, name: 'Alice', email: 'alice@trade.test', phone: '99999', dob: '2000-01-01' })
     );
+    tradeServiceMock.getPreferences.mockReturnValue(of(preferences));
 
     await TestBed.configureTestingModule({
       imports: [ProfileComponent],
@@ -73,6 +79,7 @@ describe('ProfileComponent', () => {
     fixture.detectChanges();
 
     expect(tradeServiceMock.getClientProfile).toHaveBeenCalledWith(7);
+    expect(tradeServiceMock.getPreferences).toHaveBeenCalledWith(7);
     expect(fixture.componentInstance.profile()?.name).toBe('Alice');
   });
 

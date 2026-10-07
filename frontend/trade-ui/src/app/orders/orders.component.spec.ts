@@ -131,7 +131,8 @@ describe('OrdersComponent', () => {
     expect(component.currentSymbolCurrency()).toBe('USD');
     expect(component.settlementNote()).toContain('settled from your INR balance at the live USD/INR rate');
     expect(fixture.nativeElement.querySelector('[data-testid="order-settlement-note"]')).not.toBeNull();
-    expect(fixture.nativeElement.textContent).toContain('Price (USD)');
+    // the label shows the currency symbol: $ for USD, ₹ for INR, the code for anything else
+    expect(fixture.nativeElement.textContent).toContain('Price ($)');
   });
 
   it('an INR instrument on an INR account shows no settlement note', () => {

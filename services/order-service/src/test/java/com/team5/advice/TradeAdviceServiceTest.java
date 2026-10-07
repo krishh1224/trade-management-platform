@@ -7,12 +7,12 @@ import static org.mockito.Mockito.when;
 import com.team5.domain.enums.AccountStatus;
 import com.team5.dto.response.AccountResponse;
 import com.team5.dto.response.PositionResponse;
-import com.team5.dto.response.WatchlistItemResponse;
 import com.team5.portfolio.PortfolioService;
 import com.team5.portfolio.dto.PricedPositionResponse;
 import com.team5.portfolio.exception.PricingUnavailableException;
 import com.team5.service.AccountService;
-import com.team5.service.WatchlistService;
+import com.team5.watchlists.dto.WatchlistItemResponse;
+import com.team5.watchlists.service.WatchlistService;
 import java.math.BigDecimal;
 import java.time.Clock;
 import java.time.Instant;
@@ -88,7 +88,7 @@ class TradeAdviceServiceTest {
         when(portfolioService.getPositions(101L, 101L, null)).thenThrow(new PricingUnavailableException());
         when(watchlistService.listWatchlist(101L, null)).thenReturn(List.of(
             new WatchlistItemResponse(7001L, 5001L, "Favourite", 301L, "TCS.NS", "Tata Consultancy Services",
-                OffsetDateTime.parse("2026-10-07T11:00:00Z"), null, null)
+                OffsetDateTime.parse("2026-10-07T11:00:00Z"), null, null, "INR")
         ));
 
         TradeAdviceResponse response = tradeAdviceService.getSignals(101L, 101L);

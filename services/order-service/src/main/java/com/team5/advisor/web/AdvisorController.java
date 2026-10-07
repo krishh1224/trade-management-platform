@@ -1,14 +1,10 @@
 package com.team5.advisor.web;
 
-import com.team5.advisor.auth.AccountClaims;
 import com.team5.advisor.chat.AdvisorChatService;
 import com.team5.advisor.web.ChatDtos.AdvisorChatRequest;
 import com.team5.advisor.web.ChatDtos.AdvisorChatResponse;
+import com.team5.auth.AuthenticatedAccountId;
 import jakarta.validation.Valid;
-import java.util.Map;
-import org.springframework.security.core.annotation.AuthenticationPrincipal;
-import org.springframework.security.oauth2.jwt.Jwt;
-import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
@@ -22,16 +18,12 @@ public class AdvisorController {
         this.chatService = chatService;
     }
 
+    /** The account comes from the token only, never from the request, so a user can only ask about their own. */
     @PostMapping("/api/v1/advisor/chat")
     public AdvisorChatResponse chat(
         @Valid @RequestBody AdvisorChatRequest request,
-        @AuthenticationPrincipal Jwt jwt
+        @AuthenticatedAccountId long accountId
     ) {
-        return chatService.chat(AccountClaims.accountId(jwt), request.messages());
-    }
-
-    @GetMapping("/health")
-    public Map<String, String> health() {
-        return Map.of("status", "UP");
+        return chatService.chat(accountId, request.messages());
     }
 }
