@@ -6,6 +6,7 @@ import { vi } from 'vitest';
 
 import { AdvisorService } from '../api/advisor.service';
 import { AdvisorComponent } from './advisor.component';
+import { provideNotificationCountStub } from '../notifications/notification-count.testing';
 
 const advisorServiceMock = {
   chat: vi.fn()
@@ -23,7 +24,7 @@ describe('AdvisorComponent', () => {
 
     await TestBed.configureTestingModule({
       imports: [AdvisorComponent],
-      providers: [provideRouter([]), { provide: AdvisorService, useValue: advisorServiceMock }]
+      providers: [provideNotificationCountStub(), provideRouter([]), { provide: AdvisorService, useValue: advisorServiceMock }]
     }).compileComponents();
   });
 

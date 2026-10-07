@@ -82,6 +82,46 @@ class KafkaEnvelopeDeserializerTest {
     }
 
     @Test
+    void deserializesWrappedJsonStringEnvelope() {
+        UUID eventId = UUID.randomUUID();
+        UUID orderId = UUID.randomUUID();
+        String innerJson = """
+            {
+              "eventId": "%s",
+              "eventType": "ORDER_CANCELLED",
+              "eventTime": "2026-01-01T00:00:00Z",
+              "source": "executor",
+              "schemaVersion": 1,
+              "payload": {
+                "orderId": "%s",
+                "accountId": 101,
+                "symbol": "INFY.NS",
+                "side": "BUY",
+                "quantity": 4,
+                "price": 1500,
+                "idempotencyKey": "idem-cancel-1",
+                "createdOn": "2026-01-01T00:00:00Z"
+              }
+            }
+            """.formatted(eventId, orderId);
+
+        String wrappedJson = "\"" + innerJson
+            .replace("\\", "\\\\")
+            .replace("\"", "\\\"")
+            .replace("\n", "")
+            .replace("\r", "")
+            + "\"";
+
+        KafkaEnvelope<OrderPlacedPayload> envelope =
+            deserializer.deserialize("orders", wrappedJson.getBytes(StandardCharsets.UTF_8));
+
+        assertEquals(eventId, envelope.getEventId());
+        assertEquals("ORDER_CANCELLED", envelope.getEventType());
+        assertEquals(orderId, envelope.getPayload().getOrderId());
+        assertEquals(101L, envelope.getPayload().getAccountId());
+    }
+
+    @Test
     void configureAndCloseDoNotThrow() {
         deserializer.configure(java.util.Map.of(), false);
         deserializer.close();

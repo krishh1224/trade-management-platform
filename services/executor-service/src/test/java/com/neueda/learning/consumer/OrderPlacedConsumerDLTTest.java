@@ -129,10 +129,6 @@ class OrderPlacedConsumerDLTTest {
             new OrderPlacedPayload(orderUuid, 100L, "INFY.NS", "BUY", 10, new BigDecimal("500.00"), "key1", OffsetDateTime.now())
         );
 
-        ExecutionResult execution = new ExecutionResult(orderId, ExecutionStatus.REJECTED, null, "Order not found");
-
-        // Mock: execution returns order not found
-        when(executionService.executeOrder(orderId)).thenReturn(execution);
         // Mock: database returns null (order doesn't exist)
         when(orderMapper.findById(orderId)).thenReturn(null);
 
@@ -516,5 +512,133 @@ class OrderPlacedConsumerDLTTest {
             });
 
         verify(acknowledgment, never()).acknowledge();
+    }
+
+    // ==================== Test 11: ORDER_PLACED for a CANCELLED order → skip, no republish ====================
+
+    @Test
+    @DisplayName("Test 11: ORDER_PLACED for a CANCELLED order is skipped without publishing anything")
+    void testCancelledOrder_SkipExecutionAndAcknowledge() {
+        // Given
+        long orderId = 8000L;
+        long accountId = 100L;
+        long portfolioId = 200L;
+        long instrumentId = 300L;
+        UUID orderUuid = new UUID(orderId, 0L);
+
+        KafkaEnvelope<OrderPlacedPayload> envelope = new KafkaEnvelope<>(
+            UUID.randomUUID(),
+            "ORDER_PLACED",
+            OffsetDateTime.now(),
+            "test",
+            1,
+            new OrderPlacedPayload(orderUuid, accountId, "INFY.NS", "BUY", 10, new BigDecimal("500.00"), "key1", OffsetDateTime.now())
+        );
+
+        OrderRecord order = new OrderRecord(
+            orderId, portfolioId, instrumentId, 10,
+            new BigDecimal("500.00"), "CANCELLED", "BUY", "key1",
+            LocalDateTime.now(), LocalDateTime.now(), null
+        );
+
+        when(orderMapper.findById(orderId)).thenReturn(order);
+
+        // When
+        consumer.consumeOrderPlaced(envelope, acknowledgment);
+
+        // Then
+        verify(executionService, never()).executeOrder(anyLong());
+        verify(settlementService, never()).settleOrder(any(), any(), any(), any(), any(), any());
+        // the ORDER_CANCELLED that follows announces the cancel; nothing is republished to orders
+        verifyNoInteractions(tradeEventPublisher);
+        verify(acknowledgment).acknowledge();
+    }
+
+    // ==================== ORDER_CANCELLED from the trade-api ====================
+
+    @Test
+    @DisplayName("ORDER_CANCELLED confirmed by the database is announced on trade-events")
+    void testOrderCancelled_ConfirmedByDatabase_PublishedToTradeEvents() {
+        long orderId = 8100L;
+        long accountId = 101L;
+        when(orderMapper.findById(orderId)).thenReturn(order(orderId, 200L, "CANCELLED"));
+        when(portfolioMapper.findById(200L)).thenReturn(portfolio(200L, accountId));
+
+        consumer.consumeOrderPlaced(cancelEnvelope(orderId, accountId), acknowledgment);
+
+        verify(tradeEventPublisher).publishOrderCancelled(
+            eq(orderId), eq(accountId), eq("INFY.NS"), eq("BUY"), eq(4), eq(new BigDecimal("1500.00")), any());
+        verify(executionService, never()).executeOrder(anyLong());
+        verify(acknowledgment).acknowledge();
+    }
+
+    @Test
+    @DisplayName("ORDER_CANCELLED for an order the database shows as FILLED announces nothing")
+    void testOrderCancelled_ButFilledInDatabase_NotPublished() {
+        long orderId = 8200L;
+        when(orderMapper.findById(orderId)).thenReturn(order(orderId, 200L, "FILLED"));
+        when(portfolioMapper.findById(200L)).thenReturn(portfolio(200L, 101L));
+
+        consumer.consumeOrderPlaced(cancelEnvelope(orderId, 101L), acknowledgment);
+
+        verifyNoInteractions(tradeEventPublisher);
+        verify(acknowledgment).acknowledge();
+    }
+
+    @Test
+    @DisplayName("ORDER_CANCELLED for an unknown order goes to the DLT")
+    void testOrderCancelled_UnknownOrder_PermanentFailure() {
+        when(orderMapper.findById(8300L)).thenReturn(null);
+
+        assertThatThrownBy(() -> consumer.consumeOrderPlaced(cancelEnvelope(8300L, 101L), acknowledgment))
+            .isInstanceOf(PermanentFailureException.class)
+            .hasMessageContaining("does not exist");
+
+        verifyNoInteractions(tradeEventPublisher);
+        verify(acknowledgment, never()).acknowledge();
+    }
+
+    @Test
+    @DisplayName("ORDER_CANCELLED naming another account's order goes to the DLT")
+    void testOrderCancelled_AccountMismatch_PermanentFailure() {
+        long orderId = 8400L;
+        when(orderMapper.findById(orderId)).thenReturn(order(orderId, 200L, "CANCELLED"));
+        when(portfolioMapper.findById(200L)).thenReturn(portfolio(200L, 999L));
+
+        assertThatThrownBy(() -> consumer.consumeOrderPlaced(cancelEnvelope(orderId, 101L), acknowledgment))
+            .isInstanceOf(PermanentFailureException.class)
+            .hasMessageContaining("does not match");
+
+        verifyNoInteractions(tradeEventPublisher);
+        verify(acknowledgment, never()).acknowledge();
+    }
+
+    @Test
+    @DisplayName("ORDER_CANCELLED without an orderId goes to the DLT")
+    void testOrderCancelled_MissingOrderId_PermanentFailure() {
+        KafkaEnvelope<OrderPlacedPayload> envelope = new KafkaEnvelope<>(
+            UUID.randomUUID(), "ORDER_CANCELLED", OffsetDateTime.now(), "trade-api", 1,
+            new OrderPlacedPayload(null, 101L, "INFY.NS", "BUY", 4, new BigDecimal("1500.00"), null, OffsetDateTime.now()));
+
+        assertThatThrownBy(() -> consumer.consumeOrderPlaced(envelope, acknowledgment))
+            .isInstanceOf(PermanentFailureException.class);
+
+        verifyNoInteractions(tradeEventPublisher);
+    }
+
+    private static KafkaEnvelope<OrderPlacedPayload> cancelEnvelope(long orderId, long accountId) {
+        return new KafkaEnvelope<>(
+            UUID.randomUUID(), "ORDER_CANCELLED", OffsetDateTime.now(), "trade-api", 1,
+            new OrderPlacedPayload(new UUID(orderId, 0L), accountId, "INFY.NS", "BUY", 4,
+                new BigDecimal("1500.00"), null, OffsetDateTime.now()));
+    }
+
+    private static OrderRecord order(long orderId, long portfolioId, String status) {
+        return new OrderRecord(orderId, portfolioId, 300L, 4, new BigDecimal("1500.00"), status, "BUY", "key-" + orderId,
+            LocalDateTime.now(), LocalDateTime.now(), null);
+    }
+
+    private static PortfolioRecord portfolio(long portfolioId, long accountId) {
+        return new PortfolioRecord(portfolioId, "Main", accountId, "ACTIVE", LocalDateTime.now(), LocalDateTime.now());
     }
 }

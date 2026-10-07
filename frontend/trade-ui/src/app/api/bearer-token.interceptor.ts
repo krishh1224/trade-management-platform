@@ -12,6 +12,7 @@ const TRADE_PROTECTED_PATH_PATTERNS: readonly RegExp[] = [
   /^\/api\/v1\/accounts\/[^/]+\/balance$/,
   /^\/api\/v1\/accounts\/[^/]+\/positions$/,
   /^\/api\/v1\/accounts\/[^/]+\/orders$/,
+  /^\/api\/v1\/accounts\/[^/]+\/preferences$/,
   /^\/api\/v1\/accounts\/[^/]+\/(deposits|withdrawals|transactions)$/,
   /^\/api\/v1\/accounts\/[^/]+\/instruments$/,
   /^\/api\/v1\/watchlists$/,

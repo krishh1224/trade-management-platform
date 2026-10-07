@@ -8,6 +8,7 @@ import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -56,6 +57,39 @@ class TradeEventPublisherTest {
         assertTrue(payload.contains("\"orderId\":501"));
         assertTrue(payload.contains("\"executedPrice\":1500.00"));
         assertTrue(payload.contains("\"symbol\":\"INFY.NS\""));
+    }
+
+    @Test
+    void publishOrderCancelled_sendsToTradeEventsWithAStableEventIdPerOrder() {
+        when(kafkaTemplate.send(eq("trade-events"), eq("101"), anyString()))
+            .thenReturn(CompletableFuture.completedFuture(sendResult()));
+
+        publisher.publishOrderCancelled(530L, 101L, "INFY.NS", "BUY", 4, new BigDecimal("1500.00"), EXECUTED_ON);
+        publisher.publishOrderCancelled(530L, 101L, "INFY.NS", "BUY", 4, new BigDecimal("1500.00"), EXECUTED_ON);
+
+        ArgumentCaptor<String> payloadCaptor = ArgumentCaptor.forClass(String.class);
+        verify(kafkaTemplate, times(2)).send(eq("trade-events"), eq("101"), payloadCaptor.capture());
+        String first = payloadCaptor.getAllValues().get(0);
+        String eventId = TradeEventPublisher.cancelledEventId(530L).toString();
+        assertTrue(first.contains("\"eventType\":\"ORDER_CANCELLED\""));
+        assertTrue(first.contains("\"source\":\"executor\""));
+        assertTrue(first.contains("\"orderId\":530"));
+        assertTrue(first.contains("\"status\":\"CANCELLED\""));
+        // a redelivered cancel carries the same eventId, so notifications send one message
+        assertTrue(first.contains("\"eventId\":\"" + eventId + "\""));
+        assertTrue(payloadCaptor.getAllValues().get(1).contains("\"eventId\":\"" + eventId + "\""));
+    }
+
+    // pinned: the trade-api's OrderIdentifiers.cancelledEventId test asserts the same value
+    @Test
+    void cancelledEventId_matchesTheTradeApi() {
+        assertEquals("aaeeaf6d-1bdd-353d-9c86-c4e227977968", TradeEventPublisher.cancelledEventId(530L).toString());
+    }
+
+    @Test
+    void cancelledEventId_differsPerOrder() {
+        assertTrue(!TradeEventPublisher.cancelledEventId(1L).equals(TradeEventPublisher.cancelledEventId(2L)));
+        assertEquals(TradeEventPublisher.cancelledEventId(7L), TradeEventPublisher.cancelledEventId(7L));
     }
 
     @Test

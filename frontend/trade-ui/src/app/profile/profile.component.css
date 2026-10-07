@@ -202,7 +202,8 @@
 }
 
 .profile-card,
-.password-card {
+.password-card,
+.preferences-card {
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
   background: var(--surface);
@@ -237,6 +238,10 @@
   margin-bottom: 14px;
 }
 
+.preferences-card h2 {
+  margin-bottom: 14px;
+}
+
 .field-group {
   display: grid;
   gap: 6px;
@@ -249,6 +254,15 @@
 }
 
 .field-group input {
+  height: 42px;
+  padding: 0 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg-raised);
+  color: var(--text);
+}
+
+.field-group select {
   height: 42px;
   padding: 0 12px;
   border: 1px solid var(--border);
@@ -291,4 +305,50 @@ button[type='submit']:disabled {
   .profile-grid {
     grid-template-columns: 1fr;
   }
+}
+
+.push-box {
+  display: grid;
+  gap: 10px;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+}
+
+.push-status {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 0.85rem;
+}
+
+.push-status.on {
+  color: var(--up);
+}
+
+.push-status.warn {
+  color: var(--warn);
+}
+
+.push-hint {
+  margin: 0;
+  color: var(--text-faint);
+  font-size: 0.78rem;
+}
+
+.push-button {
+  justify-self: start;
+  padding: 8px 12px;
+  border: 1px solid var(--accent);
+  border-radius: var(--radius-sm);
+  background: var(--accent-soft);
+  color: var(--accent-hover);
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.push-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }

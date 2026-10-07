@@ -4,6 +4,7 @@ import { AdvisorComponent } from './advisor/advisor.component';
 import { authGuard, guestGuard } from './auth/auth.guards';
 import { BlotterComponent } from './blotter/blotter.component';
 import { HomeComponent } from './home/home.component';
+import { NotificationsComponent } from './notifications/notifications.component';
 import { OrdersComponent } from './orders/orders.component';
 import { ProfileComponent } from './profile/profile.component';
 import { SignInComponent } from './sign-in/sign-in.component';
@@ -26,6 +27,7 @@ export const routes: Routes = [
       { path: 'blotter', component: BlotterComponent },
       { path: 'watchlist', component: WatchlistComponent },
       { path: 'advisor', component: AdvisorComponent },
+      { path: 'notifications', component: NotificationsComponent },
       { path: 'profile', component: ProfileComponent },
       { path: '**', redirectTo: '' }
     ]
