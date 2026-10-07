@@ -3,6 +3,7 @@ package com.team5.mapper;
 import com.team5.dto.response.AccountResponse;
 import com.team5.dto.response.BalanceResponse;
 import com.team5.dto.response.ClientProfileResponse;
+import com.team5.dto.response.CustomerPreferencesResponse;
 import com.team5.dto.response.InstrumentOptionResponse;
 import com.team5.dto.response.OrderHistoryEntry;
 import com.team5.dto.response.PositionResponse;
@@ -35,6 +36,15 @@ public interface AccountQueryMapper {
     );
 
     List<InstrumentOptionResponse> getInstruments(@Param("prefix") String prefix);
+
+    CustomerPreferencesResponse getPreferences(@Param("accountId") Long accountId);
+
+    int upsertPreferences(
+        @Param("accountId") Long accountId,
+        @Param("currency") String currency,
+        @Param("theme") String theme,
+        @Param("alertChannel") String alertChannel
+    );
 
     Map<String, Object> findAccountForOrder(@Param("accountId") Long accountId);
 

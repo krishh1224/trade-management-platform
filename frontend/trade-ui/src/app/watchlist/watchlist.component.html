@@ -33,6 +33,7 @@
     </div>
 
     <div class="topbar-right">
+      <app-notification-bell />
       <div class="profile-menu-wrap">
         <button class="account-chip profile-trigger" type="button" (click)="toggleProfileMenu()" [attr.aria-expanded]="profileMenuOpen()" aria-haspopup="menu" data-testid="profile-trigger">
           <span class="avatar" aria-hidden="true">
@@ -163,7 +164,7 @@
                       <!-- mousedown keeps focus in the input, so the list cannot close before a slow click lands -->
                       <button type="button" (mousedown)="$event.preventDefault()" (click)="selectInstrument(option)">
                         <span class="instrument-symbol">{{ option.symbol }}</span>
-                        <span class="instrument-meta">{{ option.currency }} • {{ option.name }}</span>
+                        <span class="instrument-meta">{{ option.currency === 'INR' ? '₹' : option.currency === 'USD' ? '$' : option.currency }} • {{ option.name }}</span>
                       </button>
                     </li>
                   }

@@ -27,7 +27,7 @@
           @for (item of ticker; track item.symbol) {
             <span class="ticker-item">
               <strong>{{ item.symbol }}</strong>
-              <span>{{ item.currency }} {{ item.price }}</span>
+              <span>{{ item.currency === 'INR' ? '₹' : item.currency === 'USD' ? '$' : item.currency }} {{ item.price }}</span>
               <span class="ticker-change" [class.flat]="item.change === 0">
                 {{ item.change === 0 ? '' : '↑' }} {{ item.change.toFixed(2) }}%
               </span>

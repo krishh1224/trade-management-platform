@@ -23,9 +23,11 @@
             import com.team5.domain.exception.CashMovementConflictException;
             import com.team5.domain.exception.WithdrawalExceedsAvailableException;
             import com.team5.dto.request.CashMovementRequest;
+            import com.team5.dto.request.UpdatePreferencesRequest;
             import com.team5.dto.response.AccountResponse;
             import com.team5.dto.response.BalanceResponse;
             import com.team5.dto.response.CashTransactionResponse;
+            import com.team5.dto.response.CustomerPreferencesResponse;
             import com.team5.dto.response.OrderHistoryEntry;
             import com.team5.dto.response.PositionResponse;
             import com.team5.mapper.AccountQueryMapper;
@@ -260,6 +262,36 @@
                     when(transactionMapper.selectCashTransactions(101L, 20)).thenReturn(expected);
 
                     assertSame(expected, accountService.getCashTransactions(101L, 101L, 20));
+                }
+
+                @Test
+                void getPreferences_shouldReturnCurrentPreferences() {
+                    when(accountQueryMapper.findAccountForOrder(101L)).thenReturn(Map.of("status", "ACTIVE"));
+                    CustomerPreferencesResponse expected = new CustomerPreferencesResponse("INR", "LIGHT", "EMAIL");
+                    when(accountQueryMapper.getPreferences(101L)).thenReturn(expected);
+
+                    CustomerPreferencesResponse actual = accountService.getPreferences(101L, 101L);
+
+                    assertSame(expected, actual);
+                    verify(accountQueryMapper).getPreferences(101L);
+                }
+
+                @Test
+                void updatePreferences_shouldUpsertAndReturnUpdatedPreferences() {
+                    when(accountQueryMapper.findAccountForOrder(101L)).thenReturn(Map.of("status", "ACTIVE"));
+                    CustomerPreferencesResponse expected = new CustomerPreferencesResponse("USD", "DARK", "SMS");
+                    when(accountQueryMapper.getPreferences(101L)).thenReturn(expected);
+
+                    UpdatePreferencesRequest request = new UpdatePreferencesRequest();
+                    request.setCurrency("USD");
+                    request.setTheme("DARK");
+                    request.setAlertChannel("SMS");
+
+                    CustomerPreferencesResponse actual = accountService.updatePreferences(101L, 101L, request);
+
+                    assertSame(expected, actual);
+                    verify(accountQueryMapper).upsertPreferences(101L, "USD", "DARK", "SMS");
+                    verify(accountQueryMapper).getPreferences(101L);
                 }
 
                 private static Map<String, Object> activeAccount(String balance, long version) {

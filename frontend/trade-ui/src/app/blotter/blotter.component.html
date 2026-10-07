@@ -33,6 +33,7 @@
     </div>
 
     <div class="topbar-right">
+      <app-notification-bell />
       <div class="profile-menu-wrap">
         <button class="account-chip profile-trigger" type="button" (click)="toggleProfileMenu()" [attr.aria-expanded]="profileMenuOpen()" aria-haspopup="menu">
           <span class="avatar" aria-hidden="true">
@@ -228,7 +229,7 @@
                       —
                     } @else {
                       <span class="price-pack">
-                        <span class="currency-prefix">{{ cashAfterCurrency() }}</span>
+                        <span class="currency-prefix">{{ cashAfterCurrencyDisplay() }}</span>
                         <span class="price-value">{{ cashAfterFor(entry.orderId)! | number: '1.2-2' }}</span>
                       </span>
                     }

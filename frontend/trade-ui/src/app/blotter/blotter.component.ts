@@ -7,9 +7,10 @@ import { toUserFacingErrorMessage } from '../api/error-catalogue';
 import { OrderStatus } from '../api/generated/trade-api/models';
 import { OrderHistoryRow, TradeService } from '../api/trade.service';
 import { AuthSessionService } from '../auth/auth-session.service';
-import { currencyForSymbol } from '../instruments/instrument-currency';
+import { currencyForSymbol, currencySymbolForDisplay } from '../instruments/instrument-currency';
 import { ThemeService } from '../theme/theme.service';
 import { FooterComponent } from '../shared/footer.component';
+import { NotificationBellComponent } from '../notifications/notification-bell.component';
 
 export const BLOTTER_POLL_INTERVAL_MS = 3_000;
 export const BLOTTER_MAX_POLL_ATTEMPTS = 10;
@@ -23,7 +24,7 @@ type CreatedAtFilter = 'ALL' | 'TODAY' | 'LAST_7_DAYS' | 'LAST_30_DAYS';
 
 @Component({
   selector: 'app-blotter',
-  imports: [DatePipe, DecimalPipe, RouterLink, FooterComponent],
+  imports: [DatePipe, DecimalPipe, RouterLink, FooterComponent, NotificationBellComponent],
   templateUrl: './blotter.component.html',
   styleUrl: './blotter.component.css'
 })
@@ -201,7 +202,11 @@ export class BlotterComponent implements OnInit, OnChanges {
   }
 
   currencyForSymbol(symbol: string): string {
-    return currencyForSymbol(symbol);
+    return currencySymbolForDisplay(currencyForSymbol(symbol));
+  }
+
+  cashAfterCurrencyDisplay(): string {
+    return currencySymbolForDisplay(this.cashAfterCurrency());
   }
 
   /** Only working orders can be cancelled; trade-api enforces the same rule and returns ORD-409 otherwise. */
