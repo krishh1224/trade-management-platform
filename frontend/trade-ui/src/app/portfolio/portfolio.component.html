@@ -204,6 +204,75 @@
       </article>
     </section>
 
+    <section class="panel pnl-panel" aria-label="Profit and loss" data-testid="pnl-panel">
+      <header class="panel-header">
+        <div>
+          <h2>Profit &amp; loss</h2>
+          <p>Realised for the period, unrealised as of now. Amounts in {{ baseCurrency() }}.</p>
+        </div>
+        <div class="range-tabs" role="tablist" aria-label="Profit and loss period">
+          @for (option of pnlPeriods; track option.code) {
+            <button
+              type="button"
+              role="tab"
+              class="range-tab"
+              [class.active]="pnlPeriod() === option.code"
+              [attr.aria-selected]="pnlPeriod() === option.code"
+              [attr.data-testid]="'pnl-period-' + option.code"
+              [disabled]="pricingDown()"
+              (click)="selectPnlPeriod(option.code)"
+            >{{ option.label }}</button>
+          }
+        </div>
+      </header>
+
+      @if (pnlLoad(); as load) {
+        @if (load.status === 'loading') {
+          <div class="pnl-state" data-testid="pnl-loading"><span class="skeleton pnl-skeleton"></span></div>
+        } @else if (load.status === 'error') {
+          <div class="pnl-state" role="status" data-testid="pnl-error">
+            <strong>{{ load.message }}</strong>
+          </div>
+        } @else if (!load.data.bySymbol || load.data.bySymbol.length === 0) {
+          <div class="pnl-state" data-testid="pnl-empty">
+            <strong>No profit or loss yet</strong>
+            <span>Realised profit appears here once you sell, and unrealised profit once you hold something.</span>
+          </div>
+        } @else {
+          <div class="table-wrap">
+            <table data-testid="pnl-table">
+              <thead>
+                <tr>
+                  <th scope="col">Instrument</th>
+                  <th scope="col" class="num">Realised</th>
+                  <th scope="col" class="num">Unrealised</th>
+                  <th scope="col" class="num">Total</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (row of load.data.bySymbol; track row.symbol) {
+                  <tr [attr.data-testid]="'pnl-row-' + row.symbol">
+                    <td><strong>{{ row.symbol }}</strong></td>
+                    <td class="num"><span class="pnl" [class.up]="pnlTone(row.realisedPnl) === 'up'" [class.down]="pnlTone(row.realisedPnl) === 'down'">{{ amount(row.realisedPnl) }}</span></td>
+                    <td class="num"><span class="pnl" [class.up]="pnlTone(row.unrealisedPnl) === 'up'" [class.down]="pnlTone(row.unrealisedPnl) === 'down'">{{ amount(row.unrealisedPnl) }}</span></td>
+                    <td class="num"><span class="pnl" [class.up]="pnlTone(row.totalPnl) === 'up'" [class.down]="pnlTone(row.totalPnl) === 'down'">{{ amount(row.totalPnl) }}</span></td>
+                  </tr>
+                }
+              </tbody>
+              <tfoot>
+                <tr class="pnl-total" data-testid="pnl-total">
+                  <td>Total</td>
+                  <td class="num"><span class="pnl" [class.up]="pnlTone(load.data.realisedPnl) === 'up'" [class.down]="pnlTone(load.data.realisedPnl) === 'down'">{{ amount(load.data.realisedPnl) }}</span></td>
+                  <td class="num"><span class="pnl" [class.up]="pnlTone(load.data.unrealisedPnl) === 'up'" [class.down]="pnlTone(load.data.unrealisedPnl) === 'down'">{{ amount(load.data.unrealisedPnl) }}</span></td>
+                  <td class="num"><span class="pnl" [class.up]="pnlTone(load.data.totalPnl) === 'up'" [class.down]="pnlTone(load.data.totalPnl) === 'down'">{{ amount(load.data.totalPnl) }}</span></td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+        }
+      }
+    </section>
+
     <section class="panel holdings">
       <header class="panel-header">
         <div>

@@ -8,6 +8,7 @@ import {
   CANDLE_RANGES,
   CandleRange,
   CandlesResponse,
+  PnlResponse,
   PortfolioService,
   PortfolioSummary,
   PricedPosition,
@@ -32,6 +33,21 @@ const STATE_LABELS: Record<PortfolioState, string> = {
 };
 
 const MASK = '••••••••';
+
+/** How far back realised profit and loss is counted. Unrealised is always as at now. */
+export type PnlPeriod = 'ALL' | '30D' | '90D' | '1Y';
+
+export const PNL_PERIODS: readonly { code: PnlPeriod; label: string; days: number | null }[] = [
+  { code: 'ALL', label: 'All time', days: null },
+  { code: '30D', label: '30D', days: 30 },
+  { code: '90D', label: '90D', days: 90 },
+  { code: '1Y', label: '1Y', days: 365 }
+];
+
+export type PnlLoad =
+  | { status: 'loading' }
+  | { status: 'error'; message: string }
+  | { status: 'ready'; data: PnlResponse };
 
 export type CandleLoad =
   | { status: 'loading' }
@@ -67,6 +83,11 @@ export class PortfolioComponent {
   /** True when the server answered MKT-503: holdings are shown at cost, with no prices at all. */
   readonly pricingDown = signal(false);
   readonly valuesHidden = signal(false);
+
+  /** Profit and loss by instrument. It loads after the holdings and fails on its own without breaking the page. */
+  readonly pnlPeriod = signal<PnlPeriod>('ALL');
+  readonly pnlLoad = signal<PnlLoad | null>(null);
+  readonly pnlPeriods = PNL_PERIODS;
 
   /** The holding whose price history is open, and the range being shown. */
   readonly expandedSymbol = signal<string | null>(null);
@@ -115,6 +136,26 @@ export class PortfolioComponent {
     if (!this.loading()) {
       this.load();
     }
+  }
+
+  selectPnlPeriod(period: PnlPeriod): void {
+    const accountId = this.claims()?.accountId ?? null;
+    this.pnlPeriod.set(period);
+    if (accountId !== null && !this.pricingDown()) {
+      this.loadPnl(accountId);
+    }
+  }
+
+  /** A profit or loss amount without the currency, signed, or masked when amounts are hidden. */
+  amount(value: number | null | undefined): string {
+    if (this.valuesHidden()) {
+      return MASK;
+    }
+    if (value === null || value === undefined) {
+      return '—';
+    }
+    const formatted = value.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    return value > 0 ? `+${formatted}` : formatted;
   }
 
   toggleRow(symbol: string): void {
@@ -204,6 +245,31 @@ export class PortfolioComponent {
     return `${observed.toLocaleDateString([], { day: 'numeric', month: 'short' })}, ${time}`;
   }
 
+  // Only the realised figure follows the period; unrealised is always as at now.
+  private loadPnl(accountId: number): void {
+    const period = this.pnlPeriod();
+    const days = PNL_PERIODS.find((option) => option.code === period)?.days ?? null;
+    this.pnlLoad.set({ status: 'loading' });
+
+    this.portfolioService.getPnl(accountId, { from: days === null ? undefined : daysAgo(days), bySymbol: true }).subscribe({
+      next: (data) => {
+        if (this.pnlPeriod() === period) {
+          this.pnlLoad.set({ status: 'ready', data });
+        }
+      },
+      error: (error: unknown) => {
+        if (this.pnlPeriod() === period) {
+          this.pnlLoad.set({
+            status: 'error',
+            message: isPricingUnavailable(error)
+              ? 'Profit and loss needs live prices, which are unavailable right now.'
+              : toUserFacingErrorMessage(error, { fallbackMessage: 'Profit and loss could not be loaded. Try again.' })
+          });
+        }
+      }
+    });
+  }
+
   // The server fetches a year of bars once per symbol and slices it, so changing the range costs no quota.
   private loadCandles(symbol: string, range: CandleRange): void {
     const accountId = this.claims()?.accountId ?? null;
@@ -269,6 +335,7 @@ export class PortfolioComponent {
           this.cash.set(summary.cashBalance);
           this.baseCurrency.set(summary.baseCurrency);
           this.loading.set(false);
+          this.loadPnl(accountId);
         },
         error: (error: unknown) => this.handleFailure(error, accountId)
       });
@@ -277,6 +344,7 @@ export class PortfolioComponent {
   private handleFailure(error: unknown, accountId: number): void {
     this.summary.set(null);
     this.rows.set([]);
+    this.pnlLoad.set(null);
 
     if (!isPricingUnavailable(error)) {
       this.error.set(toUserFacingErrorMessage(error, { fallbackMessage: 'Your portfolio could not be loaded. Please try again.' }));
@@ -286,6 +354,7 @@ export class PortfolioComponent {
 
     // The documented degraded mode: show what we hold, at cost, rather than an empty portfolio.
     this.pricingDown.set(true);
+    this.pnlLoad.set({ status: 'error', message: 'Profit and loss needs live prices, which are unavailable right now.' });
     forkJoin({
       positions: this.tradeService.getPositions(accountId),
       balance: this.tradeService.getBalance(accountId).pipe(catchError(() => of(null)))
@@ -318,4 +387,13 @@ export class PortfolioComponent {
       }
     });
   }
+}
+
+/** Local calendar date `days` ago as yyyy-MM-dd, the format the P&L route takes. */
+function daysAgo(days: number): string {
+  const date = new Date();
+  date.setDate(date.getDate() - days);
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${date.getFullYear()}-${month}-${day}`;
 }

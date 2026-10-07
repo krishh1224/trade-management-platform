@@ -1202,3 +1202,58 @@ th.num {
   height: 260px;
   border-radius: var(--radius);
 }
+
+
+/* ---------- Profit and loss panel ---------- */
+
+.pnl-panel {
+  animation-delay: 0.05s;
+}
+
+.pnl-panel td,
+.pnl-panel th {
+  padding-top: 12px;
+  padding-bottom: 12px;
+}
+
+.pnl-panel tbody tr:hover {
+  background: var(--surface-hover);
+}
+
+.pnl-panel tbody tr:last-child td {
+  border-bottom: 1px solid var(--border-strong);
+}
+
+.pnl-panel tfoot td {
+  border-bottom: 0;
+  background: var(--bg-raised);
+  font-size: 0.86rem;
+  font-weight: 700;
+}
+
+.range-tab:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.pnl-state {
+  display: grid;
+  justify-items: center;
+  align-content: center;
+  gap: 6px;
+  min-height: 150px;
+  padding: 24px 20px;
+  text-align: center;
+}
+
+.pnl-state span {
+  max-width: 44ch;
+  color: var(--text-faint);
+  font-size: 0.85rem;
+}
+
+.pnl-skeleton {
+  width: min(420px, 80%);
+  height: 90px;
+  border-radius: var(--radius);
+}

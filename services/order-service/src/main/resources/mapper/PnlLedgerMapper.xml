@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+  PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+  "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!-- Portfolio module: the realised P&L ledger. This is the only table the module writes. -->
+<mapper namespace="com.team5.portfolio.pnl.PnlLedgerMapper">
+
+  <!-- order_id is the primary key, so booking the same sale twice inserts nothing the second time -->
+  <insert id="insertIfAbsent">
+    INSERT INTO realised_pnl_ledger (
+      order_id, account_id, symbol, instrument_currency, base_currency, quantity_sold,
+      fill_price, average_cost_at_sale, fx_rate, realised_pnl, realised_pnl_base, sold_at
+    ) VALUES (
+      #{entry.orderId}, #{entry.accountId}, #{entry.symbol}, #{entry.instrumentCurrency}, #{entry.baseCurrency},
+      #{entry.quantitySold}, #{entry.fillPrice}, #{entry.averageCostAtSale}, #{entry.fxRate},
+      #{entry.realisedPnl}, #{entry.realisedPnlBase}, #{entry.soldAt}
+    )
+    ON CONFLICT (order_id) DO NOTHING
+  </insert>
+
+  <select id="findBookedOrderIds" resultType="long">
+    SELECT order_id
+    FROM realised_pnl_ledger
+    WHERE account_id = #{accountId}
+  </select>
+
+  <sql id="soldBetween">
+    <if test="fromInclusive != null">
+      AND sold_at &gt;= #{fromInclusive}
+    </if>
+    <if test="toExclusive != null">
+      AND sold_at &lt; #{toExclusive}
+    </if>
+  </sql>
+
+  <select id="sumRealised" resultType="java.math.BigDecimal">
+    SELECT COALESCE(SUM(realised_pnl_base), 0)
+    FROM realised_pnl_ledger
+    WHERE account_id = #{accountId}
+    <include refid="soldBetween"/>
+  </select>
+
+  <select id="sumRealisedBySymbol" resultType="com.team5.portfolio.pnl.SymbolRealised">
+    SELECT
+      symbol AS symbol,
+      SUM(realised_pnl_base) AS realisedPnl
+    FROM realised_pnl_ledger
+    WHERE account_id = #{accountId}
+    <include refid="soldBetween"/>
+    GROUP BY symbol
+    ORDER BY symbol
+  </select>
+
+</mapper>

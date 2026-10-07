@@ -36,11 +36,13 @@ describe('bearer token interceptor', () => {
 
     http.get('http://trade/api/v1/portfolio/101').subscribe();
     http.get('http://trade/api/v1/portfolio/101/positions').subscribe();
+    http.get('http://trade/api/v1/portfolio/101/pnl?bySymbol=true').subscribe();
     http.get('http://trade/api/v1/portfolio/101/candles/INFY.NS?range=3M').subscribe();
 
     for (const path of [
       '/api/v1/portfolio/101',
       '/api/v1/portfolio/101/positions',
+      '/api/v1/portfolio/101/pnl?bySymbol=true',
       '/api/v1/portfolio/101/candles/INFY.NS?range=3M'
     ]) {
       const req = httpMock.expectOne(`http://trade${path}`);

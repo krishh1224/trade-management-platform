@@ -2,8 +2,8 @@
 
 Priced holdings for an account, served by the Trade REST API beside the order and account routes.
 Binding contract: [contracts/portfolio-api.yaml](../../../../../../../../contracts/portfolio-api.yaml).
-This module covers the portfolio summary, priced positions and `/health`. `/pnl` and the booking of
-realised profit and loss belong to the P&L module.
+This module covers the portfolio summary, priced positions, profit and loss (realised and unrealised)
+and `/health`.
 
 ## Routes
 
@@ -11,6 +11,7 @@ realised profit and loss belong to the P&L module.
 |---|---|
 | `GET /api/v1/portfolio/{accountId}` | Cash, market value, cost basis, P&L totals, `partial`, `asOf` |
 | `GET /api/v1/portfolio/{accountId}/positions?symbol=` | Open holdings with price, market value, unrealised P&L, `priceAsOf`, `stale` |
+| `GET /api/v1/portfolio/{accountId}/pnl?from=&to=&bySymbol=` | Realised, unrealised and total P&L, optionally per instrument and bounded by date |
 | `GET /api/v1/portfolio/{accountId}/candles/{symbol}?range=` | Daily candles for a held instrument. **Not in portfolio-api.yaml**, see below |
 | `GET /health` | `ok` / `degraded` with Postgres and Fauxnance status. Always `200` |
 
@@ -70,10 +71,38 @@ later wants it standardised, move this there.
 
 ## Definitions
 `costBasis = quantity * averageCost`, `marketValue = quantity * lastPrice`,
-`unrealisedPnl = marketValue - costBasis`, `totalValue = cash + marketValue`. Unrealised P&L is
-never stored. Realised P&L is not computed here: `RealisedPnlProvider` supplies it and the summary
-passes it through. `ZeroRealisedPnlProvider` is a stub that applies only until the P&L module
-registers its own provider bean.
+`unrealisedPnl = marketValue - costBasis`, `totalValue = cash + marketValue`,
+`totalPnl = realisedPnl + unrealisedPnl`. Unrealised P&L is never stored. Realised P&L is
+`(fillPrice - averageCostAtSale) * quantitySold`, booked once at the sale and stored in the ledger.
+
+## Profit and loss
+
+`GET /pnl` bounds only the realised figure: `from` and `to` are inclusive dates (`yyyy-MM-dd`), either
+may be omitted, and `from` later than `to` is `VAL-422`. Unrealised is always as at now and comes from the
+same valuation the summary uses, so the two routes agree to the cent. `bySymbol=true` adds a row for
+every instrument that is held or has realised profit in the period (a position sold out still shows),
+ordered by symbol; without it the key is absent. As on the summary, a holding that cannot be priced or
+converted contributes nothing to unrealised, and when nothing held can be priced the answer is `503 MKT-503`.
+
+### Realised P&L: how a sale is booked
+1. **The ledger.** `realised_pnl_ledger` (migration `V11_realised_pnl_ledger.sql`) holds one row per
+   sold order, keyed by `order_id`. A row is inserted the first time the sale is seen and never updated,
+   so the figure does not move with today's price.
+2. **Idempotent.** The insert is `ON CONFLICT (order_id) DO NOTHING`. Reading the ledger a second time, a
+   replayed event, or two requests racing book nothing extra and count nothing twice.
+3. **When.** Whenever the ledger is read (the summary or `/pnl`), filled sales not yet in it are booked
+   first, so a sale shows up on the next request.
+4. **Average cost at sale.** Nothing records it: the executor's `ORDER_FILLED` event carries no cost, a sell
+   leaves the holding's average unchanged, and a full sale deletes the holding. `CostBasisReplay` rebuilds
+   it from the filled orders, applying the executor's own arithmetic (a buy re-weights the average, rounded
+   half-up to 4 places; a sell does not change it). The replay is anchored on the holding as it stands now
+   by undoing the fills backwards, which also recovers an opening position loaded straight into the
+   holdings without an order. With no current holding it starts from nothing.
+5. **Currency.** `realisedPnl` is in the instrument's currency; the base-currency figure uses the FX rate
+   the order filled at (`orders.fx_rate`, 1 when the instrument is in the base currency).
+6. **When a sale cannot be booked.** A sale the history cannot explain (it sells more than the replay
+   holds), or a foreign-currency sale with no recorded FX rate, is logged and left out. It is never
+   guessed.
 
 ## Configuration
 
@@ -90,8 +119,13 @@ Quota: one call per account per cache window at most, and a symbol cached for on
 every other. Two accounts refreshing every second still cost 60 calls an hour, not 7,200.
 
 ## Tables
-This module has no tables of its own. It reads `instruments` and `market_quote_snapshots` only, and
-its mapper contains `SELECT` statements only (`PortfolioReadMapperReadOnlyTest`).
+
+- **Owned and written:** `realised_pnl_ledger`, the only table this module writes. Its mapper
+  (`PnlLedgerMapper.xml`) names no other table in a write, enforced by `PnlLedgerMapperIntegrationTest`.
+  Apply `databases/postgresql/migrations/V11_realised_pnl_ledger.sql` (the existing `apply.sh` picks it up).
+- **Read only:** `instruments`, `market_quote_snapshots` and `orders`, through `PortfolioReadMapper.xml`,
+  which contains `SELECT` statements only (`PortfolioReadMapperReadOnlyTest`). Quantity, average cost and
+  cash come through `AccountService`.
 
 ## Decision log
 
@@ -128,3 +162,15 @@ its mapper contains `SELECT` statements only (`PortfolioReadMapperReadOnlyTest`)
 13. **Candles only for held symbols.** Without that check any signed-in user could spend the team's
     shared quota on arbitrary symbols.
 14. **Candle cache is per instance and in memory**, like the quote cache, and assumes one instance.
+15. **Sales are booked by replaying orders, not from Kafka.** The executor's `ORDER_FILLED` event has no
+    average cost and a full sale deletes the holding, so neither can say what a sale cost. Replaying the
+    filled orders can, and it needs no broker, so the ledger fills on first read and works for sales that
+    predate the module.
+16. **The current holding outranks the order history.** Where the two disagree, as in the seed data (an
+    account holds 80 units but its orders only explain 10), the cost comes from the holding, because the
+    holdings table is what the executor actually maintains. Costs recovered this way carry the rounding of
+    the executor's 4-place averages.
+17. **Realised P&L converts at the sale's FX rate, unrealised at today's.** So realised profit includes
+    the currency move to the sale date and unrealised does not include the move since purchase (see 6).
+18. **A second write path, kept to one table.** The ledger needs inserts, so the module is no longer
+    read-only. The rule is now "writes only its own table", held by a test on the ledger mapper.

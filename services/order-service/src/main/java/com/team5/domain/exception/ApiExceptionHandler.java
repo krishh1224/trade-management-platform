@@ -71,6 +71,9 @@ public class ApiExceptionHandler {
         if ("MKT-503".equals(errorCode)) {
             return HttpStatus.SERVICE_UNAVAILABLE;
         }
+        if ("VAL-422".equals(errorCode)) {
+            return HttpStatus.UNPROCESSABLE_ENTITY;
+        }
         log.error("Unmapped domain error code reached ApiExceptionHandler: {}", errorCode);
         return HttpStatus.UNPROCESSABLE_ENTITY;
     }

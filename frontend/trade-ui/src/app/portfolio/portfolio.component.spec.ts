@@ -5,14 +5,15 @@ import { of, throwError } from 'rxjs';
 import { vi } from 'vitest';
 
 import { AuthService } from '../api/auth.service';
-import { Candle, CandlesResponse, PortfolioService, PortfolioSummary, PricedPosition } from '../api/portfolio.service';
+import { Candle, CandlesResponse, PnlResponse, PortfolioService, PortfolioSummary, PricedPosition } from '../api/portfolio.service';
 import { TradeService } from '../api/trade.service';
 import { PortfolioComponent } from './portfolio.component';
 
 const portfolioServiceMock = {
   getSummary: vi.fn(),
   getPositions: vi.fn(),
-  getCandles: vi.fn()
+  getCandles: vi.fn(),
+  getPnl: vi.fn()
 };
 
 const tradeServiceMock = {
@@ -31,6 +32,7 @@ describe('PortfolioComponent', () => {
     portfolioServiceMock.getSummary.mockReset().mockReturnValue(of(summary()));
     portfolioServiceMock.getPositions.mockReset().mockReturnValue(of([position()]));
     portfolioServiceMock.getCandles.mockReset().mockReturnValue(of(candles()));
+    portfolioServiceMock.getPnl.mockReset().mockReturnValue(of(pnl()));
     tradeServiceMock.getPositions.mockReset().mockReturnValue(of([]));
     tradeServiceMock.getBalance.mockReset().mockReturnValue(of({ cashBalance: 5000, currency: 'INR' }));
 
@@ -193,6 +195,91 @@ describe('PortfolioComponent', () => {
     expect(active.getAttribute('aria-current')).toBe('page');
   });
 
+  describe('profit and loss', () => {
+    it('asks for the all-time breakdown once the holdings are in', () => {
+      render();
+
+      expect(portfolioServiceMock.getPnl).toHaveBeenCalledWith(101, { from: undefined, bySymbol: true });
+    });
+
+    it('lists realised, unrealised and total per instrument with a total row', () => {
+      const { host } = render();
+
+      const aapl = host.querySelector('[data-testid="pnl-row-AAPL"]') as HTMLElement;
+      expect(aapl.textContent).toContain('+1,145.50');
+      expect(aapl.textContent).toContain('+862.00');
+      expect(aapl.textContent).toContain('+2,007.50');
+      const total = host.querySelector('[data-testid="pnl-total"]') as HTMLElement;
+      expect(total.textContent).toContain('+1,145.50');
+      expect(total.textContent).toContain('+18,110.11');
+      expect(total.textContent).toContain('+19,255.61');
+    });
+
+    it('colours losses and shows them with their sign', () => {
+      portfolioServiceMock.getPnl.mockReturnValue(of(pnl({
+        bySymbol: [{ symbol: 'ITC.NS', realisedPnl: 0, unrealisedPnl: -24495, totalPnl: -24495 }]
+      })));
+
+      const { host } = render();
+
+      const loss = host.querySelector('[data-testid="pnl-row-ITC.NS"] .pnl.down') as HTMLElement;
+      expect(loss.textContent?.trim()).toBe('-24,495.00');
+    });
+
+    it('re-asks with a start date when a period is picked and keeps the same unrealised basis', () => {
+      const { fixture, host } = render();
+
+      (host.querySelector('[data-testid="pnl-period-30D"]') as HTMLButtonElement).click();
+      fixture.detectChanges();
+
+      const [, options] = portfolioServiceMock.getPnl.mock.calls[1];
+      expect(options.bySymbol).toBe(true);
+      expect(options.from).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+      expect(portfolioServiceMock.getSummary).toHaveBeenCalledTimes(1);
+      expect(host.querySelector('[data-testid="pnl-period-30D"]')?.getAttribute('aria-selected')).toBe('true');
+    });
+
+    it('says so when there is nothing to report', () => {
+      portfolioServiceMock.getPnl.mockReturnValue(of(pnl({ bySymbol: [], realisedPnl: 0, unrealisedPnl: 0, totalPnl: 0 })));
+
+      const { host } = render();
+
+      expect(host.querySelector('[data-testid="pnl-empty"]')).not.toBeNull();
+      expect(host.querySelector('[data-testid="pnl-table"]')).toBeNull();
+    });
+
+    it('fails on its own without taking the rest of the page with it', () => {
+      portfolioServiceMock.getPnl.mockReturnValue(throwError(() => new HttpErrorResponse({ status: 500, error: {} })));
+
+      const { host } = render();
+
+      expect(host.querySelector('[data-testid="pnl-error"]')?.textContent).toContain('could not be loaded');
+      expect(host.querySelector('[data-testid="row-AAPL"]')).not.toBeNull();
+      expect(text(host, 'total-value')).toBe('INR 920,315.17');
+    });
+
+    it('is unavailable, not blank, when prices are down', () => {
+      portfolioServiceMock.getSummary.mockReturnValue(throwError(() => pricingUnavailable()));
+      tradeServiceMock.getPositions.mockReturnValue(of([]));
+
+      const { host } = render();
+
+      expect(portfolioServiceMock.getPnl).not.toHaveBeenCalled();
+      expect(host.querySelector('[data-testid="pnl-error"]')?.textContent).toContain('needs live prices');
+      expect((host.querySelector('[data-testid="pnl-period-30D"]') as HTMLButtonElement).disabled).toBe(true);
+    });
+
+    it('masks the amounts when they are hidden', () => {
+      const { fixture, host } = render();
+
+      (host.querySelector('[data-testid="toggle-values"]') as HTMLButtonElement).click();
+      fixture.detectChanges();
+
+      expect(host.querySelector('[data-testid="pnl-total"]')?.textContent).not.toContain('19,255.61');
+      expect(host.querySelector('[data-testid="pnl-total"]')?.textContent).toContain('••••••••');
+    });
+  });
+
   describe('price history', () => {
     const open = (fixture: ComponentFixture<PortfolioComponent>, symbol = 'AAPL') => {
       (fixture.nativeElement.querySelector(`[data-testid="row-${symbol}"]`) as HTMLElement).click();
@@ -281,6 +368,21 @@ describe('PortfolioComponent', () => {
     });
   });
 });
+
+function pnl(overrides: Partial<PnlResponse> = {}): PnlResponse {
+  return {
+    accountId: 101,
+    baseCurrency: 'INR',
+    from: null,
+    to: null,
+    realisedPnl: 1145.5,
+    unrealisedPnl: 18110.11,
+    totalPnl: 19255.61,
+    bySymbol: [{ symbol: 'AAPL', realisedPnl: 1145.5, unrealisedPnl: 862, totalPnl: 2007.5 }],
+    asOf: '2026-10-06T15:16:19Z',
+    ...overrides
+  };
+}
 
 function candles(overrides: Partial<CandlesResponse> = {}): CandlesResponse {
   const bar = (date: string, close: number, high: number, low: number): Candle => ({

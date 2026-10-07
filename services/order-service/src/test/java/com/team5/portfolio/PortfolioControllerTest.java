@@ -14,6 +14,9 @@ import com.team5.auth.SecurityConfig;
 import com.team5.dto.response.BalanceResponse;
 import com.team5.dto.response.PositionResponse;
 import com.team5.domain.exception.InstrumentNotFoundException;
+import com.team5.portfolio.dto.PnlResponse;
+import com.team5.portfolio.dto.SymbolPnlResponse;
+import com.team5.portfolio.exception.InvalidInputException;
 import com.team5.portfolio.candles.Candle;
 import com.team5.portfolio.candles.CandleRange;
 import com.team5.portfolio.candles.CandleService;
@@ -63,6 +66,9 @@ class PortfolioControllerTest {
 
     @MockBean
     private CandleService candleService;
+
+    @MockBean
+    private PnlService pnlService;
 
     @TestConfiguration
     static class FixedClock {
@@ -202,6 +208,95 @@ class PortfolioControllerTest {
         mockMvc.perform(get("/api/v1/portfolio/{id}/candles/{symbol}", 1L, "AAPL").with(authenticatedAs(1L)))
             .andExpect(status().isNotFound())
             .andExpect(jsonPath("$.errorCode").value("INS-404"));
+    }
+
+    @Test
+    void pnlUsesTheContractFieldNames() throws Exception {
+        when(pnlService.getPnl(1L, 1L, java.time.LocalDate.parse("2026-09-01"), java.time.LocalDate.parse("2026-10-19"), true))
+            .thenReturn(new PnlResponse(1L, "USD", java.time.LocalDate.parse("2026-09-01"),
+                java.time.LocalDate.parse("2026-10-19"), new BigDecimal("1145.50"), new BigDecimal("3820.00"),
+                new BigDecimal("4965.50"),
+                List.of(new SymbolPnlResponse("AAPL", new BigDecimal("1145.50"), new BigDecimal("862.00"),
+                    new BigDecimal("2007.50"))),
+                Instant.parse("2026-10-19T14:05:11Z")));
+
+        mockMvc.perform(get("/api/v1/portfolio/{id}/pnl", 1L)
+                .param("from", "2026-09-01").param("to", "2026-10-19").param("bySymbol", "true")
+                .with(authenticatedAs(1L)))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.accountId").value(1))
+            .andExpect(jsonPath("$.baseCurrency").value("USD"))
+            .andExpect(jsonPath("$.from").value("2026-09-01"))
+            .andExpect(jsonPath("$.to").value("2026-10-19"))
+            .andExpect(jsonPath("$.realisedPnl").value(1145.5))
+            .andExpect(jsonPath("$.unrealisedPnl").value(3820.0))
+            .andExpect(jsonPath("$.totalPnl").value(4965.5))
+            .andExpect(jsonPath("$.bySymbol[0].symbol").value("AAPL"))
+            .andExpect(jsonPath("$.bySymbol[0].realisedPnl").value(1145.5))
+            .andExpect(jsonPath("$.bySymbol[0].unrealisedPnl").value(862.0))
+            .andExpect(jsonPath("$.bySymbol[0].totalPnl").value(2007.5))
+            .andExpect(jsonPath("$.asOf").value("2026-10-19T14:05:11Z"));
+    }
+
+    @Test
+    void pnlWithoutAskingForTheBreakdownHasNoBySymbolKeyAndNullBounds() throws Exception {
+        when(pnlService.getPnl(1L, 1L, null, null, false)).thenReturn(new PnlResponse(1L, "USD", null, null,
+            new BigDecimal("0.00"), new BigDecimal("10.00"), new BigDecimal("10.00"), null,
+            Instant.parse("2026-10-19T14:05:11Z")));
+
+        mockMvc.perform(get("/api/v1/portfolio/{id}/pnl", 1L).with(authenticatedAs(1L)))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.bySymbol").doesNotExist())
+            .andExpect(jsonPath("$.from").value((Object) null))
+            .andExpect(jsonPath("$.to").value((Object) null));
+    }
+
+    @Test
+    void pnlWithFromLaterThanToIs422() throws Exception {
+        when(pnlService.getPnl(1L, 1L, java.time.LocalDate.parse("2026-10-19"), java.time.LocalDate.parse("2026-09-01"), false))
+            .thenThrow(new InvalidInputException());
+
+        mockMvc.perform(get("/api/v1/portfolio/{id}/pnl", 1L)
+                .param("from", "2026-10-19").param("to", "2026-09-01").with(authenticatedAs(1L)))
+            .andExpect(status().isUnprocessableEntity())
+            .andExpect(jsonPath("$.errorCode").value("VAL-422"))
+            .andExpect(jsonPath("$.message").value("Invalid input"));
+    }
+
+    @Test
+    void pnlWithAMalformedDateOrFlagIs422() throws Exception {
+        mockMvc.perform(get("/api/v1/portfolio/{id}/pnl", 1L).param("from", "19-10-2026").with(authenticatedAs(1L)))
+            .andExpect(status().isUnprocessableEntity())
+            .andExpect(jsonPath("$.errorCode").value("VAL-422"));
+        mockMvc.perform(get("/api/v1/portfolio/{id}/pnl", 1L).param("bySymbol", "maybe").with(authenticatedAs(1L)))
+            .andExpect(status().isUnprocessableEntity());
+        verifyNoInteractions(pnlService);
+    }
+
+    @Test
+    void pnlWhenNoHeldInstrumentCanBePricedIs503() throws Exception {
+        when(pnlService.getPnl(1L, 1L, null, null, false)).thenThrow(new com.team5.portfolio.exception.PricingUnavailableException());
+
+        mockMvc.perform(get("/api/v1/portfolio/{id}/pnl", 1L).with(authenticatedAs(1L)))
+            .andExpect(status().isServiceUnavailable())
+            .andExpect(jsonPath("$.errorCode").value("MKT-503"));
+    }
+
+    @Test
+    void pnlForAnotherAccountIsForbidden() throws Exception {
+        when(pnlService.getPnl(1L, 2L, null, null, false)).thenThrow(new com.team5.portfolio.exception.PortfolioAccessDeniedException());
+
+        mockMvc.perform(get("/api/v1/portfolio/{id}/pnl", 2L).with(authenticatedAs(1L)))
+            .andExpect(status().isForbidden())
+            .andExpect(jsonPath("$.errorCode").value("ACC-403"))
+            .andExpect(jsonPath("$.message").value("Account not accessible"));
+    }
+
+    @Test
+    void pnlWithoutATokenIsUnauthorised() throws Exception {
+        mockMvc.perform(get("/api/v1/portfolio/{id}/pnl", 1L))
+            .andExpect(status().isUnauthorized())
+            .andExpect(jsonPath("$.errorCode").value("AUTH-401"));
     }
 
     @Test

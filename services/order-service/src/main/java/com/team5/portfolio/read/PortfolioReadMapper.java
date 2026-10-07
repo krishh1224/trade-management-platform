@@ -16,4 +16,7 @@ public interface PortfolioReadMapper {
     List<InstrumentCurrency> findCurrencies(@Param("symbols") Collection<String> symbols);
 
     List<SnapshotPrice> findSnapshots(@Param("symbols") Collection<String> symbols);
+
+    /** Every filled order of the account, oldest first within each instrument. */
+    List<FilledOrder> findFilledOrders(@Param("accountId") long accountId);
 }

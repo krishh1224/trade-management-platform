@@ -62,6 +62,33 @@ public class PortfolioService {
     }
 
     public PortfolioSummaryResponse getSummary(long authenticatedAccountId, long accountId) {
+        Valuation valuation = valuate(authenticatedAccountId, accountId);
+        String base = valuation.baseCurrency();
+        BigDecimal marketValue = valuation.marketValue();
+        BigDecimal costBasis = valuation.costBasis();
+        BigDecimal unrealised = marketValue.subtract(costBasis);
+        return new PortfolioSummaryResponse(
+            accountId,
+            base,
+            valuation.cash(),
+            marketValue,
+            costBasis,
+            unrealised,
+            percent(unrealised, costBasis),
+            realisedPnlProvider.lifetimeRealised(accountId, base),
+            valuation.cash().add(marketValue),
+            valuation.positionCount(),
+            valuation.partial(),
+            clock.instant().truncatedTo(ChronoUnit.SECONDS)
+        );
+    }
+
+    /**
+     * Prices every open holding and converts it into the account's base currency. Holdings that cannot be
+     * priced or converted are kept, uncounted, so callers can say so. Answers MKT-503 when there are
+     * holdings and none could be priced.
+     */
+    public Valuation valuate(long authenticatedAccountId, long accountId) {
         accessGuard.assertSameAccount(authenticatedAccountId, accountId);
         BalanceResponse balance = accountService.getBalance(authenticatedAccountId, accountId);
         String base = balance.currency();
@@ -78,38 +105,19 @@ public class PortfolioService {
         });
         Map<String, PricedQuote> quotes = priceOrFail(held, symbols);
 
-        BigDecimal marketValue = BigDecimal.ZERO;
-        BigDecimal costBasis = BigDecimal.ZERO;
-        boolean partial = false;
-        for (PricedPositionResponse position : toPricedPositions(accountId, held, currencies, quotes)) {
-            Optional<BigDecimal> rate = position.lastPrice() == null
-                ? Optional.empty()
-                : FxConverter.rate(position.currency(), base, quotes);
-            if (rate.isEmpty()) {
-                partial = true;
-                continue;
-            }
-            marketValue = marketValue.add(position.marketValue().multiply(rate.get()));
-            costBasis = costBasis.add(position.costBasis().multiply(rate.get()));
-        }
-
-        marketValue = money(marketValue);
-        costBasis = money(costBasis);
-        BigDecimal unrealised = marketValue.subtract(costBasis);
-        return new PortfolioSummaryResponse(
-            accountId,
-            base,
-            balance.cashBalance(),
-            marketValue,
-            costBasis,
-            unrealised,
-            percent(unrealised, costBasis),
-            realisedPnlProvider.lifetimeRealised(accountId, base),
-            balance.cashBalance().add(marketValue),
-            held.size(),
-            partial,
-            clock.instant().truncatedTo(ChronoUnit.SECONDS)
-        );
+        List<Valuation.ValuedHolding> holdings = toPricedPositions(accountId, held, currencies, quotes).stream()
+            .map(position -> {
+                Optional<BigDecimal> rate = position.lastPrice() == null
+                    ? Optional.empty()
+                    : FxConverter.rate(position.currency(), base, quotes);
+                return rate.isEmpty()
+                    ? new Valuation.ValuedHolding(position, null, null)
+                    : new Valuation.ValuedHolding(position,
+                        money(position.marketValue().multiply(rate.get())),
+                        money(position.costBasis().multiply(rate.get())));
+            })
+            .toList();
+        return new Valuation(base, balance.cashBalance(), held.size(), holdings);
     }
 
     public List<PricedPositionResponse> getPositions(long authenticatedAccountId, long accountId, String symbol) {

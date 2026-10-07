@@ -38,6 +38,30 @@ export interface PricedPosition {
   stale: boolean;
 }
 
+/** One instrument's contribution, in the account's base currency. */
+export interface SymbolPnl {
+  symbol: string;
+  realisedPnl: number;
+  unrealisedPnl: number;
+  totalPnl: number;
+}
+
+/**
+ * Profit and loss for an account. `from` and `to` bound the realised figure only; unrealised is always as at
+ * `asOf`. `bySymbol` is present only when it was asked for.
+ */
+export interface PnlResponse {
+  accountId: number;
+  baseCurrency: string;
+  from: string | null;
+  to: string | null;
+  realisedPnl: number;
+  unrealisedPnl: number;
+  totalPnl: number;
+  bySymbol?: SymbolPnl[];
+  asOf: string;
+}
+
 export type CandleRange = '1M' | '3M' | '6M' | '1Y';
 export const CANDLE_RANGES: readonly CandleRange[] = ['1M', '3M', '6M', '1Y'];
 
@@ -77,6 +101,23 @@ export class PortfolioService {
     const params = new HttpParams({ fromObject: symbol ? { symbol } : {} });
     return this.http.get<PricedPosition[]>(`${this.config.rootUrl}/api/v1/portfolio/${accountId}/positions`, {
       params
+    });
+  }
+
+  /** `from` and `to` are inclusive dates (yyyy-MM-dd) bounding realised profit and loss. */
+  getPnl(accountId: number, options: { from?: string; to?: string; bySymbol?: boolean } = {}): Observable<PnlResponse> {
+    const query: Record<string, string> = {};
+    if (options.from) {
+      query['from'] = options.from;
+    }
+    if (options.to) {
+      query['to'] = options.to;
+    }
+    if (options.bySymbol) {
+      query['bySymbol'] = 'true';
+    }
+    return this.http.get<PnlResponse>(`${this.config.rootUrl}/api/v1/portfolio/${accountId}/pnl`, {
+      params: new HttpParams({ fromObject: query })
     });
   }
 
