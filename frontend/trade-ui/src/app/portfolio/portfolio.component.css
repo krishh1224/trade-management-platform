@@ -1257,3 +1257,144 @@ th.num {
   height: 90px;
   border-radius: var(--radius);
 }
+
+/* ---------- Portfolio analytics ---------- */
+
+.analytics-panel {
+  animation-delay: 0.08s;
+}
+
+.analytics-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+  padding: 18px 20px 20px;
+}
+
+.analytics-card {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg-raised);
+  padding: 16px;
+  display: grid;
+  gap: 12px;
+}
+
+.analytics-card h3 {
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.analytics-empty {
+  min-height: 128px;
+  display: grid;
+  place-items: center;
+  color: var(--text-faint);
+  font-size: 0.84rem;
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--radius-sm);
+}
+
+.donut-layout {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.donut {
+  width: 98px;
+  height: 98px;
+  flex: none;
+}
+
+.donut-meta {
+  display: grid;
+  gap: 3px;
+}
+
+.donut-meta strong {
+  font-size: 0.95rem;
+  font-weight: 700;
+}
+
+.donut-meta span {
+  color: var(--text-faint);
+  font-size: 0.76rem;
+}
+
+.donut-legend {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 7px;
+}
+
+.donut-legend li {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.79rem;
+}
+
+.swatch {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+}
+
+.legend-label {
+  color: var(--text-muted);
+}
+
+.legend-value {
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+
+.pnl-bars {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 10px;
+}
+
+.bar-label-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 0.82rem;
+  margin-bottom: 5px;
+}
+
+.bar-track {
+  height: 8px;
+  border-radius: 999px;
+  background: var(--surface-hover);
+  overflow: hidden;
+}
+
+.bar-fill {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: #93a4c6;
+}
+
+.bar-fill.up {
+  background: var(--up);
+}
+
+.bar-fill.down {
+  background: var(--down);
+}
+
+@media (max-width: 900px) {
+  .analytics-grid {
+    grid-template-columns: 1fr;
+    padding: 16px;
+  }
+}

@@ -14,6 +14,16 @@ import { ThemeService } from '../theme/theme.service';
 import { FooterComponent } from '../shared/footer.component';
 import { NotificationBellComponent } from '../notifications/notification-bell.component';
 
+interface AllocationSlice {
+  label: string;
+  value: number;
+  share: number;
+  offset: number;
+  color: string;
+}
+
+const PIE_COLORS = ['#2f6df6', '#16c784', '#f5a524', '#f05252', '#8b5cf6', '#0ea5e9'];
+
 @Component({
   selector: 'app-home',
   imports: [RouterLink, DecimalPipe, FooterComponent, FundsDialogComponent, NotificationBellComponent],
@@ -45,6 +55,7 @@ export class HomeComponent {
   readonly positions = signal<PositionResponse[]>([]);
   readonly positionsLoading = signal(false);
   readonly positionsError = signal('');
+  readonly instrumentAssetClassBySymbol = signal(new Map<string, string>());
   readonly recentOrders = signal<OrderHistoryEntry[]>([]);
   readonly ordersLoading = signal(false);
   readonly ordersError = signal('');
@@ -78,6 +89,50 @@ export class HomeComponent {
     return convertBalanceForDisplay(amount, this.accountBaseCurrency(), this.displayBalanceCurrency());
   });
 
+  readonly assetClassSlices = computed<AllocationSlice[]>(() => {
+    const rows = this.positions();
+    if (rows.length === 0) {
+      return [];
+    }
+
+    const knownClasses = this.instrumentAssetClassBySymbol();
+    const totals = new Map<string, number>();
+    let portfolioCostBasis = 0;
+
+    for (const row of rows) {
+      const value = Math.max(row.quantity * row.averageCost, 0);
+      if (value === 0) {
+        continue;
+      }
+      const raw = knownClasses.get(row.symbol) ?? inferAssetClass(row.symbol);
+      const label = normaliseAssetClass(raw);
+      totals.set(label, (totals.get(label) ?? 0) + value);
+      portfolioCostBasis += value;
+    }
+
+    if (portfolioCostBasis === 0 || totals.size === 0) {
+      return [];
+    }
+
+    let offset = 0;
+    return [...totals.entries()]
+      .sort((a, b) => b[1] - a[1])
+      .map(([label, value], index) => {
+        const share = value / portfolioCostBasis;
+        const slice: AllocationSlice = {
+          label,
+          value,
+          share,
+          offset,
+          color: PIE_COLORS[index % PIE_COLORS.length]
+        };
+        offset -= share * 100;
+        return slice;
+      });
+  });
+
+  readonly topAssetClassLabel = computed(() => this.assetClassSlices()[0]?.label ?? '—');
+
   constructor() {
     this.themeService.initialize();
     const timer = setInterval(() => this.now.set(Date.now()), 1000);
@@ -86,6 +141,7 @@ export class HomeComponent {
     this.loadBalance();
     this.loadPreferences();
     this.loadAccountStatus();
+    this.loadInstrumentCatalogue();
     this.loadPositions();
     this.loadRecentOrders();
   }
@@ -121,6 +177,10 @@ export class HomeComponent {
 
   displayCurrency(currency: string | null | undefined): string {
     return currencySymbolForDisplay(currency);
+  }
+
+  formatPercent(value: number): string {
+    return `${(value * 100).toFixed(1)}%`;
   }
 
   private loadRecentOrders(): void {
@@ -172,6 +232,29 @@ export class HomeComponent {
           this.positions.set([]);
         }
       });
+  }
+
+  private loadInstrumentCatalogue(): void {
+    const accountId = this.claims()?.accountId ?? null;
+    if (accountId === null) {
+      this.instrumentAssetClassBySymbol.set(new Map());
+      return;
+    }
+
+    this.tradeService.getInstruments(accountId).subscribe({
+      next: (instruments) => {
+        const mapBySymbol = new Map<string, string>();
+        instruments.forEach((instrument) => {
+          if (instrument.assetClass && instrument.assetClass.trim().length > 0) {
+            mapBySymbol.set(instrument.symbol, instrument.assetClass);
+          }
+        });
+        this.instrumentAssetClassBySymbol.set(mapBySymbol);
+      },
+      error: () => {
+        this.instrumentAssetClassBySymbol.set(new Map());
+      }
+    });
   }
 
   private loadBalance(): void {
@@ -250,4 +333,25 @@ export class HomeComponent {
       }
     });
   }
+}
+
+function normaliseAssetClass(value: string): string {
+  return value
+    .trim()
+    .toLowerCase()
+    .replace(/[_-]+/g, ' ')
+    .replace(/\b\w/g, (ch) => ch.toUpperCase());
+}
+
+function inferAssetClass(symbol: string): string {
+  if (symbol.endsWith('.NS') || symbol.endsWith('.BO')) {
+    return 'Equity';
+  }
+  if (symbol.startsWith('FX:')) {
+    return 'Forex';
+  }
+  if (symbol.includes('ETF')) {
+    return 'ETF';
+  }
+  return 'Other';
 }

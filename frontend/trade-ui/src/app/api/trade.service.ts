@@ -55,6 +55,7 @@ export interface InstrumentOption {
   symbol: string;
   name: string;
   currency: string;
+  assetClass?: string;
 }
 
 /**
