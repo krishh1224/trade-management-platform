@@ -4,11 +4,15 @@ import com.team5.advisor.data.AdvisorRepository;
 import com.team5.advisor.data.AdvisorRepository.AccountRow;
 import com.team5.advisor.data.AdvisorRepository.FxRow;
 import com.team5.advisor.data.AdvisorRepository.InstrumentRow;
+import com.team5.advisor.data.AdvisorRepository.WatchlistRow;
+import com.team5.advisor.tools.ToolViews.AdviceSignalView;
+import com.team5.advisor.tools.ToolViews.AdviceSignalsView;
 import com.team5.advisor.tools.ToolViews.FxRateView;
 import com.team5.advisor.tools.ToolViews.InstrumentView;
 import com.team5.advisor.tools.ToolViews.OrderView;
 import com.team5.advisor.tools.ToolViews.PortfolioView;
 import com.team5.advisor.tools.ToolViews.QuoteView;
+import com.team5.advisor.tools.ToolViews.SkippedAdviceView;
 import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
@@ -16,6 +20,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.springframework.ai.chat.model.ToolContext;
@@ -39,6 +44,10 @@ public class AdvisorTools {
     static final int MAX_SEARCH_RESULTS = 15;
     static final int DEFAULT_ORDERS = 10;
     static final int MAX_ORDERS = 50;
+    private static final BigDecimal HOLDING_BUY_THRESHOLD = new BigDecimal("10.00");
+    private static final BigDecimal HOLDING_SELL_THRESHOLD = new BigDecimal("-10.00");
+    private static final BigDecimal WATCHLIST_BUY_THRESHOLD = new BigDecimal("2.00");
+    private static final BigDecimal WATCHLIST_SELL_THRESHOLD = new BigDecimal("-2.00");
 
     private final AdvisorRepository repository;
 
@@ -149,6 +158,79 @@ public class AdvisorTools {
             .toList();
     }
 
+    @Tool(name = "get_advice_signals", description = """
+        Returns the platform's current BUY, SELL and HOLD signals for the signed-in user's holdings and watchlist,
+        including the rule-based reasoning behind each signal and any skipped symbols where data was insufficient.
+        Call this when the user asks why a symbol is BUY/SELL/HOLD, what the current signals are, or to explain
+        the platform's advice output.""")
+    public AdviceSignalsView getAdviceSignals(ToolContext toolContext) {
+        track(toolContext, "get_advice_signals");
+        long accountId = accountId(toolContext);
+
+        List<AdviceSignalView> signals = new ArrayList<>();
+        List<SkippedAdviceView> skipped = new ArrayList<>();
+        List<AdvisorRepository.HoldingRow> holdings = repository.findHoldings(accountId);
+        Set<String> holdingSymbols = new LinkedHashSet<>();
+
+        for (AdvisorRepository.HoldingRow holding : holdings) {
+            holdingSymbols.add(holding.symbol());
+            if (holding.lastPrice() == null) {
+                skipped.add(new SkippedAdviceView(
+                    holding.symbol(), holding.name(), "HOLDING", "No priced holding snapshot is available yet."));
+                continue;
+            }
+
+            BigDecimal unrealisedPercent = unrealisedGainPercent(holding.avgCost(), holding.lastPrice());
+            String signal = classifyHolding(unrealisedPercent);
+            signals.add(new AdviceSignalView(
+                holding.symbol(),
+                holding.name(),
+                "HOLDING",
+                signal,
+                List.of(
+                    "Unrealised P&L is " + signedPercent(unrealisedPercent) + " versus average cost.",
+                    ageReason(holding.priceAgeMinutes())
+                ),
+                holding.lastPrice(),
+                holding.changePct(),
+                unrealisedPercent,
+                holding.currency(),
+                holding.priceUpdatedAt(),
+                holding.priceAgeMinutes()
+            ));
+        }
+
+        for (WatchlistRow row : repository.findWatchlist(accountId)) {
+            if (holdingSymbols.contains(row.symbol())) {
+                continue;
+            }
+            if (row.lastPrice() == null || row.changePct() == null) {
+                skipped.add(new SkippedAdviceView(
+                    row.symbol(), row.name(), "WATCHLIST", "The watchlist entry has no stored market move yet."));
+                continue;
+            }
+
+            signals.add(new AdviceSignalView(
+                row.symbol(),
+                row.name(),
+                "WATCHLIST",
+                classifyWatchlist(row.changePct()),
+                List.of(
+                    "The latest stored watchlist move is " + signedPercent(row.changePct()) + ".",
+                    ageReason(row.priceAgeMinutes())
+                ),
+                row.lastPrice(),
+                row.changePct(),
+                null,
+                row.currency(),
+                row.priceUpdatedAt(),
+                row.priceAgeMinutes()
+            ));
+        }
+
+        return new AdviceSignalsView(List.copyOf(signals), List.copyOf(skipped));
+    }
+
     static List<String> normaliseSymbols(List<String> symbols) {
         if (symbols == null) {
             return List.of();
@@ -177,5 +259,51 @@ public class AdvisorTools {
         if (toolContext.getContext().get(CTX_TRACKER) instanceof ToolCallTracker tracker) {
             tracker.record(toolName);
         }
+    }
+
+    private static BigDecimal unrealisedGainPercent(BigDecimal averageCost, BigDecimal lastPrice) {
+        if (averageCost == null || averageCost.signum() == 0 || lastPrice == null) {
+            return BigDecimal.ZERO;
+        }
+        return lastPrice.subtract(averageCost)
+            .multiply(BigDecimal.valueOf(100))
+            .divide(averageCost, 2, java.math.RoundingMode.HALF_UP);
+    }
+
+    private static String classifyHolding(BigDecimal unrealisedGainPercent) {
+        if (unrealisedGainPercent.compareTo(HOLDING_SELL_THRESHOLD) <= 0) {
+            return "SELL";
+        }
+        if (unrealisedGainPercent.compareTo(HOLDING_BUY_THRESHOLD) >= 0) {
+            return "BUY";
+        }
+        return "HOLD";
+    }
+
+    private static String classifyWatchlist(BigDecimal changePct) {
+        if (changePct.compareTo(WATCHLIST_BUY_THRESHOLD) >= 0) {
+            return "BUY";
+        }
+        if (changePct.compareTo(WATCHLIST_SELL_THRESHOLD) <= 0) {
+            return "SELL";
+        }
+        return "HOLD";
+    }
+
+    private static String signedPercent(BigDecimal value) {
+        return (value.signum() > 0 ? "+" : "") + value.toPlainString() + "%";
+    }
+
+    private static String ageReason(Long priceAgeMinutes) {
+        if (priceAgeMinutes == null) {
+            return "No quote age is available for this stored price.";
+        }
+        if (priceAgeMinutes < 60) {
+            return "The signal uses a stored price refreshed about " + priceAgeMinutes + " minutes ago.";
+        }
+        if (priceAgeMinutes < 1440) {
+            return "The signal uses a stored price refreshed about " + (priceAgeMinutes / 60) + " hours ago.";
+        }
+        return "The signal uses a stored price that is more than a day old and may be out of date.";
     }
 }

@@ -93,4 +93,33 @@ public final class ToolViews {
         LocalDateTime createdOn
     ) {
     }
+
+    public record AdviceSignalsView(
+        List<AdviceSignalView> signals,
+        List<SkippedAdviceView> skipped
+    ) {
+    }
+
+    public record AdviceSignalView(
+        String symbol,
+        String instrumentName,
+        String origin,
+        String signal,
+        List<String> reasoning,
+        BigDecimal lastPrice,
+        BigDecimal changePercentToday,
+        BigDecimal unrealisedGainPercent,
+        String currency,
+        LocalDateTime priceUpdatedAt,
+        Long priceAgeMinutes
+    ) {
+    }
+
+    public record SkippedAdviceView(
+        String symbol,
+        String instrumentName,
+        String origin,
+        String reason
+    ) {
+    }
 }

@@ -57,6 +57,37 @@ export interface InstrumentOption {
   currency: string;
 }
 
+export type AdviceOrigin = 'HOLDING' | 'WATCHLIST';
+export type AdviceSignal = 'BUY' | 'SELL' | 'HOLD';
+
+export interface AdviceSignalRow {
+  symbol: string;
+  instrumentName: string | null;
+  origin: AdviceOrigin;
+  signal: AdviceSignal;
+  reasoning: string[];
+  lastPrice: number | null;
+  changePct: number | null;
+  unrealisedPnlPercent: number | null;
+  currency: string | null;
+  priceAsOf: string | null;
+  stale: boolean;
+}
+
+export interface SkippedAdviceRow {
+  symbol: string;
+  instrumentName: string | null;
+  origin: AdviceOrigin;
+  reason: string;
+}
+
+export interface TradeAdvice {
+  accountId: number;
+  generatedAt: string;
+  signals: AdviceSignalRow[];
+  skipped: SkippedAdviceRow[];
+}
+
 /**
  * Order history row as trade-api returns it. `settlementAmount` is the cash actually moved on a
  * FILLED order, in the account's currency. The server sends it but trade-api.yaml does not declare
@@ -136,6 +167,10 @@ export class TradeService {
 
   getOrders(accountId: number, filter: Omit<GetOrders$Params, 'id'> = {}): Observable<OrderHistoryRow[]> {
     return getOrders(this.http, this.config.rootUrl, { id: accountId, ...filter }).pipe(map((r) => r.body));
+  }
+
+  getAdviceSignals(accountId: number): Observable<TradeAdvice> {
+    return this.http.get<TradeAdvice>(`${this.config.rootUrl}/api/v1/accounts/${accountId}/advisor/signals`);
   }
 
   deposit(accountId: number, body: CashMovementRequest): Observable<CashTransactionResponse> {

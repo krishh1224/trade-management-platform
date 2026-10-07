@@ -235,7 +235,7 @@ components:
           description: The data tools the advisor consulted for this reply, in call order without duplicates.
           items:
             type: string
-            enum: [get_portfolio, get_quotes, get_fx_rate, search_instruments, get_order_history]
+            enum: [get_portfolio, get_quotes, get_fx_rate, search_instruments, get_order_history, get_advice_signals]
         model:
           type: string
           description: The AI model that produced the reply.

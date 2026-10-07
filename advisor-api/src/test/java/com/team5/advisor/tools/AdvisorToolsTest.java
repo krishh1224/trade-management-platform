@@ -8,7 +8,10 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.team5.advisor.data.AdvisorRepository;
+import com.team5.advisor.data.AdvisorRepository.HoldingRow;
 import com.team5.advisor.data.AdvisorRepository.InstrumentRow;
+import com.team5.advisor.data.AdvisorRepository.WatchlistRow;
+import com.team5.advisor.tools.ToolViews.AdviceSignalsView;
 import com.team5.advisor.tools.ToolViews.FxRateView;
 import com.team5.advisor.tools.ToolViews.QuoteView;
 import java.math.BigDecimal;
@@ -83,5 +86,30 @@ class AdvisorToolsTest {
     void blankSearchReturnsNothingWithoutAQuery() {
         assertThat(tools.searchInstruments("  ", context)).isEmpty();
         verify(repository, never()).searchInstruments(anyString(), org.mockito.ArgumentMatchers.anyInt());
+    }
+
+    @Test
+    void adviceSignalsReturnHoldingsAndWatchlistReasonsAndSkipMissingData() {
+        when(repository.findHoldings(103L)).thenReturn(List.of(
+            new HoldingRow("INFY.NS", "Infosys", "NSE", "INR", 10L, new BigDecimal("1500.00"),
+                new BigDecimal("1710.00"), new BigDecimal("1.40"), LocalDateTime.parse("2026-10-04T15:00:00"), 30L),
+            new HoldingRow("ITC.NS", "ITC", "NSE", "INR", 12L, new BigDecimal("420.00"),
+                null, null, null, null)
+        ));
+        when(repository.findWatchlist(103L)).thenReturn(List.of(
+            new WatchlistRow("AAPL", "Apple", "USD", new BigDecimal("220.00"), new BigDecimal("2.50"),
+                LocalDateTime.parse("2026-10-04T15:00:00"), 40L),
+            new WatchlistRow("MSFT", "Microsoft", "USD", null, null, null, null)
+        ));
+
+        AdviceSignalsView advice = tools.getAdviceSignals(context);
+
+        assertThat(advice.signals()).hasSize(2);
+        assertThat(advice.signals()).extracting(view -> view.symbol() + ":" + view.signal())
+            .containsExactly("INFY.NS:BUY", "AAPL:BUY");
+        assertThat(advice.signals().get(0).reasoning().get(0)).contains("+14.00%");
+        assertThat(advice.skipped()).extracting(view -> view.symbol() + ":" + view.origin())
+            .containsExactly("ITC.NS:HOLDING", "MSFT:WATCHLIST");
+        assertThat(tracker.names()).containsExactly("get_advice_signals");
     }
 }

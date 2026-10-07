@@ -3,6 +3,7 @@ import { HttpTestingController, provideHttpClientTesting } from '@angular/common
 import { describe, expect, it } from 'vitest';
 
 import { AuthService } from './auth.service';
+import { AdvisorService } from './advisor.service';
 import { RequestBuilder as AuthRequestBuilder } from './generated/auth-api/request-builder';
 import { RequestBuilder as TradeRequestBuilder } from './generated/trade-api/request-builder';
 import { provideApi } from './provide-api';
@@ -108,6 +109,54 @@ describe('generated client facades', () => {
     expect(req.request.params.get('prefix')).toBe('AAP');
     req.flush([{ symbol: 'AAPL', name: 'Apple', currency: 'USD' }]);
     expect(count).toBe(1);
+  });
+
+  it('loads advice signals from the trade API', () => {
+    const http = setup();
+    let signals = 0;
+
+    TestBed.inject(TradeService)
+      .getAdviceSignals(5)
+      .subscribe((response) => (signals = response.signals.length));
+
+    const req = http.expectOne((r) => r.url === 'http://trade/api/v1/accounts/5/advisor/signals' && r.method === 'GET');
+    req.flush({
+      accountId: 5,
+      generatedAt: '2026-10-07T12:30:00Z',
+      signals: [
+        {
+          symbol: 'INFY.NS',
+          instrumentName: null,
+          origin: 'HOLDING',
+          signal: 'BUY',
+          reasoning: ['Unrealised P&L is +14.00% versus average cost.'],
+          lastPrice: 1710,
+          changePct: null,
+          unrealisedPnlPercent: 14,
+          currency: 'INR',
+          priceAsOf: '2026-10-07T12:25:00Z',
+          stale: false
+        }
+      ],
+      skipped: []
+    });
+
+    expect(signals).toBe(1);
+  });
+
+  it('sends advisor chat requests to the advisor API', () => {
+    const http = setup();
+    let reply: string | undefined;
+
+    TestBed.inject(AdvisorService)
+      .chat([{ role: 'user', content: 'What is my biggest holding?' }])
+      .subscribe((response) => (reply = response.reply));
+
+    const req = http.expectOne((r) => r.url === 'http://localhost:8083/api/v1/advisor/chat' && r.method === 'POST');
+    expect(req.request.body).toEqual({ messages: [{ role: 'user', content: 'What is my biggest holding?' }] });
+    req.flush({ reply: 'ITC.NS', toolsUsed: ['get_portfolio'], model: 'gemini-2.5-flash', generatedAt: '2026-10-07T12:30:00Z' });
+
+    expect(reply).toBe('ITC.NS');
   });
 
   it('loads watchlist groups and creates one', () => {

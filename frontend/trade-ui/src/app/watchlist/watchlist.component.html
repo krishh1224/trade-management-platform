@@ -216,6 +216,7 @@
                     <th>Name</th>
                     <th class="num">Last Price</th>
                     <th class="num">Change</th>
+                    <th>Advisor</th>
                     <th>Action</th>
                   </tr>
                 </thead>
@@ -237,6 +238,15 @@
                         } @else {
                           {{ row.changePct >= 0 ? '+' : '' }}{{ row.changePct | number: '1.2-2' }}%
                         }
+                      </td>
+                      <td>
+                        <a
+                          class="advisor-link"
+                          routerLink="/advisor"
+                          [queryParams]="{ symbol: row.item.symbol, origin: 'WATCHLIST' }"
+                          [attr.href]="'/advisor?symbol=' + row.item.symbol + '&origin=WATCHLIST'"
+                          [attr.data-testid]="'advisor-link-' + row.item.symbol"
+                        >View signal</a>
                       </td>
                       <td>
                         <div class="actions">

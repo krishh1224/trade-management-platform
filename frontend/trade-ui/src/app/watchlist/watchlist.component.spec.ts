@@ -126,6 +126,12 @@ describe('WatchlistComponent', () => {
     expect(component.rowsForSelectedGroup()).toHaveLength(1);
   });
 
+  it('renders a deep link from a watchlist row into the advisor page', () => {
+    const link = fixture.nativeElement.querySelector('[data-testid="advisor-link-AAPL"]') as HTMLAnchorElement;
+    expect(link).not.toBeNull();
+    expect(link.textContent).toContain('View signal');
+  });
+
   it('selects a group and refreshes watchlist with group filter', () => {
     component.selectGroup('g2');
 

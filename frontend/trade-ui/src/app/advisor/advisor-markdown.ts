@@ -52,7 +52,7 @@ export function renderAdvisorMarkdown(markdown: string): string {
       flushList();
       const cells = line.slice(1, -1).split('|').map((cell) => cell.trim());
       if (cells.every((cell) => /^:?-{2,}:?$/.test(cell))) {
-        continue; // separator row under the header
+        continue;
       }
       (table ??= []).push(cells);
       continue;

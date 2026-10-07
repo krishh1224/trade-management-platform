@@ -67,74 +67,142 @@
   <main class="content">
     <section class="welcome">
       <p class="eyebrow">Advisor</p>
-      <h1>Ask about your portfolio</h1>
+      <h1>Research-driven trade signals</h1>
       <p class="disclaimer" data-testid="advisor-disclaimer">
-        Educational information only, not investment advice. Prices come from the platform's last refresh and may be delayed.
-        The advisor cannot place orders.
+        Educational information only, not investment advice. Signals are generated from your holdings, watchlist and the platform's
+        stored market data. Missing or stale prices are shown explicitly and never turned into guessed signals.
+      </p>
+      <p class="method-note">
+        Current reasoning uses portfolio gain or loss and the latest watchlist move from the platform's stored prices. Richer S4 analytics can replace this wording once those inputs are exposed to the service.
       </p>
     </section>
 
-    <section class="chat-card" aria-label="Advisor conversation">
-      <div class="thread" role="log" aria-live="polite" data-testid="advisor-thread">
-        @if (conversation().length === 0) {
-          <div class="empty">
-            <p>Try one of these, or ask your own question:</p>
-            <div class="suggestions">
-              @for (question of suggestions; track question) {
-                <button type="button" class="suggestion" (click)="useSuggestion(question)" [disabled]="sending()">{{ question }}</button>
-              }
-            </div>
-          </div>
-        }
+    @if (focusTitle(); as focusTitle) {
+      <section class="focus-banner" data-testid="advisor-focus-banner">
+        <div>
+          <strong>{{ focusTitle }}</strong>
+          <p>The page is filtered to the linked symbol.</p>
+        </div>
+        <button type="button" class="ghost-button" (click)="clearFocus()">Show all signals</button>
+      </section>
+    }
 
-        @for (message of conversation(); track $index) {
-          @if (message.role === 'user') {
-            <div class="message user" data-testid="advisor-user-message">{{ message.content }}</div>
-          } @else {
-            <div class="message assistant" data-testid="advisor-reply">
-              <div class="markdown" [innerHTML]="message.html"></div>
-              @if (sourcesLabel(message.toolsUsed); as sources) {
-                <p class="sources">{{ sources }}</p>
-              }
-            </div>
-          }
-        }
+    <section class="summary-grid" aria-label="Advice summary">
+      <article class="summary-card" data-testid="advisor-summary-total">
+        <span class="summary-label">Signals</span>
+        <strong>{{ signals().length }}</strong>
+        <small>{{ buySignals().length }} buy, {{ sellSignals().length }} sell, {{ holdSignals().length }} hold</small>
+      </article>
+      <article class="summary-card">
+        <span class="summary-label">Holdings covered</span>
+        <strong>{{ holdingSignals().length }}</strong>
+        <small>Signals generated against live holdings</small>
+      </article>
+      <article class="summary-card">
+        <span class="summary-label">Watchlist covered</span>
+        <strong>{{ watchlistSignals().length }}</strong>
+        <small>Signals generated against watchlist entries</small>
+      </article>
+      <article class="summary-card warning">
+        <span class="summary-label">Skipped</span>
+        <strong>{{ skipped().length }}</strong>
+        <small>Symbols with insufficient data</small>
+      </article>
+    </section>
 
-        @if (sending()) {
-          <div class="message assistant thinking" role="status">
-            <span class="dot"></span><span class="dot"></span><span class="dot"></span>
-            <span class="sr-only">The advisor is thinking</span>
-          </div>
-        }
-        <div #threadEnd></div>
+    <section class="signals-card" aria-label="Advisor signals">
+      <div class="signals-header">
+        <div>
+          <h2>Current signals</h2>
+          <p>
+            @if (generatedAtLabel(); as generatedAtLabel) {
+              Generated {{ generatedAtLabel }}
+            } @else {
+              Waiting for signal data
+            }
+          </p>
+        </div>
+        <button type="button" class="primary-button" (click)="refresh()" [disabled]="loading()" data-testid="advisor-refresh">
+          {{ loading() ? 'Refreshing…' : 'Refresh signals' }}
+        </button>
       </div>
 
       @if (errorMessage()) {
         <div class="form-error" role="alert" data-testid="advisor-error">{{ errorMessage() }}</div>
       }
 
-      <form class="composer" (ngSubmit)="send()">
-        <textarea
-          name="question"
-          rows="2"
-          data-testid="advisor-input"
-          placeholder="Ask about your holdings, prices or orders…"
-          [maxlength]="maxLength"
-          [ngModel]="draft()"
-          (ngModelChange)="draft.set($event)"
-          (keydown)="onKeydown($event)"
-          [disabled]="sending()"
-          aria-label="Your question"
-        ></textarea>
-        <div class="composer-actions">
-          @if (conversation().length > 0) {
-            <button type="button" class="ghost-button" (click)="clearConversation()" [disabled]="sending()">New chat</button>
-          }
-          <button type="submit" class="primary-button" data-testid="advisor-send" [disabled]="!canSend()">
-            {{ sending() ? 'Thinking…' : 'Send' }}
-          </button>
+      @if (loading() && !hasResults()) {
+        <div class="empty-state" role="status">
+          <p>Loading advisor signals for your account…</p>
         </div>
-      </form>
+      } @else if (!hasResults() && !errorMessage()) {
+        <div class="empty-state" data-testid="advisor-empty">
+          <p>No signals are available yet.</p>
+          <span>Add watchlist instruments or wait for stored pricing data to arrive.</span>
+        </div>
+      } @else {
+        <div class="signal-grid" data-testid="advisor-signals">
+          @for (signal of visibleSignals(); track trackBySymbol($index, signal)) {
+            <article class="signal-card" [class.buy]="signal.signal === 'BUY'" [class.sell]="signal.signal === 'SELL'" [class.hold]="signal.signal === 'HOLD'" data-testid="advisor-signal-card">
+              <div class="signal-topline">
+                <div>
+                  <p class="symbol">{{ signal.symbol }}</p>
+                  <h3>{{ signal.instrumentName ?? 'Current holding' }}</h3>
+                </div>
+                <span class="signal-pill">{{ signal.signal }}</span>
+              </div>
+
+              <div class="meta-row">
+                <span class="meta-pill">{{ originLabel(signal.origin) }}</span>
+                @if (signal.stale) {
+                  <span class="meta-pill stale">Stale</span>
+                }
+              </div>
+
+              <dl class="metrics">
+                <div>
+                  <dt>Last price</dt>
+                  <dd>{{ priceLabel(signal) }}</dd>
+                </div>
+                <div>
+                  <dt>{{ metricLabel(signal) }}</dt>
+                  <dd>{{ metricValue(signal) }}</dd>
+                </div>
+              </dl>
+
+              <p class="price-as-of">{{ priceAsOfLabel(signal) }}</p>
+
+              <ul class="reasoning">
+                @for (reason of signal.reasoning; track reason) {
+                  <li>{{ reason }}</li>
+                }
+              </ul>
+            </article>
+          }
+        </div>
+
+        @if (skipped().length > 0) {
+          <section class="skipped-card" data-testid="advisor-skipped">
+            <div class="section-heading">
+              <h3>Skipped symbols</h3>
+              <p>No BUY, SELL or HOLD was emitted where the data was incomplete.</p>
+            </div>
+            <div class="skipped-list">
+              @for (item of visibleSkipped(); track trackBySymbol($index, item)) {
+                <article class="skipped-row">
+                  <div>
+                    <p class="symbol">{{ item.symbol }}</p>
+                    <strong>{{ item.instrumentName ?? 'Current holding' }}</strong>
+                  </div>
+                  <span class="meta-pill">{{ originLabel(item.origin) }}</span>
+                  <p>{{ item.reason }}</p>
+                </article>
+              }
+            </div>
+          </section>
+        }
+      }
     </section>
   </main>
+
 </div>

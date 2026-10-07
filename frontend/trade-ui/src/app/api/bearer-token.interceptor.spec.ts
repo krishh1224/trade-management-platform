@@ -61,6 +61,16 @@ describe('bearer token interceptor', () => {
     req.flush([]);
   });
 
+  it('the advisor signals endpoint on the trade API carries the bearer token', () => {
+    const { http, httpMock } = setup('jwt-token');
+
+    http.get('http://trade/api/v1/accounts/101/advisor/signals').subscribe();
+
+    const req = httpMock.expectOne('http://trade/api/v1/accounts/101/advisor/signals');
+    expect(req.request.headers.get('Authorization')).toBe('Bearer jwt-token');
+    req.flush({ accountId: 101, generatedAt: '2026-10-07T12:30:00Z', signals: [], skipped: [] });
+  });
+
   it('the advisor chat endpoint carries the bearer token, other advisor paths do not', () => {
     TestBed.configureTestingModule({
       providers: [

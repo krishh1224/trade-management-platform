@@ -40,6 +40,12 @@ public class AdvisorRepository {
     ) {
     }
 
+    public record WatchlistRow(
+        String symbol, String name, String currency, BigDecimal lastPrice, BigDecimal changePct,
+        LocalDateTime priceUpdatedAt, Long priceAgeMinutes
+    ) {
+    }
+
     public record FxRow(BigDecimal rate, LocalDateTime asOf) {
     }
 
@@ -165,6 +171,21 @@ public class AdvisorRepository {
             .param("accountId", accountId)
             .param("limit", limit)
             .query(OrderRow.class)
+            .list();
+    }
+
+    public List<WatchlistRow> findWatchlist(long accountId) {
+        return jdbc.sql("""
+                SELECT i.ticker AS symbol, i.name, i.currency,
+                """ + PRICE_COLUMNS + """
+                FROM watchlists w
+                JOIN instruments i ON i.instrument_id = w.instrument_id
+                LEFT JOIN market_quote_snapshots s ON s.symbol = i.ticker
+                WHERE w.account_id = :accountId
+                ORDER BY w.added_at DESC
+                """)
+            .param("accountId", accountId)
+            .query(WatchlistRow.class)
             .list();
     }
 
