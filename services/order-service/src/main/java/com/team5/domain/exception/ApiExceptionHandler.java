@@ -68,6 +68,9 @@ public class ApiExceptionHandler {
         if ("WTL-409".equals(errorCode)) {
             return HttpStatus.CONFLICT;
         }
+        if ("MKT-503".equals(errorCode)) {
+            return HttpStatus.SERVICE_UNAVAILABLE;
+        }
         if ("VAL-422".equals(errorCode)) {
             return HttpStatus.UNPROCESSABLE_ENTITY;
         }

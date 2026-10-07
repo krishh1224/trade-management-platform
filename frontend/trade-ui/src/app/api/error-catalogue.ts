@@ -3,7 +3,8 @@ import { HttpErrorResponse } from '@angular/common/http';
 import type { ErrorResponse as AuthErrorResponse } from './generated/auth-api/models/error-response';
 import type { ErrorResponse as TradeErrorResponse } from './generated/trade-api/models/error-response';
 
-export type PlatformErrorCode = TradeErrorResponse['errorCode'] | AuthErrorResponse['errorCode'];
+// MKT-503 belongs to contracts/portfolio-api.yaml, which the generated Trade API client does not cover.
+export type PlatformErrorCode = TradeErrorResponse['errorCode'] | AuthErrorResponse['errorCode'] | 'MKT-503';
 
 export const ERROR_MESSAGES_BY_CODE: Readonly<Record<PlatformErrorCode, string>> = {
   'ACC-404': 'The trading account could not be found.',
@@ -15,7 +16,8 @@ export const ERROR_MESSAGES_BY_CODE: Readonly<Record<PlatformErrorCode, string>>
   'CSH-409': 'This cash movement was already submitted or the balance just changed. Check your balance and try again.',
   'VAL-422': 'One or more fields are invalid. Review the form values and try again.',
   'AUTH-401': 'Authentication failed. Sign in again and retry.',
-  'AUTH-409': 'That username is already in use. Choose a different username.'
+  'AUTH-409': 'That username is already in use. Choose a different username.',
+  'MKT-503': 'Live prices are unavailable right now. Your holdings are still shown at cost.'
 };
 
 export const NETWORK_UNREACHABLE_MESSAGE =
