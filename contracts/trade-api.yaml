@@ -91,6 +91,8 @@ tags:
     description: Depositing cash into and withdrawing cash from an account, and the cash ledger.
   - name: Watchlist
     description: Add, list and remove watchlist instruments.
+  - name: Advice
+    description: Deterministic BUY/SELL/HOLD signals for holdings and watchlist symbols.
 
 security:
   - bearerAuth: []
@@ -385,6 +387,59 @@ paths:
           $ref: '#/components/responses/AccountNotActive'
         '404':
           $ref: '#/components/responses/AccountNotFound'
+
+  /api/v1/accounts/{id}/advisor/signals:
+    get:
+      tags: [Advice]
+      operationId: getAdviceSignals
+      summary: Generate BUY/SELL/HOLD signals for holdings and watchlist symbols
+      description: |
+        Uses the signed-in account's holdings, watchlist entries and the platform's stored market
+        data to generate deterministic BUY/SELL/HOLD signals with human-readable reasoning.
+
+        The response never invents a signal when market data is missing. A symbol that cannot be
+        priced is returned in `skipped` with the reason it was left out.
+      parameters:
+        - $ref: '#/components/parameters/AccountIdPath'
+      responses:
+        '200':
+          description: Advice signals and skipped symbols for the account.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TradeAdviceResponse'
+              examples:
+                signals:
+                  value:
+                    accountId: 101
+                    generatedAt: '2026-10-07T12:30:00Z'
+                    signals:
+                      - symbol: INFY.NS
+                        instrumentName: null
+                        origin: HOLDING
+                        signal: BUY
+                        reasoning:
+                          - Unrealised P&L is +14.00% versus average cost.
+                          - The signal uses the latest stored holding price from the platform.
+                        lastPrice: 1710.00
+                        changePct: null
+                        unrealisedPnlPercent: 14.00
+                        currency: INR
+                        priceAsOf: '2026-10-07T12:25:00Z'
+                        stale: false
+                    skipped:
+                      - symbol: TCS.NS
+                        instrumentName: Tata Consultancy Services
+                        origin: WATCHLIST
+                        reason: The watchlist entry has no stored market move yet.
+        '401':
+          $ref: '#/components/responses/Unauthorised'
+        '403':
+          $ref: '#/components/responses/AccountNotActive'
+        '404':
+          $ref: '#/components/responses/AccountNotFound'
+        '422':
+          $ref: '#/components/responses/InvalidInput'
 
   /api/v1/accounts/{id}/deposits:
     post:
@@ -955,6 +1010,95 @@ components:
             Weighted average cost basis per unit. A buy recalculates it. A sell reduces quantity and
             leaves it unchanged, which is what makes realised profit and loss computable later.
           example: 25.50
+
+    AdviceOrigin:
+      type: string
+      enum: [HOLDING, WATCHLIST]
+
+    AdviceSignal:
+      type: string
+      enum: [BUY, SELL, HOLD]
+
+    AdviceSignalResponse:
+      type: object
+      additionalProperties: false
+      required: [symbol, origin, signal, reasoning, stale]
+      properties:
+        symbol:
+          type: string
+          example: INFY.NS
+        instrumentName:
+          type: [string, 'null']
+          example: Infosys Limited
+        origin:
+          $ref: '#/components/schemas/AdviceOrigin'
+        signal:
+          $ref: '#/components/schemas/AdviceSignal'
+        reasoning:
+          type: array
+          minItems: 1
+          items:
+            type: string
+        lastPrice:
+          type: [number, 'null']
+          format: double
+          example: 1710.00
+        changePct:
+          type: [number, 'null']
+          format: double
+          example: 2.75
+        unrealisedPnlPercent:
+          type: [number, 'null']
+          format: double
+          example: 14.00
+        currency:
+          type: [string, 'null']
+          example: INR
+        priceAsOf:
+          type: [string, 'null']
+          format: date-time
+          example: '2026-10-07T12:25:00Z'
+        stale:
+          type: boolean
+
+    SkippedSignalResponse:
+      type: object
+      additionalProperties: false
+      required: [symbol, origin, reason]
+      properties:
+        symbol:
+          type: string
+          example: TCS.NS
+        instrumentName:
+          type: [string, 'null']
+          example: Tata Consultancy Services
+        origin:
+          $ref: '#/components/schemas/AdviceOrigin'
+        reason:
+          type: string
+          example: The watchlist entry has no stored market move yet.
+
+    TradeAdviceResponse:
+      type: object
+      additionalProperties: false
+      required: [accountId, generatedAt, signals, skipped]
+      properties:
+        accountId:
+          type: integer
+          format: int64
+          example: 101
+        generatedAt:
+          type: string
+          format: date-time
+          example: '2026-10-07T12:30:00Z'
+        signals:
+          type: array
+          items:
+            $ref: '#/components/schemas/AdviceSignalResponse'
+        skipped:
+          type: array
+          items:
+            $ref: '#/components/schemas/SkippedSignalResponse'
 
     CashMovementType:
       type: string

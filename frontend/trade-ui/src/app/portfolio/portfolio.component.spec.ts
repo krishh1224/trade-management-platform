@@ -90,6 +90,16 @@ describe('PortfolioComponent', () => {
     expect(row.textContent).toContain('+1.89%');
   });
 
+  it('adds a deep link from each holding row into the advisor page', () => {
+    const { host } = render();
+
+    const link = host.querySelector('[data-testid="advisor-link-AAPL"]') as HTMLAnchorElement;
+    expect(link).not.toBeNull();
+    expect(link.getAttribute('href')).toContain('/advisor');
+    expect(link.getAttribute('href')).toContain('symbol=AAPL');
+    expect(link.getAttribute('href')).toContain('origin=HOLDING');
+  });
+
   it('marks a stale quote as delayed and keeps showing the number', () => {
     portfolioServiceMock.getPositions.mockReturnValue(of([position({ stale: true })]));
 

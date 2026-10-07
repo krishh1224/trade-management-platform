@@ -54,7 +54,6 @@ Run each command from the module's own directory.
 - `order-service` (`services/order-service`): `mvnw.cmd test jacoco:report`
 - `executor-service` (`services/executor-service`): `mvnw.cmd test jacoco:report`
 - `auth-service` (`services/auth-service`): `npm test -- --coverage --coverageReporters=text-summary --coverageReporters=json-summary --watchAll=false`
-- `advisor-api` (`advisor-api`): `mvn org.jacoco:jacoco-maven-plugin:0.8.12:prepare-agent test org.jacoco:jacoco-maven-plugin:0.8.12:report`
 - `trade-ui` (`frontend/trade-ui`): `npx ng test --watch=false --coverage --coverage-reporters=text-summary --coverage-reporters=json-summary`
 - `trade-ui-e2e` (`frontend/trade-ui`, opt-in only): `npm run test:e2e`
 - `analytics` (`databases/duckdb/analytics`): `pytest trade_etl/tests --cov=. --cov-report=term-missing --cov-report=xml`
