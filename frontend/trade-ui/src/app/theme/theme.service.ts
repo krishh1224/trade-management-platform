@@ -27,6 +27,10 @@ export class ThemeService {
     this.applyTheme(nextTheme);
   }
 
+  setTheme(theme: AppTheme): void {
+    this.applyTheme(theme);
+  }
+
   private applyTheme(theme: AppTheme): void {
     this.theme.set(theme);
     this.document.documentElement.setAttribute('data-theme', theme);

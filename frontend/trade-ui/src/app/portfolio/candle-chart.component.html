@@ -1,0 +1,64 @@
+<div class="chart-wrap">
+  <svg
+    class="chart"
+    data-testid="candle-chart"
+    role="img"
+    tabindex="0"
+    [attr.width]="width()"
+    [attr.height]="height"
+    [attr.viewBox]="'0 0 ' + width() + ' ' + height"
+    [attr.aria-label]="summary()"
+    (pointermove)="onMove($event)"
+    (pointerleave)="hoverIndex.set(null)"
+    (blur)="hoverIndex.set(null)"
+    (keydown)="onKey($event)"
+  >
+    @for (tick of priceTicks(); track tick.position) {
+      <line class="grid" x1="8" [attr.x2]="plotRight()" [attr.y1]="tick.position" [attr.y2]="tick.position" />
+      <text class="axis" [attr.x]="axisLabelX()" [attr.y]="tick.position + 4">{{ tick.label }}</text>
+    }
+
+    @for (view of views(); track view.date) {
+      <rect class="volume" [class.up]="view.direction === 'up'" [class.down]="view.direction === 'down'" [attr.x]="view.bodyX" [attr.y]="view.volumeY" [attr.width]="view.bodyWidth" [attr.height]="view.volumeHeight" />
+      <g class="candle" [class.up]="view.direction === 'up'" [class.down]="view.direction === 'down'" [class.flat]="view.direction === 'flat'" [class.synthetic]="view.synthetic">
+        <line class="wick" [attr.x1]="view.wickX" [attr.x2]="view.wickX" [attr.y1]="view.wickTop" [attr.y2]="view.wickBottom" />
+        <rect class="body" [attr.x]="view.bodyX" [attr.y]="view.bodyY" [attr.width]="view.bodyWidth" [attr.height]="view.bodyHeight" />
+      </g>
+    }
+
+    @if (lastClose(); as last) {
+      <line class="last-line" [class.up]="last.up" [class.down]="!last.up" x1="8" [attr.x2]="plotRight()" [attr.y1]="last.y" [attr.y2]="last.y" />
+      <rect class="last-tag" [class.up]="last.up" [class.down]="!last.up" [attr.x]="plotRight() + 2" [attr.y]="last.y - 9" width="60" height="18" rx="4" />
+      <text class="last-label" [attr.x]="plotRight() + 8" [attr.y]="last.y + 4">{{ last.label }}</text>
+    }
+
+    @for (tick of dateTicks(); track tick.position) {
+      <text class="axis date" [attr.x]="tick.position" [attr.y]="axisBottom" text-anchor="middle">{{ tick.label }}</text>
+    }
+
+    @if (hovered(); as hover) {
+      <line class="crosshair" [attr.x1]="hover.x" [attr.x2]="hover.x" y1="12" [attr.y2]="volumeBottom" />
+    }
+  </svg>
+
+  @if (hovered(); as hover) {
+    <div class="tooltip" data-testid="candle-tooltip" [style.left.px]="hover.tooltipLeft">
+      <strong>{{ formatDate(hover.bar.date, false) }} {{ hover.bar.date.slice(0, 4) }}</strong>
+      @if (hover.bar.synthetic) { <span class="est">Estimated</span> }
+      <dl>
+        <dt>Open</dt><dd>{{ formatPrice(hover.bar.open) }}</dd>
+        <dt>High</dt><dd>{{ formatPrice(hover.bar.high) }}</dd>
+        <dt>Low</dt><dd>{{ formatPrice(hover.bar.low) }}</dd>
+        <dt>Close</dt><dd>{{ formatPrice(hover.bar.close) }}</dd>
+        <dt>Volume</dt><dd>{{ formatVolume(hover.bar.volume) }}</dd>
+      </dl>
+      <span class="move" [class.up]="hover.change > 0" [class.down]="hover.change < 0">{{ hover.change > 0 ? '+' : '' }}{{ hover.change.toFixed(2) }}% on the day</span>
+    </div>
+  }
+
+  <ul class="legend" aria-hidden="true">
+    <li><span class="swatch up"></span>Closed higher</li>
+    <li><span class="swatch down"></span>Closed lower</li>
+    @if (hasSynthetic()) { <li><span class="swatch est"></span>Estimated by provider</li> }
+  </ul>
+</div>

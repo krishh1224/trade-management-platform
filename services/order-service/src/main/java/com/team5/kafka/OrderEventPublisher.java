@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.team5.dto.request.PlaceOrderRequest;
+import com.team5.dto.response.OrderResponse;
 import java.time.OffsetDateTime;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
@@ -16,7 +17,9 @@ import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.kafka.support.SendResult;
 import org.springframework.stereotype.Component;
 
-// publishes ORDER_PLACED events to the orders topic after a successful order insert
+// publishes ORDER_PLACED (after a successful order insert) and ORDER_CANCELLED (after a successful
+// cancel) to the orders topic. The trade-api writes only orders; the Trade Executor confirms a cancel
+// against the database and is the one that announces it on trade-events.
 @Component
 public class OrderEventPublisher {
 
@@ -84,6 +87,51 @@ public class OrderEventPublisher {
             // Never let Kafka publishing escape — the order is already committed; a publish
             // failure must not turn into a 500 for the caller.
             log.error("Failed to publish ORDER_PLACED for order {}: {}", orderId, e.getMessage());
+        }
+    }
+
+    // call this AFTER the cancel transaction has committed, never inside it
+    // same payload shape as ORDER_PLACED, so the executor reads both with one deserializer
+    public void publishOrderCancelled(long accountId, UUID orderId, OrderResponse order) {
+        OrderPlacedPayload payload = new OrderPlacedPayload(
+            orderId,
+            accountId,
+            order.symbol(),
+            order.side() == null ? null : order.side().name(),
+            order.quantity() == null ? 0 : order.quantity(),
+            order.price(),
+            null,
+            OffsetDateTime.now()
+        );
+
+        KafkaEnvelope<OrderPlacedPayload> envelope = new KafkaEnvelope<>(
+            UUID.randomUUID(),
+            "ORDER_CANCELLED",
+            OffsetDateTime.now(),
+            "trade-api",
+            1,
+            payload
+        );
+
+        try {
+            String json = objectMapper.writeValueAsString(envelope);
+            // keyed by accountId like ORDER_PLACED, so it lands on the same partition and the
+            // executor always sees an order's ORDER_PLACED before its ORDER_CANCELLED
+            String key = String.valueOf(accountId);
+
+            SendResult<String, String> result = kafkaTemplate.send(ORDERS_TOPIC, key, json)
+                .get(PUBLISH_TIMEOUT_SECONDS, TimeUnit.SECONDS);
+
+            log.info("Published ORDER_CANCELLED for order {} to partition {} offset {}",
+                orderId,
+                result.getRecordMetadata().partition(),
+                result.getRecordMetadata().offset());
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            log.error("Interrupted while publishing ORDER_CANCELLED for order {}: {}", orderId, e.getMessage());
+        } catch (Exception e) {
+            // the cancel is already committed; a publish failure must not turn into a 500
+            log.error("Failed to publish ORDER_CANCELLED for order {}: {}", orderId, e.getMessage());
         }
     }
 }

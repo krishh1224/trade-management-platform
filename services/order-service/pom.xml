@@ -115,6 +115,47 @@
     		<artifactId>spring-kafka</artifactId>
 		</dependency>
 
+		<!-- SMTP client for the notifications EMAIL channel (off unless NOTIFICATIONS_EMAIL_ENABLED=true) -->
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-mail</artifactId>
+		</dependency>
+
+		<!-- Web Push (browser notifications) for the notifications PUSH channel, off unless
+		     NOTIFICATIONS_PUSH_ENABLED=true. Only PushService (Apache httpasyncclient) is used, so the
+		     library's second HTTP client and CLI parser are excluded. -->
+		<dependency>
+			<groupId>nl.martijndwars</groupId>
+			<artifactId>web-push</artifactId>
+			<version>5.1.1</version>
+			<exclusions>
+				<exclusion>
+					<groupId>org.asynchttpclient</groupId>
+					<artifactId>async-http-client</artifactId>
+				</exclusion>
+				<exclusion>
+					<groupId>com.beust</groupId>
+					<artifactId>jcommander</artifactId>
+				</exclusion>
+				<exclusion>
+					<groupId>org.bitbucket.b_c</groupId>
+					<artifactId>jose4j</artifactId>
+				</exclusion>
+			</exclusions>
+		</dependency>
+		<!-- web-push signs its VAPID tokens with jose4j; 0.7.0 is what it declares, this is current -->
+		<dependency>
+			<groupId>org.bitbucket.b_c</groupId>
+			<artifactId>jose4j</artifactId>
+			<version>0.9.6</version>
+		</dependency>
+		<!-- web-push needs a BouncyCastle provider for its ECDH/AES-GCM payload encryption -->
+		<dependency>
+			<groupId>org.bouncycastle</groupId>
+			<artifactId>bcprov-jdk18on</artifactId>
+			<version>1.78.1</version>
+		</dependency>
+
 		<!-- Kafka testing utilities for unit and integration tests -->
 		<dependency>
 			<groupId>org.springframework.kafka</groupId>

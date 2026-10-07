@@ -72,6 +72,41 @@ export interface ClientProfile {
   dob: string;
 }
 
+export type PreferenceCurrency = 'INR' | 'USD';
+export type PreferenceTheme = 'LIGHT' | 'DARK';
+export type PreferenceAlertChannel = 'EMAIL' | 'PUSH' | 'BROWSER' | 'SMS' | 'NONE';
+
+export interface CustomerPreferences {
+  currency: PreferenceCurrency;
+  theme: PreferenceTheme;
+  alertChannel: PreferenceAlertChannel;
+}
+
+// contracts/notifications-api.yaml
+export type NotificationType = 'ORDER_FILLED' | 'ORDER_REJECTED' | 'ORDER_CANCELLED' | 'PRICE_ALERT';
+export type NotificationStatus = 'QUEUED' | 'HELD' | 'SENT' | 'FAILED' | 'SKIPPED';
+
+export interface CustomerNotification {
+  notificationId: number;
+  type: NotificationType;
+  /** orders.order_id can exceed Number.MAX_SAFE_INTEGER, so never display or compare it. */
+  orderId: number | null;
+  title: string;
+  message: string;
+  status: NotificationStatus;
+  /** The channel resolved from preferences at send time; null while QUEUED or HELD. */
+  channel: PreferenceAlertChannel | null;
+  createdAt: string;
+  sentAt: string | null;
+  readAt: string | null;
+}
+
+/** VAPID public key the browser subscribes with; publicKey is null when push is off on the server. */
+export interface PushConfig {
+  enabled: boolean;
+  publicKey: string | null;
+}
+
 /** Hand-written facade over the generated Trade REST API client. Unwraps the HTTP envelope. */
 @Injectable({ providedIn: 'root' })
 export class TradeService {
@@ -146,5 +181,46 @@ export class TradeService {
 
   getClientProfile(accountId: number): Observable<ClientProfile> {
     return this.http.get<ClientProfile>(`${this.config.rootUrl}/api/v1/accounts/${accountId}/profile`);
+  }
+
+  getPreferences(accountId: number): Observable<CustomerPreferences> {
+    return this.http.get<CustomerPreferences>(`${this.config.rootUrl}/api/v1/accounts/${accountId}/preferences`);
+  }
+
+  updatePreferences(accountId: number, body: CustomerPreferences): Observable<CustomerPreferences> {
+    return this.http.put<CustomerPreferences>(`${this.config.rootUrl}/api/v1/accounts/${accountId}/preferences`, body);
+  }
+
+  getNotifications(accountId: number, status?: NotificationStatus, limit = 50): Observable<CustomerNotification[]> {
+    let params = new HttpParams().set('limit', limit);
+    if (status) {
+      params = params.set('status', status);
+    }
+    return this.http.get<CustomerNotification[]>(
+      `${this.config.rootUrl}/api/v1/accounts/${accountId}/notifications`,
+      { params }
+    );
+  }
+
+  getPushConfig(accountId: number): Observable<PushConfig> {
+    return this.http.get<PushConfig>(`${this.config.rootUrl}/api/v1/accounts/${accountId}/push-subscription/config`);
+  }
+
+  /** @param subscription the browser's PushSubscription.toJSON(), sent unchanged */
+  savePushSubscription(accountId: number, subscription: PushSubscriptionJSON): Observable<void> {
+    return this.http.put<void>(`${this.config.rootUrl}/api/v1/accounts/${accountId}/push-subscription`, subscription);
+  }
+
+  deletePushSubscription(accountId: number, endpoint: string): Observable<void> {
+    return this.http.delete<void>(`${this.config.rootUrl}/api/v1/accounts/${accountId}/push-subscription`, {
+      params: new HttpParams().set('endpoint', endpoint)
+    });
+  }
+
+  markNotificationRead(accountId: number, notificationId: number): Observable<CustomerNotification> {
+    return this.http.put<CustomerNotification>(
+      `${this.config.rootUrl}/api/v1/accounts/${accountId}/notifications/${notificationId}/read`,
+      null
+    );
   }
 }

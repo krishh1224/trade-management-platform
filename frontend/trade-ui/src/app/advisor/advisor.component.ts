@@ -13,6 +13,7 @@ import { toUserFacingErrorMessage } from '../api/error-catalogue';
 import { AuthSessionService } from '../auth/auth-session.service';
 import { ThemeService } from '../theme/theme.service';
 import { renderAdvisorMarkdown } from './advisor-markdown';
+import { NotificationBellComponent } from '../notifications/notification-bell.component';
 
 interface ConversationEntry extends AdvisorChatMessage {
   html: string;
@@ -37,7 +38,7 @@ const STORAGE_KEY = 'trade-ui.advisor.conversation';
 
 @Component({
   selector: 'app-advisor',
-  imports: [FormsModule, RouterLink],
+  imports: [FormsModule, RouterLink, NotificationBellComponent],
   templateUrl: './advisor.component.html',
   styleUrl: './advisor.component.css'
 })

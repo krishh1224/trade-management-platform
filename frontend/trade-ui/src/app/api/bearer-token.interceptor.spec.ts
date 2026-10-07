@@ -31,6 +31,26 @@ describe('bearer token interceptor', () => {
     req.flush({});
   });
 
+  it('portfolio endpoints carry the bearer token', () => {
+    const { http, httpMock } = setup('jwt-token');
+
+    http.get('http://trade/api/v1/portfolio/101').subscribe();
+    http.get('http://trade/api/v1/portfolio/101/positions').subscribe();
+    http.get('http://trade/api/v1/portfolio/101/pnl?bySymbol=true').subscribe();
+    http.get('http://trade/api/v1/portfolio/101/candles/INFY.NS?range=3M').subscribe();
+
+    for (const path of [
+      '/api/v1/portfolio/101',
+      '/api/v1/portfolio/101/positions',
+      '/api/v1/portfolio/101/pnl?bySymbol=true',
+      '/api/v1/portfolio/101/candles/INFY.NS?range=3M'
+    ]) {
+      const req = httpMock.expectOne(`http://trade${path}`);
+      expect(req.request.headers.get('Authorization')).toBe('Bearer jwt-token');
+      req.flush({});
+    }
+  });
+
   it('watchlist group endpoints carry the bearer token', () => {
     const { http, httpMock } = setup('jwt-token');
 
@@ -110,6 +130,29 @@ describe('bearer token interceptor', () => {
       expect(req.request.headers.get('Authorization')).toBe('Bearer jwt-token');
       req.flush({});
     }
+  });
+
+  it('the preferences routes carry the bearer token', () => {
+    const { http, httpMock } = setup('jwt-token');
+
+    http.get('http://trade/api/v1/accounts/101/preferences').subscribe();
+    http.put('http://trade/api/v1/accounts/101/preferences', {
+      currency: 'USD',
+      theme: 'DARK',
+      alertChannel: 'EMAIL'
+    }).subscribe();
+
+    const getReq = httpMock.expectOne(
+      (req) => req.method === 'GET' && req.url === 'http://trade/api/v1/accounts/101/preferences'
+    );
+    expect(getReq.request.headers.get('Authorization')).toBe('Bearer jwt-token');
+    getReq.flush({});
+
+    const putReq = httpMock.expectOne(
+      (req) => req.method === 'PUT' && req.url === 'http://trade/api/v1/accounts/101/preferences'
+    );
+    expect(putReq.request.headers.get('Authorization')).toBe('Bearer jwt-token');
+    putReq.flush({});
   });
 
   it('the protected auth route carries the bearer token', () => {

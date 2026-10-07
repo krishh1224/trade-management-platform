@@ -4,11 +4,14 @@ import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.team5.domain.enums.OrderSide;
+import com.team5.domain.enums.OrderStatus;
 import com.team5.dto.request.PlaceOrderRequest;
+import com.team5.dto.response.OrderResponse;
 import java.math.BigDecimal;
 import java.time.OffsetDateTime;
 import java.util.concurrent.CompletableFuture;
@@ -65,6 +68,40 @@ class OrderEventPublisherTest {
         when(kafkaTemplate.send(eq("orders"), eq("101"), anyString())).thenReturn(failedFuture);
 
         assertDoesNotThrow(() -> publisher.publishOrderPlaced(request(), ORDER_ID, CREATED_ON));
+    }
+
+    @Test
+    void publishOrderCancelled_sendsToTheOrdersTopicInTheOrderPlacedShape() {
+        when(kafkaTemplate.send(eq("orders"), eq("101"), anyString()))
+            .thenReturn(CompletableFuture.completedFuture(sendResult()));
+
+        publisher.publishOrderCancelled(101L, ORDER_ID, new OrderResponse(
+            "ORD-" + ORDER_ID, OrderStatus.CANCELLED, "Order cancelled", "INFY.NS", OrderSide.SELL, 4,
+            new BigDecimal("1500.00")));
+
+        ArgumentCaptor<String> payloadCaptor = ArgumentCaptor.forClass(String.class);
+        // the trade-api writes only the orders topic; trade-events belongs to the executor
+        verify(kafkaTemplate).send(eq("orders"), eq("101"), payloadCaptor.capture());
+        verify(kafkaTemplate, never()).send(eq("trade-events"), anyString(), anyString());
+        String payload = payloadCaptor.getValue();
+        assertTrue(payload.contains("\"eventType\":\"ORDER_CANCELLED\""));
+        assertTrue(payload.contains("\"source\":\"trade-api\""));
+        assertTrue(payload.contains("\"orderId\":\"" + ORDER_ID + "\""));
+        assertTrue(payload.contains("\"accountId\":101"));
+        assertTrue(payload.contains("\"symbol\":\"INFY.NS\""));
+        assertTrue(payload.contains("\"side\":\"SELL\""));
+        assertTrue(payload.contains("\"quantity\":4"));
+    }
+
+    @Test
+    void publishOrderCancelled_swallowsPublishFailure() {
+        CompletableFuture<SendResult<String, String>> failedFuture = new CompletableFuture<>();
+        failedFuture.completeExceptionally(new TimeoutException("Topic orders not present in metadata"));
+        when(kafkaTemplate.send(eq("orders"), eq("101"), anyString())).thenReturn(failedFuture);
+
+        assertDoesNotThrow(() -> publisher.publishOrderCancelled(101L, ORDER_ID, new OrderResponse(
+            "ORD-" + ORDER_ID, OrderStatus.CANCELLED, "Order cancelled", "INFY.NS", OrderSide.SELL, 4,
+            new BigDecimal("1500.00"))));
     }
 
     private static PlaceOrderRequest request() {

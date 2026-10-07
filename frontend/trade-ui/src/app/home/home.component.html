@@ -24,7 +24,7 @@
 
       <nav class="nav" id="primary-nav" aria-label="Primary" (click)="navOpen.set(false)">
         <span class="nav-link active" aria-current="page">Dashboard</span>
-        <span class="nav-link disabled" aria-disabled="true">Portfolio</span>
+        <a class="nav-link" routerLink="/portfolio">Portfolio</a>
         <a class="nav-link" routerLink="/orders">Orders</a>
         <a class="nav-link" routerLink="/blotter">Blotter</a>
         <a class="nav-link" routerLink="/watchlist">Watchlist</a>
@@ -46,6 +46,7 @@
         <span>Wallet</span>
       </button>
 
+      <app-notification-bell />
       <div class="profile-menu-wrap">
         <button class="account-chip profile-trigger" type="button" (click)="toggleProfileMenu()" [attr.aria-expanded]="profileMenuOpen()" aria-haspopup="menu" data-testid="profile-trigger">
           <span class="avatar" aria-hidden="true">
@@ -101,12 +102,12 @@
         <strong class="stat-value mono">
           @if (balanceLoading()) {
             Loading...
-          } @else if (balanceAmount() === null) {
+          } @else if (displayBalanceAmount() === null) {
             —
           } @else if (balanceHidden()) {
             <span class="masked-dots">••••••••</span>
           } @else {
-            {{ balanceCurrency() }} {{ balanceAmount()! | number: '1.2-2' }}
+            {{ displayCurrency(displayBalanceCurrency()) }} {{ displayBalanceAmount()! | number: '1.2-2' }}
           }
         </strong>
         <div class="balance-actions">
@@ -144,7 +145,7 @@
             <h2>Positions</h2>
             <p>Holdings and average cost per instrument</p>
           </div>
-          <span class="soon-badge connected">Live</span>
+          <a class="panel-link" routerLink="/portfolio">View portfolio</a>
         </header>
 
         <div class="table-wrap">

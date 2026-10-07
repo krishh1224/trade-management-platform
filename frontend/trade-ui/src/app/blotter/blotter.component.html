@@ -24,7 +24,7 @@
 
       <nav class="nav" id="primary-nav" aria-label="Primary" (click)="navOpen.set(false)">
         <a class="nav-link" routerLink="/">Dashboard</a>
-        <span class="nav-link disabled" aria-disabled="true">Portfolio</span>
+        <a class="nav-link" routerLink="/portfolio">Portfolio</a>
         <a class="nav-link" routerLink="/orders">Orders</a>
         <span class="nav-link active" aria-current="page">Blotter</span>
         <a class="nav-link" routerLink="/watchlist">Watchlist</a>
@@ -33,6 +33,7 @@
     </div>
 
     <div class="topbar-right">
+      <app-notification-bell />
       <div class="profile-menu-wrap">
         <button class="account-chip profile-trigger" type="button" (click)="toggleProfileMenu()" [attr.aria-expanded]="profileMenuOpen()" aria-haspopup="menu">
           <span class="avatar" aria-hidden="true">
@@ -228,7 +229,7 @@
                       —
                     } @else {
                       <span class="price-pack">
-                        <span class="currency-prefix">{{ cashAfterCurrency() }}</span>
+                        <span class="currency-prefix">{{ cashAfterCurrencyDisplay() }}</span>
                         <span class="price-value">{{ cashAfterFor(entry.orderId)! | number: '1.2-2' }}</span>
                       </span>
                     }

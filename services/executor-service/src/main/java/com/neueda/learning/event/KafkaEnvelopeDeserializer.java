@@ -3,6 +3,7 @@ package com.neueda.learning.event;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.type.TypeFactory;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
+import java.nio.charset.StandardCharsets;
 import org.apache.kafka.common.serialization.Deserializer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -34,8 +35,15 @@ public class KafkaEnvelopeDeserializer implements Deserializer<KafkaEnvelope<Ord
         }
 
         try {
-            String json = new String(data, "UTF-8");
+            String json = new String(data, StandardCharsets.UTF_8);
             logger.debug("Deserializing message from topic {}: {}", topic, json);
+
+            // Some producers can send a JSON-encoded string that itself contains JSON.
+            // Example: "{\"eventId\":...}". Unwrap once and parse the inner envelope.
+            if (isWrappedJsonString(json)) {
+                json = objectMapper.readValue(json, String.class);
+                logger.debug("Unwrapped JSON string payload for topic {}", topic);
+            }
             
             // Use Jackson's TypeFactory to handle the generic type properly
             var envelopeType = TypeFactory.defaultInstance()
@@ -64,5 +72,13 @@ public class KafkaEnvelopeDeserializer implements Deserializer<KafkaEnvelope<Ord
     @Override
     public void close() {
         // No resources to close
+    }
+
+    private boolean isWrappedJsonString(String json) {
+        if (json == null) {
+            return false;
+        }
+        String trimmed = json.trim();
+        return trimmed.startsWith("\"") && trimmed.endsWith("\"");
     }
 }

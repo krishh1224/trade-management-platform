@@ -24,7 +24,7 @@
 
       <nav class="nav" id="primary-nav" aria-label="Primary" (click)="navOpen.set(false)">
         <a class="nav-link" routerLink="/">Dashboard</a>
-        <span class="nav-link disabled" aria-disabled="true">Portfolio</span>
+        <a class="nav-link" routerLink="/portfolio">Portfolio</a>
         <a class="nav-link" routerLink="/orders">Orders</a>
         <a class="nav-link" routerLink="/blotter">Blotter</a>
         <a class="nav-link" routerLink="/watchlist">Watchlist</a>
@@ -34,6 +34,7 @@
     </div>
 
     <div class="topbar-right">
+      <app-notification-bell />
       <div class="profile-menu-wrap">
         <button class="account-chip profile-trigger" type="button" (click)="toggleProfileMenu()" [attr.aria-expanded]="profileMenuOpen()" aria-haspopup="menu">
           <span class="avatar" aria-hidden="true">
@@ -138,6 +139,99 @@
           {{ passwordUpdating() ? 'Updating...' : 'Update password' }}
         </button>
       </form>
+    </section>
+
+    <section class="preferences-card" aria-label="Customer preferences">
+      <h2>Preferences</h2>
+
+      @if (preferencesLoading()) {
+        <p>Loading preferences...</p>
+      } @else {
+        <form [formGroup]="preferencesForm" (ngSubmit)="savePreferences()" novalidate>
+          <div class="field-group">
+            <label for="preference-currency">Currency</label>
+            <select id="preference-currency" formControlName="currency">
+              @for (currency of preferenceOptions.currencies; track currency) {
+                <option [value]="currency">{{ currency === 'INR' ? '₹' : currency === 'USD' ? '$' : currency }}</option>
+              }
+            </select>
+          </div>
+
+          <div class="field-group">
+            <label for="preference-theme">Theme</label>
+            <select id="preference-theme" formControlName="theme">
+              @for (item of preferenceOptions.themes; track item) {
+                <option [value]="item">{{ item === 'LIGHT' ? 'Light' : 'Dark' }}</option>
+              }
+            </select>
+          </div>
+
+          <div class="field-group">
+            <label for="preference-alert">Alert channel</label>
+            <select id="preference-alert" formControlName="alertChannel">
+              @for (item of preferenceOptions.alertChannels; track item) {
+                <option [value]="item">
+                  {{
+                    item === 'EMAIL'
+                      ? 'Email'
+                      : item === 'PUSH'
+                        ? 'Push notifications'
+                        : item === 'BROWSER'
+                          ? 'Browser notifications'
+                          : item === 'SMS'
+                            ? 'SMS'
+                            : 'None'
+                  }}
+                </option>
+              }
+            </select>
+          </div>
+
+          @if (preferencesForm.controls.alertChannel.value === 'PUSH') {
+            <div class="push-box" data-testid="push-box">
+              @switch (pushState()) {
+                @case ('on') {
+                  <p class="push-status on">Push is on for this browser. Order updates appear as pop-ups, even when Artha is closed.</p>
+                  <button type="button" class="push-button" (click)="disablePush()" [disabled]="pushBusy()" data-testid="push-disable">
+                    Turn off on this browser
+                  </button>
+                }
+                @case ('off') {
+                  <p class="push-status">Push is not on for this browser yet. Your browser will ask for permission.</p>
+                  <button type="button" class="push-button" (click)="enablePush()" [disabled]="pushBusy()" data-testid="push-enable">
+                    {{ pushBusy() ? 'Turning on...' : 'Enable push on this browser' }}
+                  </button>
+                }
+                @case ('blocked') {
+                  <p class="push-status warn">Notifications are blocked for this site. Allow them in your browser's site settings, then reload.</p>
+                }
+                @case ('unavailable') {
+                  <p class="push-status warn">Push notifications are not switched on for Artha right now.</p>
+                }
+                @default {
+                  <p class="push-status warn">This browser cannot show push notifications here. Use Chrome or Edge on http://localhost or https.</p>
+                }
+              }
+              @if (pushError()) {
+                <p class="error" role="alert">{{ pushError() }}</p>
+              }
+              <p class="push-hint">Remember to save your preferences so Push is your alert channel.</p>
+            </div>
+          }
+
+          @if (preferencesError()) {
+            <p class="error" role="alert">{{ preferencesError() }}</p>
+          }
+
+          @if (preferencesSuccess()) {
+            <p class="success" role="status">{{ preferencesSuccess() }}</p>
+          }
+
+          <button type="submit" [disabled]="preferencesSaving()">
+            {{ preferencesSaving() ? 'Saving...' : 'Save preferences' }}
+          </button>
+        </form>
+      }
     </section>
   </main>
 

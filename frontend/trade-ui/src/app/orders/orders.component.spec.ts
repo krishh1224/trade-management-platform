@@ -7,6 +7,7 @@ import { vi } from 'vitest';
 import { AuthService } from '../api/auth.service';
 import { TradeService } from '../api/trade.service';
 import { OrdersComponent } from './orders.component';
+import { provideNotificationCountStub } from '../notifications/notification-count.testing';
 
 const authServiceMock = {
   login: vi.fn()
@@ -40,6 +41,7 @@ describe('OrdersComponent', () => {
     await TestBed.configureTestingModule({
       imports: [OrdersComponent],
       providers: [
+        provideNotificationCountStub(),
         provideRouter([]),
         { provide: AuthService, useValue: authServiceMock },
         { provide: TradeService, useValue: tradeServiceMock }

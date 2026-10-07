@@ -18,8 +18,9 @@ import org.springframework.kafka.support.SendResult;
 import org.springframework.stereotype.Component;
 
 /**
- * Publishes ORDER_FILLED and ORDER_REJECTED events to the trade-events topic
- * after a successful settlement transaction.
+ * Publishes ORDER_FILLED, ORDER_REJECTED and ORDER_CANCELLED events to the trade-events topic.
+ * The executor is the only writer of trade-events: fills and rejections after a successful
+ * settlement transaction, and cancellations once the trade-api's cancel is confirmed in the database.
  *
  * This component should only be called AFTER the DB transaction has committed,
  * never inside the transaction.
@@ -102,11 +103,39 @@ public class TradeEventPublisher {
     }
 
     /**
+     * Publish an ORDER_CANCELLED event, once the database confirms the order is CANCELLED.
+     *
+     * The eventId is derived from the order id, not random: an order can be cancelled only once,
+     * so a redelivered cancel republishes the same eventId and consumers that key idempotency on
+     * eventId (notifications) treat it as the same event.
+     */
+    public void publishOrderCancelled(Long orderId, Long accountId, String symbol, String side,
+                                      Integer quantity, BigDecimal price, OffsetDateTime cancelledOn) {
+        OrderCancelledPayload payload = new OrderCancelledPayload(
+            orderId, accountId, symbol, side, quantity, price, cancelledOn);
+
+        publishEvent("ORDER_CANCELLED", accountId, payload, cancelledEventId(orderId));
+    }
+
+    /**
+     * The one eventId an ORDER_CANCELLED for this order ever gets. MUST stay identical to the
+     * trade-api's OrderIdentifiers.cancelledEventId: the trade-api records the cancel notification
+     * immediately with this id, so this announcement must carry the same one to be a no-op there.
+     */
+    public static UUID cancelledEventId(Long orderId) {
+        return UUID.nameUUIDFromBytes(("ORDER_CANCELLED:" + orderId).getBytes(java.nio.charset.StandardCharsets.UTF_8));
+    }
+
+    /**
      * Generic event publisher for trade events.
      */
     private void publishEvent(String eventType, Long accountId, Object payload) {
+        publishEvent(eventType, accountId, payload, UUID.randomUUID());
+    }
+
+    private void publishEvent(String eventType, Long accountId, Object payload, UUID eventId) {
         KafkaEnvelope<?> envelope = new KafkaEnvelope<>(
-            UUID.randomUUID(),
+            eventId,
             eventType,
             OffsetDateTime.now(),
             "executor",
@@ -241,6 +270,31 @@ public class TradeEventPublisher {
 
         public String getRejectionReason() {
             return rejectionReason;
+        }
+    }
+
+    /**
+     * Payload for ORDER_CANCELLED event.
+     */
+    public static class OrderCancelledPayload {
+        public final Long orderId;
+        public final Long accountId;
+        public final String symbol;
+        public final String side;
+        public final Integer quantity;
+        public final BigDecimal price;
+        public final String status = "CANCELLED";
+        public final OffsetDateTime cancelledOn;
+
+        public OrderCancelledPayload(Long orderId, Long accountId, String symbol, String side,
+                                     Integer quantity, BigDecimal price, OffsetDateTime cancelledOn) {
+            this.orderId = orderId;
+            this.accountId = accountId;
+            this.symbol = symbol;
+            this.side = side;
+            this.quantity = quantity;
+            this.price = price;
+            this.cancelledOn = cancelledOn;
         }
     }
 }
