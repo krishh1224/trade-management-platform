@@ -28,6 +28,7 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.boot.test.context.SpringBootTest;
 import com.team5.kafka.OrderEventPublisher;
+import com.team5.notifications.api.AlertDelivery;
 import com.team5.notifications.service.NotificationService;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.boot.test.web.server.LocalServerPort;
@@ -59,6 +60,11 @@ class SecurityHttpIntegrationTest {
     // the cancel route records a notification; a test must never write to the real database
     @MockBean
     private NotificationService notificationService;
+
+    // the same bean also implements AlertDelivery for watchlist price alerts; mocking the service
+    // above removes it, so the alert hand-off is mocked too
+    @MockBean
+    private AlertDelivery alertDelivery;
 
     private final HttpClient client = HttpClient.newHttpClient();
 
