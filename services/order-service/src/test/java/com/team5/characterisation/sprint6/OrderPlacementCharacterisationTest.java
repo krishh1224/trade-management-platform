@@ -7,6 +7,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.team5.kafka.OrderEventPublisher;
 import java.math.BigDecimal;
 import java.time.OffsetDateTime;
 import org.junit.jupiter.api.BeforeEach;
@@ -14,6 +15,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.web.servlet.MockMvc;
@@ -29,6 +31,10 @@ class OrderPlacementCharacterisationTest {
 
     @Autowired
     private JdbcTemplate jdbcTemplate;
+
+    // placing an order publishes ORDER_PLACED; a test must never reach the real broker (the .env one)
+    @MockBean
+    private OrderEventPublisher orderEventPublisher;
 
     @BeforeEach
     void setUpSchemaAndData() {

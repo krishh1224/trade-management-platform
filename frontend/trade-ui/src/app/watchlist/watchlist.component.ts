@@ -13,6 +13,7 @@ import {
 } from '../api/trade.service';
 import { AuthSessionService } from '../auth/auth-session.service';
 import { ThemeService } from '../theme/theme.service';
+import { NotificationBellComponent } from '../notifications/notification-bell.component';
 
 interface WatchlistRowView {
   item: WatchlistItem;
@@ -22,7 +23,7 @@ interface WatchlistRowView {
 
 @Component({
   selector: 'app-watchlist',
-  imports: [CommonModule, RouterLink, ReactiveFormsModule],
+  imports: [CommonModule, RouterLink, ReactiveFormsModule, NotificationBellComponent],
   templateUrl: './watchlist.component.html',
   styleUrl: './watchlist.component.css'
 })

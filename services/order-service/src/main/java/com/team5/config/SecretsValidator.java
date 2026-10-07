@@ -27,11 +27,34 @@ public class SecretsValidator implements ApplicationRunner {
   @Value("${spring.kafka.bootstrap-servers:}")
   private String kafkaBootstrapServers;
 
+  @Value("${notifications.email.enabled:false}")
+  private boolean emailEnabled;
+
+  @Value("${spring.mail.host:}")
+  private String mailHost;
+
+  @Value("${spring.mail.username:}")
+  private String mailUsername;
+
+  @Value("${spring.mail.password:}")
+  private String mailPassword;
+
+  @Value("${notifications.push.enabled:false}")
+  private boolean pushEnabled;
+
+  @Value("${notifications.push.vapid-public-key:}")
+  private String pushPublicKey;
+
+  @Value("${notifications.push.vapid-private-key:}")
+  private String pushPrivateKey;
+
   @Override
   public void run(ApplicationArguments args) throws Exception {
     validateJwtSecret();
     validateDatabaseConfig();
     validateKafkaConfig();
+    validateEmailConfig();
+    validatePushConfig();
   }
 
   /**
@@ -104,5 +127,43 @@ public class SecretsValidator implements ApplicationRunner {
     }
 
     System.out.println("✓ Kafka configuration validation passed (" + kafkaBootstrapServers + ")");
+  }
+
+  /**
+   * Validates the SMTP settings, only when the real EMAIL channel is switched on.
+   *
+   * @throws IllegalStateException if email is enabled without credentials
+   */
+  private void validateEmailConfig() {
+    if (!emailEnabled) {
+      return;
+    }
+    if (mailHost == null || mailHost.isBlank()
+        || mailUsername == null || mailUsername.isBlank()
+        || mailPassword == null || mailPassword.isBlank()) {
+      throw new IllegalStateException(
+          "CRITICAL: NOTIFICATIONS_EMAIL_ENABLED=true but MAIL_HOST, MAIL_USERNAME or MAIL_PASSWORD is not set. "
+              + "Set them in .env, or set NOTIFICATIONS_EMAIL_ENABLED=false to use the logging stub.");
+    }
+
+    System.out.println("✓ Email configuration validation passed (" + mailHost + ")");
+  }
+
+  /**
+   * Validates the VAPID keys, only when the real PUSH channel is switched on.
+   *
+   * @throws IllegalStateException if push is enabled without keys
+   */
+  private void validatePushConfig() {
+    if (!pushEnabled) {
+      return;
+    }
+    if (pushPublicKey == null || pushPublicKey.isBlank() || pushPrivateKey == null || pushPrivateKey.isBlank()) {
+      throw new IllegalStateException(
+          "CRITICAL: NOTIFICATIONS_PUSH_ENABLED=true but PUSH_VAPID_PUBLIC_KEY or PUSH_VAPID_PRIVATE_KEY is not set. "
+              + "Set them in .env, or set NOTIFICATIONS_PUSH_ENABLED=false to use the logging stub.");
+    }
+
+    System.out.println("✓ Push configuration validation passed (VAPID keys present)");
   }
 }

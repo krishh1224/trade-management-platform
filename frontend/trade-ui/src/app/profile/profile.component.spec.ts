@@ -9,6 +9,7 @@ import { TradeService } from '../api/trade.service';
 import { AuthSessionService } from '../auth/auth-session.service';
 import { ThemeService } from '../theme/theme.service';
 import { ProfileComponent } from './profile.component';
+import { provideNotificationCountStub } from '../notifications/notification-count.testing';
 
 describe('ProfileComponent', () => {
   const claims = signal({
@@ -57,6 +58,7 @@ describe('ProfileComponent', () => {
     await TestBed.configureTestingModule({
       imports: [ProfileComponent],
       providers: [
+        provideNotificationCountStub(),
         provideRouter([]),
         { provide: AuthSessionService, useValue: authSessionMock },
         { provide: TradeService, useValue: tradeServiceMock },

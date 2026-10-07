@@ -7,6 +7,7 @@ import { vi } from 'vitest';
 import { AuthService } from '../api/auth.service';
 import { OrderHistoryRow, TradeService } from '../api/trade.service';
 import { BLOTTER_MAX_POLL_ATTEMPTS, BLOTTER_POLL_INTERVAL_MS, BlotterComponent } from './blotter.component';
+import { provideNotificationCountStub } from '../notifications/notification-count.testing';
 
 const authServiceMock = {
   login: vi.fn()
@@ -37,6 +38,7 @@ describe('BlotterComponent', () => {
     await TestBed.configureTestingModule({
       imports: [BlotterComponent],
       providers: [
+        provideNotificationCountStub(),
         provideRouter([]),
         { provide: AuthService, useValue: authServiceMock },
         { provide: TradeService, useValue: tradeServiceMock }

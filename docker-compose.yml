@@ -69,8 +69,10 @@ services:
       - ./databases/postgresql/migrations/V8_watchlist_groups.sql:/docker-entrypoint-initdb.d/08_migration_v8.sql:ro
       - ./databases/postgresql/migrations/V9_market_quote_snapshots.sql:/docker-entrypoint-initdb.d/09_migration_v9.sql:ro
       - ./databases/postgresql/migrations/V10_multi_exchange_and_fx.sql:/docker-entrypoint-initdb.d/10_migration_v10.sql:ro
-      
-      
+      - ./databases/postgresql/migrations/V11_add_preferences.sql:/docker-entrypoint-initdb.d/11_migration_v11.sql:ro
+      - ./databases/postgresql/migrations/V12_alert_channel_enum.sql:/docker-entrypoint-initdb.d/12_migration_v12.sql:ro
+      - ./databases/postgresql/migrations/V13_notifications.sql:/docker-entrypoint-initdb.d/13_migration_v13.sql:ro
+      - ./databases/postgresql/migrations/V14_push_subscriptions.sql:/docker-entrypoint-initdb.d/14_migration_v14.sql:ro
       - ./databases/postgresql/seed-data.sql:/docker-entrypoint-initdb.d/99_seed.sql:ro
     ports:
       - "5432:5432"

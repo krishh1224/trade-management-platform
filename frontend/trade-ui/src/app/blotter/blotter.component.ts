@@ -10,6 +10,7 @@ import { AuthSessionService } from '../auth/auth-session.service';
 import { currencyForSymbol, currencySymbolForDisplay } from '../instruments/instrument-currency';
 import { ThemeService } from '../theme/theme.service';
 import { FooterComponent } from '../shared/footer.component';
+import { NotificationBellComponent } from '../notifications/notification-bell.component';
 
 export const BLOTTER_POLL_INTERVAL_MS = 3_000;
 export const BLOTTER_MAX_POLL_ATTEMPTS = 10;
@@ -23,7 +24,7 @@ type CreatedAtFilter = 'ALL' | 'TODAY' | 'LAST_7_DAYS' | 'LAST_30_DAYS';
 
 @Component({
   selector: 'app-blotter',
-  imports: [DatePipe, DecimalPipe, RouterLink, FooterComponent],
+  imports: [DatePipe, DecimalPipe, RouterLink, FooterComponent, NotificationBellComponent],
   templateUrl: './blotter.component.html',
   styleUrl: './blotter.component.css'
 })

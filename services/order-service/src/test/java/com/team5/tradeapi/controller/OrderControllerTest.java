@@ -1,6 +1,7 @@
 package com.team5.tradeapi.controller;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.verify;
@@ -20,7 +21,9 @@ import com.team5.domain.enums.OrderStatus;
 import com.team5.dto.response.OrderResponse;
 import com.team5.domain.exception.AccountAccessDeniedException;
 import com.team5.domain.exception.OrderNotFoundException;
+import com.team5.domain.OrderIdentifiers;
 import com.team5.kafka.OrderEventPublisher;
+import com.team5.notifications.service.NotificationService;
 import com.team5.service.OrderService;
 import java.math.BigDecimal;
 import java.util.UUID;
@@ -45,6 +48,9 @@ class OrderControllerTest {
 
     @MockBean
     private OrderEventPublisher orderEventPublisher;
+
+    @MockBean
+    private NotificationService notificationService;
 
     @Test
     void placeOrder_shouldReturnOrderResponse() throws Exception {
@@ -194,6 +200,42 @@ class OrderControllerTest {
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.orderId").value("ORD-6f2b1c2a-6a1e-4a4f-9c0d-2f7a1b3c4d5e"))
             .andExpect(jsonPath("$.status").value("CANCELLED"));
+
+        // published only after the service (and its transaction) has returned
+        var callOrder = inOrder(orderService, orderEventPublisher);
+        callOrder.verify(orderService).cancelOrder(eq(101L), eq(id));
+        callOrder.verify(orderEventPublisher).publishOrderCancelled(eq(101L), eq(id), any());
+
+        // and the customer is told at once, with the order's own details
+        verify(notificationService).recordCancelledOrder(
+            101L, OrderIdentifiers.persistentId(id), "INFY.NS", "BUY", 10, BigDecimal.valueOf(1500.00));
+    }
+
+    @Test
+    void cancelOrder_notificationFailure_stillReturnsTheCancelledOrder() throws Exception {
+        UUID id = UUID.fromString("6f2b1c2a-6a1e-4a4f-9c0d-2f7a1b3c4d5e");
+        when(orderService.cancelOrder(eq(101L), eq(id))).thenReturn(new OrderResponse(
+            "ORD-6f2b1c2a-6a1e-4a4f-9c0d-2f7a1b3c4d5e", OrderStatus.CANCELLED, "Order cancelled",
+            "INFY.NS", OrderSide.BUY, 10, BigDecimal.valueOf(1500.00)));
+        when(notificationService.recordCancelledOrder(anyLong(), anyLong(), any(), any(), any(), any()))
+            .thenThrow(new IllegalStateException("database unavailable"));
+
+        mockMvc.perform(delete("/api/v1/orders/{id}", id)
+            .with(authenticatedAs(101L)))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.status").value("CANCELLED"));
+    }
+
+    @Test
+    void cancelOrder_rejected_shouldNotPublishOrderCancelled() throws Exception {
+        UUID id = UUID.randomUUID();
+        when(orderService.cancelOrder(eq(101L), eq(id))).thenThrow(new AccountAccessDeniedException());
+
+        mockMvc.perform(delete("/api/v1/orders/{id}", id)
+                .with(authenticatedAs(101L)))
+            .andExpect(status().isForbidden());
+
+        verifyNoInteractions(orderEventPublisher, notificationService);
     }
 
     @Test
