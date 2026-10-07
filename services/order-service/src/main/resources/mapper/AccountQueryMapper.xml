@@ -137,7 +137,7 @@
 
   <insert id="upsertPreferences">
     INSERT INTO customer_preferences (acc_id, currency, theme, alert_channel)
-    VALUES (#{accountId}, #{currency}, #{theme}, #{alertChannel})
+    VALUES (#{accountId}, #{currency}, #{theme}, CAST(#{alertChannel} AS alert_channel_type))
     ON CONFLICT (acc_id)
     DO UPDATE SET
       currency = EXCLUDED.currency,

@@ -27,6 +27,8 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.boot.test.context.SpringBootTest;
+import com.team5.kafka.OrderEventPublisher;
+import com.team5.notifications.service.NotificationService;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.boot.test.web.server.LocalServerPort;
 
@@ -49,6 +51,14 @@ class SecurityHttpIntegrationTest {
 
     @MockBean
     private AccountService accountService;
+
+    // the cancel route publishes ORDER_CANCELLED after commit; a test must never reach the real broker
+    @MockBean
+    private OrderEventPublisher orderEventPublisher;
+
+    // the cancel route records a notification; a test must never write to the real database
+    @MockBean
+    private NotificationService notificationService;
 
     private final HttpClient client = HttpClient.newHttpClient();
 

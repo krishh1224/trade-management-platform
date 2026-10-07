@@ -1,6 +1,7 @@
 package com.team5.service;
 
 import com.team5.auth.AccountAccessAuthorizer;
+import com.team5.domain.OrderIdentifiers;
 import com.team5.domain.exception.AccountNotActiveException;
 import com.team5.domain.exception.AccountNotFoundException;
 import com.team5.domain.exception.InstrumentNotFoundException;
@@ -140,8 +141,7 @@ public class OrderServiceImpl implements OrderService {
     }
 
     private Long toPositiveLong(UUID uuid) {
-        long mixed = uuid.getMostSignificantBits() ^ uuid.getLeastSignificantBits();
-        return mixed == Long.MIN_VALUE ? 0L : Math.abs(mixed);
+        return OrderIdentifiers.persistentId(uuid);
     }
 
     private String asString(Map<String, Object> row, String key) {
