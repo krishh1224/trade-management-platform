@@ -10,7 +10,7 @@ Primary Sprint 10 modules reviewed together in one assessment:
 
 ## Template provenance and scope note
 
-This repository does not contain a standalone Sprint 8 OWASP review template file. I searched for Sprint 8 OWASP/security-review template artifacts and found none. The nearest in-repo security-review conventions reused here are:
+The in-repo security-review conventions reused here are:
 - OWASP-oriented security rules in contracts/auth-api.yaml
 - module security conventions in module READMEs and decision-log ADRs
 
