@@ -54,6 +54,10 @@ See [docs/LOCAL_SETUP.md](docs/LOCAL_SETUP.md)
 
 ## 🏗️ Architecture Overview
 
+For the full project-level architecture and runtime flow diagram, see:
+
+- [ARCHITECTURE_FLOW_DIAGRAM.md](ARCHITECTURE_FLOW_DIAGRAM.md)
+
 ```
 ┌──────────────────────────────────────────────────────────┐
 │                  Client Applications                      │
@@ -211,6 +215,7 @@ docker-compose --profile platform up -d --build
 
 ## 📚 Documentation
 
+- **[ARCHITECTURE_FLOW_DIAGRAM.md](ARCHITECTURE_FLOW_DIAGRAM.md)** - Full system architecture and end-to-end runtime flow
 - **[PROJECT_OVERVIEW.md](PROJECT_OVERVIEW.md)** - High-level architecture & design
 - **[docs/LOCAL_SETUP.md](docs/LOCAL_SETUP.md)** - Local development setup guide
 - **[docs/CONFIG_REFERENCE.md](docs/CONFIG_REFERENCE.md)** - Complete environment variable reference

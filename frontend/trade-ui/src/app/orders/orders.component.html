@@ -72,6 +72,12 @@
       <h1>Place order</h1>
     </section>
 
+    <section class="order-highlights" aria-label="Order page highlights">
+      <span class="highlight-pill">Live order routing</span>
+      <span class="highlight-pill">Pre-trade validation</span>
+      <span class="highlight-pill">Execution status updates</span>
+    </section>
+
     <section class="ticket" aria-label="Order ticket">
       <header class="ticket-header">
         <h2>Order ticket</h2>
@@ -94,10 +100,32 @@
 
           <div class="field-group">
             <label for="order-side">Side</label>
-            <select id="order-side" formControlName="side" data-testid="order-side">
-              <option value="BUY">BUY</option>
-              <option value="SELL">SELL</option>
-            </select>
+            <div id="order-side" class="side-toggle" role="radiogroup" aria-label="Order side" data-testid="order-side">
+              <button
+                type="button"
+                class="side-option"
+                role="radio"
+                [attr.aria-checked]="orderForm.controls.side.value === 'BUY'"
+                [class.active]="orderForm.controls.side.value === 'BUY'"
+                data-testid="order-side-buy"
+                (click)="setSide('BUY')"
+              >
+                <span class="side-dot" aria-hidden="true"></span>
+                BUY
+              </button>
+              <button
+                type="button"
+                class="side-option"
+                role="radio"
+                [attr.aria-checked]="orderForm.controls.side.value === 'SELL'"
+                [class.active]="orderForm.controls.side.value === 'SELL'"
+                data-testid="order-side-sell"
+                (click)="setSide('SELL')"
+              >
+                <span class="side-dot" aria-hidden="true"></span>
+                SELL
+              </button>
+            </div>
           </div>
         </div>
 

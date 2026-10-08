@@ -96,7 +96,7 @@ test.describe('Place order journey', () => {
     // Fill in valid order form
     const symbolValue = symbol ?? 'INFY.NS';
     await page.getByTestId('order-symbol').fill(symbolValue);
-    await page.getByTestId('order-side').selectOption('BUY');
+    await page.getByTestId('order-side-buy').click();
     await page.getByTestId('order-quantity').fill('1');
     await page.getByTestId('order-price').fill('150.00');
 
@@ -129,7 +129,7 @@ test.describe('Place order journey', () => {
     // This tests that API errors are displayed as readable messages.
     // Do not use a real ticker here: WMT, AAPL etc. are seeded and tradable.
     await page.getByTestId('order-symbol').fill('ZZZZ');
-    await page.getByTestId('order-side').selectOption('BUY');
+    await page.getByTestId('order-side-buy').click();
     await page.getByTestId('order-quantity').fill('1');
     await page.getByTestId('order-price').fill('150.00');
 
@@ -151,7 +151,7 @@ test.describe('Place order journey', () => {
 
     // Place first order
     await page.getByTestId('order-symbol').fill(symbol ?? 'INFY.NS');
-    await page.getByTestId('order-side').selectOption('BUY');
+    await page.getByTestId('order-side-buy').click();
     await page.getByTestId('order-quantity').fill('1');
     await page.getByTestId('order-price').fill('150.00');
 

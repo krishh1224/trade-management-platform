@@ -129,6 +129,11 @@ export class OrdersComponent {
     setTimeout(() => this.showInstrumentDropdown.set(false), 120);
   }
 
+  setSide(side: 'BUY' | 'SELL'): void {
+    this.orderForm.controls.side.setValue(side);
+    this.orderForm.controls.side.markAsTouched();
+  }
+
   selectInstrument(option: InstrumentOption): void {
     this.orderForm.controls.symbol.setValue(option.symbol);
     this.instrumentQuery.set(option.symbol);

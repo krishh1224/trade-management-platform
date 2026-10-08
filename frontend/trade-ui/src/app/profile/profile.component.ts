@@ -60,7 +60,7 @@ export class ProfileComponent {
   readonly preferenceOptions = {
     currencies: ['INR', 'USD'] as const,
     themes: ['LIGHT', 'DARK'] as const,
-    alertChannels: ['EMAIL', 'PUSH', 'BROWSER', 'SMS', 'NONE'] as const
+    alertChannels: ['EMAIL', 'PUSH', 'BROWSER', 'NONE'] as const
   };
 
   readonly preferencesForm = this.formBuilder.nonNullable.group({
@@ -222,7 +222,10 @@ export class ProfileComponent {
   }
 
   private applyPreferencesToForm(preferences: CustomerPreferences): void {
-    this.preferencesForm.patchValue(preferences);
+    this.preferencesForm.patchValue({
+      ...preferences,
+      alertChannel: preferences.alertChannel === 'SMS' ? 'NONE' : preferences.alertChannel
+    });
   }
 
   private toAppTheme(theme: PreferenceTheme): AppTheme {
