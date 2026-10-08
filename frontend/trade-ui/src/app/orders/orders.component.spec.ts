@@ -146,6 +146,26 @@ describe('OrdersComponent', () => {
     expect(component.settlementNote()).toBe('');
     expect(fixture.nativeElement.querySelector('[data-testid="order-settlement-note"]')).toBeNull();
   });
+
+  it('filters instrument suggestions by both ticker and instrument name', () => {
+    tradeServiceMock.getInstruments.mockReturnValue(
+      of([
+        { symbol: 'AAPL', name: 'Apple Inc.', currency: 'USD' },
+        { symbol: 'MSFT', name: 'Microsoft Corporation', currency: 'USD' }
+      ])
+    );
+
+    const fixture = TestBed.createComponent(OrdersComponent);
+    const component = fixture.componentInstance;
+
+    component.orderForm.controls.symbol.setValue('msf');
+    component.onInstrumentInput();
+    expect(component.filteredInstrumentOptions().map((option) => option.symbol)).toEqual(['MSFT']);
+
+    component.orderForm.controls.symbol.setValue('apple');
+    component.onInstrumentInput();
+    expect(component.filteredInstrumentOptions().map((option) => option.symbol)).toEqual(['AAPL']);
+  });
 });
 
 function buildToken(): string {

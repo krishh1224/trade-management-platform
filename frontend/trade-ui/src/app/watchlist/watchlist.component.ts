@@ -308,18 +308,27 @@ export class WatchlistComponent {
   }
 
   onInstrumentInput(): void {
-    const symbol = (this.addForm.get('symbol')?.value ?? '').trim();
-    if (symbol.length === 0) {
+    const query = (this.addForm.get('symbol')?.value ?? '').trim();
+    if (query.length === 0) {
+      this.filteredInstrumentOptions.set([]);
       this.showInstrumentDropdown.set(false);
       return;
     }
 
-    this.tradeService.getInstruments(this.claims()!.accountId, symbol).subscribe({
+    this.tradeService.getInstruments(this.claims()!.accountId).subscribe({
       next: (options) => {
-        this.filteredInstrumentOptions.set(options);
-        this.showInstrumentDropdown.set(options.length > 0);
+        const normalizedQuery = query.toUpperCase();
+        const filtered = options
+          .filter((option) =>
+            option.symbol.toUpperCase().includes(normalizedQuery)
+            || option.name.toUpperCase().includes(normalizedQuery)
+          )
+          .sort((a, b) => a.name.localeCompare(b.name) || a.symbol.localeCompare(b.symbol));
+        this.filteredInstrumentOptions.set(filtered);
+        this.showInstrumentDropdown.set(filtered.length > 0);
       },
       error: () => {
+        this.filteredInstrumentOptions.set([]);
         this.showInstrumentDropdown.set(false);
       }
     });

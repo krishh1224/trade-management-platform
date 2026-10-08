@@ -52,7 +52,9 @@ export class OrdersComponent {
     }
 
     return this.instrumentOptions()
-      .filter((option) => option.name.toUpperCase().startsWith(query))
+      .filter((option) =>
+        option.symbol.toUpperCase().includes(query) || option.name.toUpperCase().includes(query)
+      )
       .sort((a, b) => a.name.localeCompare(b.name) || a.symbol.localeCompare(b.symbol));
   });
 

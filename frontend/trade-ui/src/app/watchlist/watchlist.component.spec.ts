@@ -235,6 +235,23 @@ describe('WatchlistComponent', () => {
     expect(component.showInstrumentDropdown()).toBe(false);
   });
 
+  it('searches instrument options by ticker and instrument name', () => {
+    tradeServiceMock.getInstruments.mockReturnValue(
+      of([
+        { symbol: 'AAPL', name: 'Apple Inc.', currency: 'USD' },
+        { symbol: 'MSFT', name: 'Microsoft Corporation', currency: 'USD' }
+      ])
+    );
+
+    component.addForm.patchValue({ symbol: 'msf' });
+    component.onInstrumentInput();
+    expect(component.filteredInstrumentOptions().map((option) => option.symbol)).toEqual(['MSFT']);
+
+    component.addForm.patchValue({ symbol: 'apple' });
+    component.onInstrumentInput();
+    expect(component.filteredInstrumentOptions().map((option) => option.symbol)).toEqual(['AAPL']);
+  });
+
   it('hides instrument dropdown when input is empty', () => {
     component.addForm.patchValue({ symbol: '' });
 
