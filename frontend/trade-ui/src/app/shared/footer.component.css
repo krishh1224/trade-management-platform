@@ -35,15 +35,10 @@
 }
 
 .footer-link {
+  display: inline-block;
   font-size: 0.875rem;
   color: var(--text-muted);
-  text-decoration: none;
-  transition: color 0.2s ease;
-}
-
-.footer-link:hover {
-  color: var(--accent);
-  text-decoration: underline;
+  cursor: default;
 }
 
 .footer-divider {
