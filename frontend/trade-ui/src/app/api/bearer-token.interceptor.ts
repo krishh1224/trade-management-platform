@@ -12,10 +12,29 @@ const TRADE_PROTECTED_PATH_PATTERNS: readonly RegExp[] = [
   /^\/api\/v1\/accounts\/[^/]+\/balance$/,
   /^\/api\/v1\/accounts\/[^/]+\/positions$/,
   /^\/api\/v1\/accounts\/[^/]+\/orders$/,
+  /^\/api\/v1\/accounts\/[^/]+\/orders\/export-email$/,
+  /^\/api\/v1\/accounts\/[^/]+\/advisor\/signals$/,
+  /^\/api\/v1\/accounts\/[^/]+\/preferences$/,
+  /^\/api\/v1\/accounts\/[^/]+\/notifications$/,
+  /^\/api\/v1\/accounts\/[^/]+\/notifications\/[^/]+$/,
+  /^\/api\/v1\/accounts\/[^/]+\/notifications\/[^/]+\/read$/,
+  /^\/api\/v1\/accounts\/[^/]+\/price-alerts$/,
+  /^\/api\/v1\/accounts\/[^/]+\/price-alerts\/[^/]+$/,
+  /^\/api\/v1\/accounts\/[^/]+\/strategies$/,
+  /^\/api\/v1\/accounts\/[^/]+\/strategies\/[^/]+$/,
+  /^\/api\/v1\/accounts\/[^/]+\/strategies\/[^/]+\/(enable|disable|executions|chart)$/,
+  /^\/api\/v1\/accounts\/[^/]+\/push-subscription$/,
+  /^\/api\/v1\/accounts\/[^/]+\/push-subscription\/config$/,
+  /^\/api\/v1\/accounts\/[^/]+\/(deposits|withdrawals|transactions)$/,
   /^\/api\/v1\/accounts\/[^/]+\/instruments$/,
+  /^\/api\/v1\/portfolio\/[^/]+$/,
+  /^\/api\/v1\/portfolio\/[^/]+\/positions$/,
+  /^\/api\/v1\/portfolio\/[^/]+\/pnl$/,
+  /^\/api\/v1\/portfolio\/[^/]+\/candles\/[^/]+$/,
   /^\/api\/v1\/watchlists$/,
   /^\/api\/v1\/watchlists\/[^/]+$/,
-  /^\/api\/v1\/watchlists\/groups$/
+  /^\/api\/v1\/watchlists\/groups$/,
+  /^\/api\/v1\/watchlists\/groups\/[^/]+$/
 ];
 
 const ADVISOR_PROTECTED_PATH_PATTERNS: readonly RegExp[] = [/^\/api\/v1\/advisor\/chat$/];

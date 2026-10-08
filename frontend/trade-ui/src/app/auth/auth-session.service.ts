@@ -1,10 +1,12 @@
 import { Injectable, computed, inject, signal } from '@angular/core';
-import { Observable, map, tap } from 'rxjs';
+import { Observable, catchError, finalize, map, of, shareReplay, tap } from 'rxjs';
 
 import { AuthService } from '../api/auth.service';
 import { LoginRequest, TokenResponse } from '../api/generated/auth-api/models';
 
 const SESSION_STORAGE_KEY = 'trade-ui.auth.session';
+const REFRESH_AHEAD_SECONDS = 60;
+const REFRESH_POLL_MS = 5_000;
 
 /** Claims nest-auth puts in the access token. Decoded for display only, never trusted. */
 export interface AccessTokenClaims {
@@ -19,10 +21,16 @@ export interface AccessTokenClaims {
 export class AuthSessionService {
   private readonly authService = inject(AuthService);
   private readonly session = signal<TokenResponse | null>(this.readStoredSession());
+  private refreshInFlight$: Observable<TokenResponse> | null = null;
 
   readonly token = computed(() => this.session()?.accessToken ?? null);
+  readonly refreshToken = computed(() => this.session()?.refreshToken ?? null);
   readonly isAuthenticated = computed(() => this.token() !== null);
   readonly claims = computed(() => decodeClaims(this.token()));
+
+  constructor() {
+    setInterval(() => this.refreshIfExpiringSoon(), REFRESH_POLL_MS);
+  }
 
   /** True when a token is held and, where its expiry can be read, has not passed. */
   hasActiveSession(): boolean {
@@ -34,6 +42,28 @@ export class AuthSessionService {
     return exp === undefined || exp * 1000 > Date.now();
   }
 
+  /**
+   * Ensure the session is active. If the access token is expired but a refresh token exists,
+   * this attempts to refresh once and returns whether the session is now active.
+   */
+  ensureActiveSession(): Observable<boolean> {
+    if (this.hasActiveSession()) {
+      return of(true);
+    }
+
+    if (!this.refreshToken()) {
+      return of(false);
+    }
+
+    return this.refreshAccessToken().pipe(
+      map((token) => token !== null),
+      catchError(() => {
+        this.signOut();
+        return of(false);
+      })
+    );
+  }
+
   signIn(credentials: LoginRequest): Observable<void> {
     return this.authService.login(credentials).pipe(
       tap((response) => this.storeSession(response)),
@@ -43,7 +73,52 @@ export class AuthSessionService {
 
   signOut(): void {
     this.session.set(null);
+    this.refreshInFlight$ = null;
     localStorage.removeItem(SESSION_STORAGE_KEY);
+  }
+
+  /**
+   * Refresh the access token using the current refresh token.
+   * Returns null when no refresh token is available.
+   */
+  refreshAccessToken(): Observable<string | null> {
+    const currentRefreshToken = this.refreshToken();
+    if (!currentRefreshToken) {
+      return of(null);
+    }
+
+    if (!this.refreshInFlight$) {
+      this.refreshInFlight$ = this.authService.refresh({ refreshToken: currentRefreshToken }).pipe(
+        tap((response) => this.storeSession(response)),
+        shareReplay(1),
+        finalize(() => {
+          this.refreshInFlight$ = null;
+        })
+      );
+    }
+
+    return this.refreshInFlight$.pipe(map((session) => session.accessToken));
+  }
+
+  private refreshIfExpiringSoon(): void {
+    const exp = this.claims()?.exp;
+    const currentRefreshToken = this.refreshToken();
+
+    if (!exp || !currentRefreshToken) {
+      return;
+    }
+
+    const secondsLeft = exp - Date.now() / 1000;
+    if (secondsLeft > REFRESH_AHEAD_SECONDS) {
+      return;
+    }
+
+    this.refreshAccessToken().subscribe({
+      next: () => {},
+      error: () => {
+        this.signOut();
+      }
+    });
   }
 
   private storeSession(session: TokenResponse): void {

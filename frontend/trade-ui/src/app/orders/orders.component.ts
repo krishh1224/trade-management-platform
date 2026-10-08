@@ -10,10 +10,11 @@ import { AuthSessionService } from '../auth/auth-session.service';
 import { DEFAULT_ACCOUNT_CURRENCY, currencyForSymbol } from '../instruments/instrument-currency';
 import { ThemeService } from '../theme/theme.service';
 import { FooterComponent } from '../shared/footer.component';
+import { NotificationBellComponent } from '../notifications/notification-bell.component';
 
 @Component({
   selector: 'app-orders',
-  imports: [ReactiveFormsModule, RouterLink, FooterComponent],
+  imports: [ReactiveFormsModule, RouterLink, FooterComponent, NotificationBellComponent],
   templateUrl: './orders.component.html',
   styleUrl: './orders.component.css'
 })
@@ -26,6 +27,7 @@ export class OrdersComponent {
   private readonly themeService = inject(ThemeService);
 
   readonly claims = this.authSession.claims;
+  readonly navOpen = signal(false);
   readonly role = computed(() => this.claims()?.roles[0] ?? 'USER');
   readonly profileMenuOpen = signal(false);
   readonly theme = this.themeService.theme;
@@ -50,7 +52,9 @@ export class OrdersComponent {
     }
 
     return this.instrumentOptions()
-      .filter((option) => option.name.toUpperCase().startsWith(query))
+      .filter((option) =>
+        option.symbol.toUpperCase().includes(query) || option.name.toUpperCase().includes(query)
+      )
       .sort((a, b) => a.name.localeCompare(b.name) || a.symbol.localeCompare(b.symbol));
   });
 
@@ -123,6 +127,11 @@ export class OrdersComponent {
 
   onInstrumentBlur(): void {
     setTimeout(() => this.showInstrumentDropdown.set(false), 120);
+  }
+
+  setSide(side: 'BUY' | 'SELL'): void {
+    this.orderForm.controls.side.setValue(side);
+    this.orderForm.controls.side.markAsTouched();
   }
 
   selectInstrument(option: InstrumentOption): void {

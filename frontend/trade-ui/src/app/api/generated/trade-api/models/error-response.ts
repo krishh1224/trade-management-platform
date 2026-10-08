@@ -16,10 +16,14 @@ export interface ErrorResponse {
    * | `INS-404` | 404 | Instrument not found or not tradable |
    * | `ORD-400` | 400 | Insufficient funds |
    * | `ORD-409` | 409 | Insufficient holdings, duplicate order, or order not cancellable |
+   * | `CSH-400` | 400 | Withdrawal exceeds the cash available to withdraw |
+   * | `CSH-409` | 409 | Duplicate cash movement, or the balance changed concurrently |
+   * | `WTL-404` | 404 | Watchlist item not found |
+   * | `WTL-409` | 409 | Instrument already in watchlist |
    * | `VAL-422` | 422 | Invalid input |
    * | `AUTH-401` | 401 | Unauthorised or invalid token |
    */
-  errorCode: 'ACC-404' | 'ACC-403' | 'INS-404' | 'ORD-400' | 'ORD-409' | 'VAL-422' | 'AUTH-401';
+  errorCode: 'ACC-404' | 'ACC-403' | 'INS-404' | 'ORD-400' | 'ORD-409' | 'CSH-400' | 'CSH-409' | 'VAL-422' | 'AUTH-401';
 
   /**
    * Short description for a human. Never include a stack trace, a SQL fragment, a class

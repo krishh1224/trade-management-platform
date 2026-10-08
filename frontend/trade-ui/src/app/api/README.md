@@ -6,7 +6,7 @@ this folder is hand-written.
 | Directory | Contract | Config |
 |---|---|---|
 | `generated/trade-api/` | `trade-api/contracts/trade-api.yaml` | `api-gen/trade-api.json` |
-| `generated/auth-api/` | `nest-auth/contracts/auth-api.yaml` | `api-gen/auth-api.json` |
+| `generated/auth-api/` | `contracts/auth-api.yaml` | `api-gen/auth-api.json` |
 
 ## Regenerate
 

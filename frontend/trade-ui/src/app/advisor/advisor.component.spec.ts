@@ -1,14 +1,15 @@
 import { HttpErrorResponse } from '@angular/common/http';
 import { TestBed } from '@angular/core/testing';
-import { provideRouter } from '@angular/router';
+import { ActivatedRoute, convertToParamMap, provideRouter } from '@angular/router';
 import { of, throwError } from 'rxjs';
 import { vi } from 'vitest';
 
-import { AdvisorService } from '../api/advisor.service';
+import { TradeService } from '../api/trade.service';
 import { AdvisorComponent } from './advisor.component';
+import { provideNotificationCountStub } from '../notifications/notification-count.testing';
 
-const advisorServiceMock = {
-  chat: vi.fn()
+const tradeServiceMock = {
+  getAdviceSignals: vi.fn()
 };
 
 describe('AdvisorComponent', () => {
@@ -19,11 +20,25 @@ describe('AdvisorComponent', () => {
       'trade-ui.auth.session',
       JSON.stringify({ accessToken: buildToken(), expiresIn: 900, refreshToken: 'refresh', tokenType: 'Bearer' })
     );
-    advisorServiceMock.chat.mockReset();
+    tradeServiceMock.getAdviceSignals.mockReset();
+    tradeServiceMock.getAdviceSignals.mockReturnValue(
+      of({ accountId: 103, generatedAt: '2026-10-07T12:30:00Z', signals: [], skipped: [] })
+    );
 
     await TestBed.configureTestingModule({
       imports: [AdvisorComponent],
-      providers: [provideRouter([]), { provide: AdvisorService, useValue: advisorServiceMock }]
+      providers: [
+        provideNotificationCountStub(),
+        provideRouter([]),
+        { provide: TradeService, useValue: tradeServiceMock },
+        {
+          provide: ActivatedRoute,
+          useValue: {
+            snapshot: { queryParamMap: convertToParamMap({}) },
+            queryParamMap: of(convertToParamMap({}))
+          }
+        }
+      ]
     }).compileComponents();
   });
 
@@ -32,82 +47,153 @@ describe('AdvisorComponent', () => {
     sessionStorage.clear();
   });
 
-  it('shows suggestions and the disclaimer before the first question', () => {
+  it('shows the disclaimer and empty state before any signals arrive', () => {
     const fixture = TestBed.createComponent(AdvisorComponent);
     fixture.detectChanges();
 
     const text = fixture.nativeElement.textContent as string;
     expect(text).toContain('not investment advice');
-    expect(fixture.nativeElement.querySelectorAll('.suggestion').length).toBe(4);
+    expect(text).toContain('No signals are available yet');
   });
 
-  it('sends the whole conversation and renders the reply with its sources', () => {
-    advisorServiceMock.chat.mockReturnValue(
+  it('loads signals from the new route and renders reasoning', () => {
+    tradeServiceMock.getAdviceSignals.mockReturnValue(
       of({
-        reply: 'Your largest holding is **ITC.NS**.',
-        toolsUsed: ['get_portfolio'],
-        model: 'gemini-2.5-flash',
-        generatedAt: '2026-10-04T10:00:00Z'
+        accountId: 103,
+        generatedAt: '2026-10-07T12:30:00Z',
+        signals: [
+          {
+            symbol: 'ITC.NS',
+            instrumentName: null,
+            origin: 'HOLDING',
+            signal: 'BUY',
+            reasoning: [
+              'Unrealised P&L is +14.00% versus average cost.',
+              'The signal uses the latest stored holding price from the platform.'
+            ],
+            lastPrice: 505.45,
+            changePct: null,
+            unrealisedPnlPercent: 14,
+            currency: 'INR',
+            priceAsOf: '2026-10-07T12:25:00Z',
+            stale: false
+          }
+        ],
+        skipped: []
+      })
+    );
+
+    const fixture = TestBed.createComponent(AdvisorComponent);
+    fixture.detectChanges();
+
+    expect(tradeServiceMock.getAdviceSignals).toHaveBeenCalledWith(103);
+    const card = fixture.nativeElement.querySelector('[data-testid="advisor-signal-card"]') as HTMLElement;
+    expect(card.textContent).toContain('ITC.NS');
+    expect(card.textContent).toContain('BUY');
+    expect(card.textContent).toContain('Unrealised P&L is +14.00% versus average cost.');
+  });
+
+  it('shows skipped symbols when data is insufficient', () => {
+    tradeServiceMock.getAdviceSignals.mockReturnValue(
+      of({
+        accountId: 103,
+        generatedAt: '2026-10-07T12:30:00Z',
+        signals: [],
+        skipped: [
+          {
+            symbol: 'TCS.NS',
+            instrumentName: 'Tata Consultancy Services',
+            origin: 'WATCHLIST',
+            reason: 'The watchlist entry has no stored market move yet.'
+          }
+        ]
       })
     );
     const fixture = TestBed.createComponent(AdvisorComponent);
-    const component = fixture.componentInstance;
-
-    component.draft.set('  What is my largest holding?  ');
-    component.send();
     fixture.detectChanges();
 
-    expect(advisorServiceMock.chat).toHaveBeenCalledWith([{ role: 'user', content: 'What is my largest holding?' }]);
-    const reply = fixture.nativeElement.querySelector('[data-testid="advisor-reply"]') as HTMLElement;
-    expect(reply.innerHTML).toContain('<strong>ITC.NS</strong>');
-    expect(reply.textContent).toContain('Based on your portfolio');
-    expect(component.draft()).toBe('');
-    expect(component.conversation()).toHaveLength(2);
+    const skipped = fixture.nativeElement.querySelector('[data-testid="advisor-skipped"]') as HTMLElement;
+    expect(skipped.textContent).toContain('TCS.NS');
+    expect(skipped.textContent).toContain('no stored market move yet');
   });
 
-  it('on a rate limit, restores the question and shows a friendly message', () => {
-    advisorServiceMock.chat.mockReturnValue(
+  it('filters to a linked symbol when query params are present', async () => {
+    tradeServiceMock.getAdviceSignals.mockReturnValue(
+      of({
+        accountId: 103,
+        generatedAt: '2026-10-07T12:30:00Z',
+        signals: [
+          {
+            symbol: 'ITC.NS',
+            instrumentName: null,
+            origin: 'HOLDING',
+            signal: 'BUY',
+            reasoning: ['Gain'],
+            lastPrice: 505.45,
+            changePct: null,
+            unrealisedPnlPercent: 14,
+            currency: 'INR',
+            priceAsOf: '2026-10-07T12:25:00Z',
+            stale: false
+          },
+          {
+            symbol: 'AAPL',
+            instrumentName: null,
+            origin: 'HOLDING',
+            signal: 'HOLD',
+            reasoning: ['Flat'],
+            lastPrice: 180,
+            changePct: null,
+            unrealisedPnlPercent: 0,
+            currency: 'USD',
+            priceAsOf: '2026-10-07T12:25:00Z',
+            stale: false
+          }
+        ],
+        skipped: []
+      })
+    );
+
+    TestBed.resetTestingModule();
+    await TestBed.configureTestingModule({
+      imports: [AdvisorComponent],
+      providers: [
+        provideNotificationCountStub(),
+        provideRouter([]),
+        { provide: TradeService, useValue: tradeServiceMock },
+        {
+          provide: ActivatedRoute,
+          useValue: {
+            snapshot: { queryParamMap: convertToParamMap({ symbol: 'ITC.NS', origin: 'HOLDING' }) },
+            queryParamMap: of(convertToParamMap({ symbol: 'ITC.NS', origin: 'HOLDING' }))
+          }
+        }
+      ]
+    }).compileComponents();
+
+    const fixture = TestBed.createComponent(AdvisorComponent);
+    fixture.detectChanges();
+
+    const cards = fixture.nativeElement.querySelectorAll('[data-testid="advisor-signal-card"]');
+    expect(cards.length).toBe(1);
+    expect(cards[0].textContent).toContain('ITC.NS');
+    expect(fixture.nativeElement.querySelector('[data-testid="advisor-focus-banner"]')?.textContent).toContain('ITC.NS');
+  });
+
+  it('shows a friendly error message when loading fails', () => {
+    tradeServiceMock.getAdviceSignals.mockReturnValue(
       throwError(
         () =>
           new HttpErrorResponse({
-            status: 429,
-            error: { errorCode: 'ADV-429', message: 'The advisor is busy.' }
+            status: 503,
+            error: { errorCode: 'MKT-503', message: 'Pricing unavailable' }
           })
       )
     );
     const fixture = TestBed.createComponent(AdvisorComponent);
-    const component = fixture.componentInstance;
-
-    component.draft.set('How is AAPL doing?');
-    component.send();
     fixture.detectChanges();
 
-    expect(component.conversation()).toHaveLength(0);
-    expect(component.draft()).toBe('How is AAPL doing?');
-    expect(component.errorMessage()).toContain('busy');
-  });
-
-  it('does not send an empty question', () => {
-    const fixture = TestBed.createComponent(AdvisorComponent);
-    fixture.componentInstance.draft.set('   ');
-    fixture.componentInstance.send();
-
-    expect(advisorServiceMock.chat).not.toHaveBeenCalled();
-  });
-
-  it('keeps the conversation per account across page visits and clears it on New chat', () => {
-    advisorServiceMock.chat.mockReturnValue(
-      of({ reply: 'Hello', toolsUsed: [], model: 'gemini-2.5-flash', generatedAt: '2026-10-04T10:00:00Z' })
-    );
-    const first = TestBed.createComponent(AdvisorComponent).componentInstance;
-    first.draft.set('Hi');
-    first.send();
-
-    const second = TestBed.createComponent(AdvisorComponent).componentInstance;
-    expect(second.conversation().map((m) => m.content)).toEqual(['Hi', 'Hello']);
-
-    second.clearConversation();
-    expect(TestBed.createComponent(AdvisorComponent).componentInstance.conversation()).toHaveLength(0);
+    expect(fixture.componentInstance.errorMessage()).toContain('Live prices are unavailable right now');
   });
 });
 

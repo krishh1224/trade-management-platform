@@ -9,9 +9,14 @@ import { getAccount } from './generated/trade-api/fn/accounts/get-account';
 import { getBalance } from './generated/trade-api/fn/accounts/get-balance';
 import { getOrders, GetOrders$Params } from './generated/trade-api/fn/accounts/get-orders';
 import { getPositions } from './generated/trade-api/fn/accounts/get-positions';
+import { deposit } from './generated/trade-api/fn/funds/deposit';
+import { getCashTransactions } from './generated/trade-api/fn/funds/get-cash-transactions';
+import { withdraw } from './generated/trade-api/fn/funds/withdraw';
 import {
   AccountResponse,
   BalanceResponse,
+  CashMovementRequest,
+  CashTransactionResponse,
   OrderHistoryEntry,
   OrderResponse,
   PlaceOrderRequest,
@@ -28,6 +33,8 @@ export interface WatchlistItem {
   addedAt: string;
   lastPrice: number | null;
   changePct: number | null;
+  /** ISO 4217 code the instrument is quoted in; lastPrice is in it. */
+  currency: string;
 }
 
 export interface AddToWatchlistRequest {
@@ -46,10 +53,77 @@ export interface CreateWatchlistGroupRequest {
   name: string;
 }
 
+// contracts/watchlists-api.yaml, tag "Price alerts"
+export type AlertDirection = 'ABOVE' | 'BELOW';
+export type PriceAlertStatus = 'ACTIVE' | 'TRIGGERED';
+
+export interface PriceAlert {
+  alertId: number;
+  /** The watchlist entry the alert hangs off; a 63-bit id, so a string. */
+  watchlistId: string;
+  symbol: string;
+  instrumentName: string;
+  direction: AlertDirection;
+  threshold: number;
+  status: PriceAlertStatus;
+  createdAt: string;
+  /** When the crossing was detected; null while ACTIVE. */
+  triggeredAt: string | null;
+  /** The quote that crossed the threshold; null while ACTIVE. */
+  triggerPrice: number | null;
+  lastPrice: number | null;
+  /** ISO 4217 code the instrument is quoted in; threshold, triggerPrice and lastPrice are in it. */
+  currency: string;
+}
+
+export interface PriceAlertList {
+  maxActiveAlerts: number;
+  activeAlerts: number;
+  alerts: PriceAlert[];
+}
+
+export interface CreatePriceAlertRequest {
+  watchlistId: string;
+  direction: AlertDirection;
+  threshold: number;
+}
+
 export interface InstrumentOption {
   symbol: string;
   name: string;
   currency: string;
+  assetClass?: string;
+}
+
+export type AdviceOrigin = 'HOLDING' | 'WATCHLIST';
+export type AdviceSignal = 'BUY' | 'SELL' | 'HOLD';
+
+export interface AdviceSignalRow {
+  symbol: string;
+  instrumentName: string | null;
+  origin: AdviceOrigin;
+  signal: AdviceSignal;
+  reasoning: string[];
+  lastPrice: number | null;
+  changePct: number | null;
+  unrealisedPnlPercent: number | null;
+  currency: string | null;
+  priceAsOf: string | null;
+  stale: boolean;
+}
+
+export interface SkippedAdviceRow {
+  symbol: string;
+  instrumentName: string | null;
+  origin: AdviceOrigin;
+  reason: string;
+}
+
+export interface TradeAdvice {
+  accountId: number;
+  generatedAt: string;
+  signals: AdviceSignalRow[];
+  skipped: SkippedAdviceRow[];
 }
 
 /**
@@ -65,6 +139,46 @@ export interface ClientProfile {
   email: string;
   phone: string;
   dob: string;
+}
+
+export type PreferenceCurrency = 'INR' | 'USD';
+export type PreferenceTheme = 'LIGHT' | 'DARK';
+export type PreferenceAlertChannel = 'EMAIL' | 'PUSH' | 'BROWSER' | 'SMS' | 'NONE';
+
+export interface CustomerPreferences {
+  currency: PreferenceCurrency;
+  theme: PreferenceTheme;
+  alertChannel: PreferenceAlertChannel;
+}
+
+// contracts/notifications-api.yaml
+export type NotificationType =
+  'ORDER_FILLED' | 'ORDER_REJECTED' | 'ORDER_CANCELLED' | 'PRICE_ALERT' | 'ORDER_HISTORY_EXPORT';
+export type NotificationStatus = 'QUEUED' | 'HELD' | 'SENT' | 'FAILED' | 'SKIPPED';
+
+export interface CustomerNotification {
+  notificationId: number;
+  type: NotificationType;
+  /** orders.order_id can exceed Number.MAX_SAFE_INTEGER, so never display or compare it. */
+  orderId: number | null;
+  title: string;
+  message: string;
+  status: NotificationStatus;
+  /** The channel resolved from preferences at send time; null while QUEUED or HELD. */
+  channel: PreferenceAlertChannel | null;
+  createdAt: string;
+  sentAt: string | null;
+  readAt: string | null;
+}
+
+/** VAPID public key the browser subscribes with; publicKey is null when push is off on the server. */
+export interface PushConfig {
+  enabled: boolean;
+  publicKey: string | null;
+}
+
+export interface OrderHistoryExportResponse {
+  message: string;
 }
 
 /** Hand-written facade over the generated Trade REST API client. Unwraps the HTTP envelope. */
@@ -98,6 +212,29 @@ export class TradeService {
     return getOrders(this.http, this.config.rootUrl, { id: accountId, ...filter }).pipe(map((r) => r.body));
   }
 
+  emailOrderHistoryExport(accountId: number): Observable<OrderHistoryExportResponse> {
+    return this.http.post<OrderHistoryExportResponse>(
+      `${this.config.rootUrl}/api/v1/accounts/${accountId}/orders/export-email`,
+      null
+    );
+  }
+
+  getAdviceSignals(accountId: number): Observable<TradeAdvice> {
+    return this.http.get<TradeAdvice>(`${this.config.rootUrl}/api/v1/accounts/${accountId}/advisor/signals`);
+  }
+
+  deposit(accountId: number, body: CashMovementRequest): Observable<CashTransactionResponse> {
+    return deposit(this.http, this.config.rootUrl, { id: accountId, body }).pipe(map((r) => r.body));
+  }
+
+  withdraw(accountId: number, body: CashMovementRequest): Observable<CashTransactionResponse> {
+    return withdraw(this.http, this.config.rootUrl, { id: accountId, body }).pipe(map((r) => r.body));
+  }
+
+  getCashTransactions(accountId: number, limit?: number): Observable<CashTransactionResponse[]> {
+    return getCashTransactions(this.http, this.config.rootUrl, { id: accountId, limit }).pipe(map((r) => r.body));
+  }
+ 
   getInstruments(accountId: number, prefix = ''): Observable<InstrumentOption[]> {
     const params = new HttpParams({ fromObject: prefix ? { prefix } : {} });
     return this.http.get<InstrumentOption[]>(`${this.config.rootUrl}/api/v1/accounts/${accountId}/instruments`, { params });
@@ -127,7 +264,65 @@ export class TradeService {
     return this.http.post<WatchlistGroup>(`${this.config.rootUrl}/api/v1/watchlists/groups`, request);
   }
 
+  /** Deletes a custom watchlist with its entries and their price alerts. The Favourite one is refused (WTL-409). */
+  deleteWatchlistGroup(watchlistGroupId: string): Observable<void> {
+    return this.http.delete<void>(`${this.config.rootUrl}/api/v1/watchlists/groups/${watchlistGroupId}`);
+  }
+
+  listPriceAlerts(accountId: number): Observable<PriceAlertList> {
+    return this.http.get<PriceAlertList>(`${this.config.rootUrl}/api/v1/accounts/${accountId}/price-alerts`);
+  }
+
+  createPriceAlert(accountId: number, body: CreatePriceAlertRequest): Observable<PriceAlert> {
+    return this.http.post<PriceAlert>(`${this.config.rootUrl}/api/v1/accounts/${accountId}/price-alerts`, body);
+  }
+
+  deletePriceAlert(accountId: number, alertId: number): Observable<void> {
+    return this.http.delete<void>(`${this.config.rootUrl}/api/v1/accounts/${accountId}/price-alerts/${alertId}`);
+  }
+
   getClientProfile(accountId: number): Observable<ClientProfile> {
     return this.http.get<ClientProfile>(`${this.config.rootUrl}/api/v1/accounts/${accountId}/profile`);
+  }
+
+  getPreferences(accountId: number): Observable<CustomerPreferences> {
+    return this.http.get<CustomerPreferences>(`${this.config.rootUrl}/api/v1/accounts/${accountId}/preferences`);
+  }
+
+  updatePreferences(accountId: number, body: CustomerPreferences): Observable<CustomerPreferences> {
+    return this.http.put<CustomerPreferences>(`${this.config.rootUrl}/api/v1/accounts/${accountId}/preferences`, body);
+  }
+
+  getNotifications(accountId: number, status?: NotificationStatus, limit = 50): Observable<CustomerNotification[]> {
+    let params = new HttpParams().set('limit', limit);
+    if (status) {
+      params = params.set('status', status);
+    }
+    return this.http.get<CustomerNotification[]>(
+      `${this.config.rootUrl}/api/v1/accounts/${accountId}/notifications`,
+      { params }
+    );
+  }
+
+  getPushConfig(accountId: number): Observable<PushConfig> {
+    return this.http.get<PushConfig>(`${this.config.rootUrl}/api/v1/accounts/${accountId}/push-subscription/config`);
+  }
+
+  /** @param subscription the browser's PushSubscription.toJSON(), sent unchanged */
+  savePushSubscription(accountId: number, subscription: PushSubscriptionJSON): Observable<void> {
+    return this.http.put<void>(`${this.config.rootUrl}/api/v1/accounts/${accountId}/push-subscription`, subscription);
+  }
+
+  deletePushSubscription(accountId: number, endpoint: string): Observable<void> {
+    return this.http.delete<void>(`${this.config.rootUrl}/api/v1/accounts/${accountId}/push-subscription`, {
+      params: new HttpParams().set('endpoint', endpoint)
+    });
+  }
+
+  markNotificationRead(accountId: number, notificationId: number): Observable<CustomerNotification> {
+    return this.http.put<CustomerNotification>(
+      `${this.config.rootUrl}/api/v1/accounts/${accountId}/notifications/${notificationId}/read`,
+      null
+    );
   }
 }

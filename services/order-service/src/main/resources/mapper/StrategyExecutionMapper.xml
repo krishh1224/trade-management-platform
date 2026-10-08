@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+  PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+  "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.team5.strategies.mapper.StrategyExecutionMapper">
+
+  <!-- Writes strategy_executions only. -->
+
+  <resultMap id="executionRow" type="com.team5.strategies.domain.ExecutionRow">
+    <id property="executionId" column="execution_id"/>
+    <result property="strategyId" column="strategy_id"/>
+    <!-- the PostgreSQL driver reads and writes java.util.UUID itself -->
+    <result property="quoteEventId" column="quote_event_id" typeHandler="org.apache.ibatis.type.ObjectTypeHandler"/>
+    <result property="signal" column="signal"/>
+    <result property="outcome" column="outcome"/>
+    <result property="quotePrice" column="quote_price"/>
+    <result property="orderPrice" column="order_price"/>
+    <result property="quantity" column="quantity"/>
+    <result property="idempotencyKey" column="idempotency_key"/>
+    <result property="orderId" column="order_id"/>
+    <result property="detail" column="detail"/>
+    <result property="createdAt" column="created_at"/>
+  </resultMap>
+
+  <select id="exists" resultType="boolean">
+    SELECT EXISTS (
+      SELECT 1 FROM strategy_executions
+      WHERE strategy_id = #{strategyId}
+        AND quote_event_id = #{quoteEventId, typeHandler=com.team5.notifications.mapper.UuidTypeHandler}
+    )
+  </select>
+
+  <insert id="insert" useGeneratedKeys="true" keyProperty="executionId" keyColumn="execution_id">
+    INSERT INTO strategy_executions (
+      strategy_id, quote_event_id, signal, outcome, quote_price, order_price, quantity,
+      idempotency_key, order_id, detail, created_at
+    ) VALUES (
+      #{strategyId},
+      #{quoteEventId, typeHandler=com.team5.notifications.mapper.UuidTypeHandler},
+      #{signal}, #{outcome}, #{quotePrice}, #{orderPrice}, #{quantity},
+      #{idempotencyKey}, #{orderId}, #{detail}, #{createdAt}
+    )
+  </insert>
+
+  <select id="findByStrategy" resultMap="executionRow">
+    SELECT execution_id, strategy_id, quote_event_id, signal, outcome, quote_price, order_price,
+           quantity, idempotency_key, order_id, detail, created_at
+    FROM strategy_executions
+    WHERE strategy_id = #{strategyId}
+    ORDER BY created_at DESC, execution_id DESC
+    LIMIT #{limit}
+  </select>
+
+</mapper>

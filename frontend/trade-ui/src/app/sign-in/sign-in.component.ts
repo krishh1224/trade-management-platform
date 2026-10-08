@@ -8,6 +8,7 @@ import { AuthSessionService } from '../auth/auth-session.service';
 import { isSafeReturnUrl } from '../auth/return-url';
 import { currencyForSymbol } from '../instruments/instrument-currency';
 import { FooterComponent } from '../shared/footer.component';
+import { ThemeService } from '../theme/theme.service';
 
 @Component({
   selector: 'app-sign-in',
@@ -20,7 +21,9 @@ export class SignInComponent {
   private readonly authSession = inject(AuthSessionService);
   private readonly router = inject(Router);
   private readonly route = inject(ActivatedRoute);
+  private readonly themeService = inject(ThemeService);
 
+  readonly theme = this.themeService.theme;
   readonly submitting = signal(false);
   readonly errorMessage = signal('');
   readonly showPassword = signal(false);
@@ -45,6 +48,8 @@ export class SignInComponent {
   });
 
   constructor() {
+    this.themeService.initialize();
+
     const returnUrl = this.route.snapshot.queryParamMap.get('returnUrl');
 
     // Drop an unsafe return address from the address bar. It would be ignored after sign-in anyway.
@@ -56,6 +61,10 @@ export class SignInComponent {
         replaceUrl: true
       });
     }
+  }
+
+  toggleTheme(): void {
+    this.themeService.toggleTheme();
   }
 
   togglePasswordVisibility(): void {

@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+  PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+  "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.team5.notifications.mapper.PushSubscriptionMapper">
+
+  <insert id="upsert">
+    INSERT INTO push_subscriptions (account_id, endpoint, p256dh, auth)
+    VALUES (#{accountId}, #{endpoint}, #{p256dh}, #{auth})
+    ON CONFLICT (endpoint) DO UPDATE SET
+      account_id = EXCLUDED.account_id,
+      p256dh = EXCLUDED.p256dh,
+      auth = EXCLUDED.auth,
+      created_at = CURRENT_TIMESTAMP
+  </insert>
+
+  <select id="findByAccount" resultType="com.team5.notifications.domain.PushSubscription">
+    SELECT subscription_id AS subscriptionId,
+           account_id AS accountId,
+           endpoint,
+           p256dh,
+           auth
+    FROM push_subscriptions
+    WHERE account_id = #{accountId}
+    ORDER BY subscription_id
+  </select>
+
+  <delete id="deleteForAccount">
+    DELETE FROM push_subscriptions
+    WHERE account_id = #{accountId}
+      AND endpoint = #{endpoint}
+  </delete>
+
+  <delete id="deleteById">
+    DELETE FROM push_subscriptions
+    WHERE subscription_id = #{subscriptionId}
+  </delete>
+
+</mapper>

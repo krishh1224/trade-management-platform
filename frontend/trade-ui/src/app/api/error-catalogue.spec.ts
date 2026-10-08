@@ -14,9 +14,15 @@ const ALL_DOCUMENTED_CODES: PlatformErrorCode[] = [
   'INS-404',
   'ORD-400',
   'ORD-409',
+  'CSH-400',
+  'CSH-409',
   'VAL-422',
   'AUTH-401',
-  'AUTH-409'
+  'AUTH-409',
+  'MKT-503',
+  'WTL-404',
+  'WTL-409',
+  'STR-404'
 ];
 
 describe('error catalogue', () => {

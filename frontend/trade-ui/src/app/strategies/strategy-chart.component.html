@@ -1,0 +1,100 @@
+<div class="chart-wrap">
+  <svg
+    class="chart"
+    data-testid="strategy-chart"
+    role="img"
+    tabindex="0"
+    [attr.width]="width()"
+    [attr.height]="height"
+    [attr.viewBox]="'0 0 ' + width() + ' ' + height"
+    [attr.aria-label]="summary()"
+    (pointermove)="onMove($event)"
+    (pointerleave)="hoverIndex.set(null)"
+    (blur)="hoverIndex.set(null)"
+    (keydown)="onKey($event)"
+  >
+    @for (tick of priceTicks(); track tick.position) {
+      <line class="grid" x1="8" [attr.x2]="plotRight()" [attr.y1]="tick.position" [attr.y2]="tick.position" />
+      <text class="axis" [attr.x]="axisLabelX()" [attr.y]="tick.position + 4">{{ tick.label }}</text>
+    }
+
+    @if (isCrossover()) {
+      <path class="line long" data-testid="long-average" [attr.d]="longPath()" />
+      <path class="line short" data-testid="short-average" [attr.d]="shortPath()" />
+    } @else {
+      <path class="band-area" data-testid="band-area" [attr.d]="bandArea()" />
+      <path class="line band" [attr.d]="upperPath()" />
+      <path class="line band" [attr.d]="lowerPath()" />
+      <path class="line short" data-testid="middle-band" [attr.d]="middlePath()" />
+    }
+
+    <path class="line price" data-testid="price-line" [attr.d]="pricePath()" />
+
+    @if (lastPrice(); as last) {
+      <line class="last-line" x1="8" [attr.x2]="plotRight()" [attr.y1]="last.y" [attr.y2]="last.y" />
+      <rect class="last-tag" [attr.x]="plotRight() + 2" [attr.y]="last.y - 9" width="60" height="18" rx="4" />
+      <text class="last-label" [attr.x]="plotRight() + 8" [attr.y]="last.y + 4">{{ last.label }}</text>
+    }
+
+    @for (view of markers(); track view.key) {
+      <path
+        class="marker"
+        [class.buy]="view.marker.signal === 'BUY'"
+        [class.sell]="view.marker.signal === 'SELL'"
+        [class.placed]="view.kind === 'placed'"
+        [class.skipped]="view.kind === 'skipped'"
+        [class.failed]="view.kind === 'failed'"
+        [attr.data-outcome]="view.marker.outcome"
+        [attr.d]="view.path"
+      />
+    }
+
+    @for (tick of timeTicks(); track tick.position) {
+      <text class="axis time" [attr.x]="tick.position" [attr.y]="axisBottom" text-anchor="middle">{{ tick.label }}</text>
+    }
+
+    @if (hovered(); as hover) {
+      <line class="crosshair" [attr.x1]="hover.x" [attr.x2]="hover.x" y1="12" [attr.y2]="plotBottom" />
+      <circle class="hover-dot" [attr.cx]="hover.x" [attr.cy]="hover.y" r="3.5" />
+    }
+  </svg>
+
+  @if (hovered(); as hover) {
+    <div class="tooltip" data-testid="strategy-chart-tooltip" [style.left.px]="hover.tooltipLeft">
+      <strong>{{ formatTime(hover.point.quotedAt, true) }}</strong>
+      <dl>
+        <dt>Price</dt><dd>{{ currencySymbol() }}{{ formatPrice(hover.point.price) }}</dd>
+        @if (isCrossover()) {
+          <dt>Short avg</dt><dd>{{ hover.point.shortAverage === null ? '--' : formatPrice(hover.point.shortAverage) }}</dd>
+          <dt>Long avg</dt><dd>{{ hover.point.longAverage === null ? '--' : formatPrice(hover.point.longAverage) }}</dd>
+        } @else {
+          <dt>Upper band</dt><dd>{{ hover.point.upperBand === null ? '--' : formatPrice(hover.point.upperBand) }}</dd>
+          <dt>Middle</dt><dd>{{ hover.point.middleBand === null ? '--' : formatPrice(hover.point.middleBand) }}</dd>
+          <dt>Lower band</dt><dd>{{ hover.point.lowerBand === null ? '--' : formatPrice(hover.point.lowerBand) }}</dd>
+        }
+      </dl>
+      @for (fired of hover.fired; track fired.outcome) {
+        <span class="fired" [class.buy]="fired.signal === 'BUY'" [class.sell]="fired.signal === 'SELL'">
+          {{ fired.signal }} · {{ outcomeLabel(fired) }}
+        </span>
+        @if (fired.orderId) {
+          <span class="order-id">{{ fired.orderId }}</span>
+        }
+      }
+    </div>
+  }
+
+  <ul class="legend" aria-hidden="true">
+    <li><span class="swatch price"></span>Price</li>
+    @if (isCrossover()) {
+      <li><span class="swatch short"></span>Short average</li>
+      <li><span class="swatch long"></span>Long average</li>
+    } @else {
+      <li><span class="swatch short"></span>Middle</li>
+      <li><span class="swatch band"></span>Bands</li>
+    }
+    <li><span class="tri buy"></span>Buy</li>
+    <li><span class="tri sell"></span>Sell</li>
+    <li><span class="tri hollow"></span>Not placed</li>
+  </ul>
+</div>

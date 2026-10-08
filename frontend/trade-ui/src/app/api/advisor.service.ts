@@ -2,9 +2,9 @@ import { HttpClient } from '@angular/common/http';
 import { Injectable, InjectionToken, inject } from '@angular/core';
 import { Observable } from 'rxjs';
 
-/** Base URL of advisor-api (contracts/advisor-api.yaml). Provided by provideApi(). */
+/** Base URL of the advisor routes (contracts/advisor-api.yaml), served by the Trade API. Provided by provideApi(). */
 export const ADVISOR_API_URL = new InjectionToken<string>('ADVISOR_API_URL', {
-  factory: () => 'http://localhost:8083'
+  factory: () => 'http://localhost:8081'
 });
 
 export type AdvisorChatRole = 'user' | 'assistant';
@@ -25,7 +25,7 @@ export interface AdvisorChatResponse {
 export const ADVISOR_MAX_MESSAGES = 20;
 export const ADVISOR_MAX_MESSAGE_LENGTH = 4000;
 
-/** Hand-written client for advisor-api's single endpoint. */
+/** Hand-written client for the advisor's single endpoint. */
 @Injectable({ providedIn: 'root' })
 export class AdvisorService {
   private readonly http = inject(HttpClient);

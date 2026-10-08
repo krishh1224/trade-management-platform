@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+  PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+  "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.team5.watchlists.mapper.WatchlistQuoteMapper">
+
+  <!-- Writes watchlist_quotes only, from the market-data consumer. -->
+
+  <insert id="insertIfAbsent">
+    INSERT INTO watchlist_quotes (symbol, last_price, quoted_at, updated_at)
+    VALUES (#{symbol}, #{lastPrice}, #{quotedAt}, CURRENT_TIMESTAMP)
+    ON CONFLICT (symbol) DO NOTHING
+  </insert>
+
+  <select id="lockLastQuote" resultType="com.team5.watchlists.domain.LastQuote">
+    SELECT
+      last_price AS lastPrice,
+      quoted_at AS quotedAt
+    FROM watchlist_quotes
+    WHERE symbol = #{symbol}
+    FOR UPDATE
+  </select>
+
+  <update id="update">
+    UPDATE watchlist_quotes
+    SET last_price = #{lastPrice},
+        quoted_at = #{quotedAt},
+        updated_at = CURRENT_TIMESTAMP
+    WHERE symbol = #{symbol}
+  </update>
+
+</mapper>

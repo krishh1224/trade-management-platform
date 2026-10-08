@@ -1,22 +1,41 @@
 <div class="shell">
-  <header class="topbar">
+  <header class="topbar" [class.nav-open]="navOpen()">
     <div class="topbar-left">
+      <button
+        class="nav-toggle"
+        type="button"
+        aria-controls="primary-nav"
+        [attr.aria-expanded]="navOpen()"
+        [attr.aria-label]="navOpen() ? 'Close menu' : 'Open menu'"
+        (click)="navOpen.set(!navOpen())"
+        data-testid="nav-toggle"
+      >
+        @if (navOpen()) {
+          <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" /></svg>
+        } @else {
+          <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" /></svg>
+        }
+      </button>
+
       <div class="brand">
         <svg class="brand-mark" viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M2 20L12 3l10 17h-5.2L12 11.6 7.2 20z" fill="currentColor" /></svg>
         <span class="brand-name">Artha</span>
       </div>
 
-      <nav class="nav" aria-label="Primary">
+      <nav class="nav" id="primary-nav" aria-label="Primary" (click)="navOpen.set(false)">
         <a class="nav-link" routerLink="/">Dashboard</a>
-        <span class="nav-link disabled" aria-disabled="true">Portfolio</span>
+        <a class="nav-link" routerLink="/portfolio">Portfolio</a>
         <a class="nav-link" routerLink="/orders">Orders</a>
         <span class="nav-link active" aria-current="page">Blotter</span>
         <a class="nav-link" routerLink="/watchlist">Watchlist</a>
+        <a class="nav-link" routerLink="/alerts">Alerts</a>
+        <a class="nav-link" routerLink="/strategies">Strategies</a>
         <a class="nav-link" routerLink="/advisor">Advisor</a>
       </nav>
     </div>
 
     <div class="topbar-right">
+      <app-notification-bell />
       <div class="profile-menu-wrap">
         <button class="account-chip profile-trigger" type="button" (click)="toggleProfileMenu()" [attr.aria-expanded]="profileMenuOpen()" aria-haspopup="menu">
           <span class="avatar" aria-hidden="true">
@@ -58,38 +77,65 @@
       <header class="blotter-header">
         <div class="history-heading">
           <h2>History</h2>
-          <div class="summary-chips" aria-label="Order status summary">
+          <!-- Each chip toggles independently: pick one or more statuses, or none to see everything. -->
+          <div class="summary-chips" role="group" aria-label="Filter by status" [class.filtering]="selectedStatuses().size > 0">
             <button
               type="button"
               class="summary-chip filled"
+              data-testid="status-chip-FILLED"
               [class.active]="isStatusFilterActive('FILLED')"
               [attr.aria-pressed]="isStatusFilterActive('FILLED')"
-              (click)="setStatusFilter('FILLED')"
+              (click)="toggleStatusFilter('FILLED')"
             >
+              @if (isStatusFilterActive('FILLED')) { <span aria-hidden="true">✓</span> }
               Filled {{ filledOrderCount() }}
             </button>
             <button
               type="button"
               class="summary-chip rejected"
+              data-testid="status-chip-REJECTED"
               [class.active]="isStatusFilterActive('REJECTED')"
               [attr.aria-pressed]="isStatusFilterActive('REJECTED')"
-              (click)="setStatusFilter('REJECTED')"
+              (click)="toggleStatusFilter('REJECTED')"
             >
+              @if (isStatusFilterActive('REJECTED')) { <span aria-hidden="true">✓</span> }
               Rejected {{ rejectedOrderCount() }}
             </button>
             <button
               type="button"
               class="summary-chip working"
+              data-testid="status-chip-NEW"
               [class.active]="isStatusFilterActive('NEW')"
               [attr.aria-pressed]="isStatusFilterActive('NEW')"
-              (click)="setStatusFilter('NEW')"
+              (click)="toggleStatusFilter('NEW')"
             >
+              @if (isStatusFilterActive('NEW')) { <span aria-hidden="true">✓</span> }
               NEW {{ newOrderCount() }}
+            </button>
+            <button
+              type="button"
+              class="summary-chip cancelled"
+              data-testid="status-chip-CANCELLED"
+              [class.active]="isStatusFilterActive('CANCELLED')"
+              [attr.aria-pressed]="isStatusFilterActive('CANCELLED')"
+              (click)="toggleStatusFilter('CANCELLED')"
+            >
+              @if (isStatusFilterActive('CANCELLED')) { <span aria-hidden="true">✓</span> }
+              Cancelled {{ cancelledOrderCount() }}
             </button>
           </div>
         </div>
         <div class="header-actions">
           <button class="clear-filters-button" type="button" (click)="clearFilters()">Clear filters</button>
+          <button
+            class="export-history-button"
+            type="button"
+            (click)="emailOrderHistoryPdf()"
+            [disabled]="exportSubmitting()"
+            data-testid="email-history-button"
+          >
+            {{ exportSubmitting() ? 'Queuing email…' : 'Email PDF' }}
+          </button>
           <button
             class="refresh-history-button"
             type="button"
@@ -105,6 +151,28 @@
       @if (pollingActive()) {
         <p class="polling-hint" role="status">
           Auto-refreshing while NEW orders are still working (attempt {{ pollAttemptsUsed() }} of {{ maxPollAttempts }}).
+        </p>
+      }
+
+      @if (cancelFeedback(); as feedback) {
+        <p
+          class="cancel-feedback"
+          [class.error]="feedback.kind === 'error'"
+          [attr.role]="feedback.kind === 'error' ? 'alert' : 'status'"
+          data-testid="cancel-feedback"
+        >
+          {{ feedback.text }}
+        </p>
+      }
+
+      @if (exportFeedback(); as feedback) {
+        <p
+          class="cancel-feedback"
+          [class.error]="feedback.kind === 'error'"
+          [attr.role]="feedback.kind === 'error' ? 'alert' : 'status'"
+          data-testid="export-feedback"
+        >
+          {{ feedback.text }}
         </p>
       }
 
@@ -146,6 +214,7 @@
                 <th scope="col" class="num col-filled">Filled At</th>
                 <th scope="col" class="num col-cash-after">Cash After</th>
                 <th scope="col" class="col-status">Status</th>
+                <th scope="col" class="col-actions"><span class="sr-only">Actions</span></th>
               </tr>
             </thead>
             <tbody>
@@ -182,7 +251,7 @@
                       —
                     } @else {
                       <span class="price-pack">
-                        <span class="currency-prefix">{{ cashAfterCurrency() }}</span>
+                        <span class="currency-prefix">{{ cashAfterCurrencyDisplay() }}</span>
                         <span class="price-value">{{ cashAfterFor(entry.orderId)! | number: '1.2-2' }}</span>
                       </span>
                     }
@@ -197,6 +266,30 @@
                     >
                       {{ statusBadgeText(entry.status) }}
                     </span>
+                  </td>
+                  <td class="col-actions">
+                    @if (canCancel(entry)) {
+                      @if (cancellingId() === entry.orderId) {
+                        <span class="cancel-progress" role="status">Cancelling…</span>
+                      } @else if (confirmingCancelId() === entry.orderId) {
+                        <span class="cancel-confirm">
+                          <span class="cancel-question">Cancel this order?</span>
+                          <button type="button" class="cancel-yes" data-testid="order-cancel-yes" [disabled]="cancellingId() !== null" (click)="confirmCancel(entry)">Yes</button>
+                          <button type="button" class="cancel-no" data-testid="order-cancel-no" (click)="dismissCancel()">No</button>
+                        </span>
+                      } @else {
+                        <button
+                          type="button"
+                          class="cancel-button"
+                          data-testid="order-cancel"
+                          [disabled]="cancellingId() !== null"
+                          [attr.aria-label]="'Cancel ' + entry.side + ' ' + entry.quantity + ' ' + entry.symbol"
+                          (click)="askCancel(entry)"
+                        >
+                          Cancel
+                        </button>
+                      }
+                    }
                   </td>
                 </tr>
               }

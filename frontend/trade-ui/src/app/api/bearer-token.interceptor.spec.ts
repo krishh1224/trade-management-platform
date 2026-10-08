@@ -31,6 +31,26 @@ describe('bearer token interceptor', () => {
     req.flush({});
   });
 
+  it('portfolio endpoints carry the bearer token', () => {
+    const { http, httpMock } = setup('jwt-token');
+
+    http.get('http://trade/api/v1/portfolio/101').subscribe();
+    http.get('http://trade/api/v1/portfolio/101/positions').subscribe();
+    http.get('http://trade/api/v1/portfolio/101/pnl?bySymbol=true').subscribe();
+    http.get('http://trade/api/v1/portfolio/101/candles/INFY.NS?range=3M').subscribe();
+
+    for (const path of [
+      '/api/v1/portfolio/101',
+      '/api/v1/portfolio/101/positions',
+      '/api/v1/portfolio/101/pnl?bySymbol=true',
+      '/api/v1/portfolio/101/candles/INFY.NS?range=3M'
+    ]) {
+      const req = httpMock.expectOne(`http://trade${path}`);
+      expect(req.request.headers.get('Authorization')).toBe('Bearer jwt-token');
+      req.flush({});
+    }
+  });
+
   it('watchlist group endpoints carry the bearer token', () => {
     const { http, httpMock } = setup('jwt-token');
 
@@ -39,6 +59,47 @@ describe('bearer token interceptor', () => {
     const req = httpMock.expectOne('http://trade/api/v1/watchlists/groups');
     expect(req.request.headers.get('Authorization')).toBe('Bearer jwt-token');
     req.flush([]);
+  });
+
+  // A route missing from the allow-list goes out with no token, gets a 401, and forces a token refresh; a
+  // refresh that fails then signs the user out. The bell and several pages poll these routes on a timer.
+  it.each([
+    '/api/v1/accounts/101/notifications',
+    '/api/v1/accounts/101/notifications/7',
+    '/api/v1/accounts/101/notifications/7/read',
+    '/api/v1/accounts/101/price-alerts',
+    '/api/v1/accounts/101/price-alerts/9',
+    '/api/v1/accounts/101/push-subscription',
+    '/api/v1/accounts/101/push-subscription/config',
+    '/api/v1/watchlists/groups/5001'
+  ])('%s carries the bearer token', (path) => {
+    const { http, httpMock } = setup('jwt-token');
+
+    http.get(`http://trade${path}`).subscribe();
+
+    const req = httpMock.expectOne(`http://trade${path}`);
+    expect(req.request.headers.get('Authorization')).toBe('Bearer jwt-token');
+    req.flush({});
+  });
+
+  it('the advisor signals endpoint on the trade API carries the bearer token', () => {
+    const { http, httpMock } = setup('jwt-token');
+
+    http.get('http://trade/api/v1/accounts/101/advisor/signals').subscribe();
+
+    const req = httpMock.expectOne('http://trade/api/v1/accounts/101/advisor/signals');
+    expect(req.request.headers.get('Authorization')).toBe('Bearer jwt-token');
+    req.flush({ accountId: 101, generatedAt: '2026-10-07T12:30:00Z', signals: [], skipped: [] });
+  });
+
+  it('the order-history export endpoint carries the bearer token', () => {
+    const { http, httpMock } = setup('jwt-token');
+
+    http.post('http://trade/api/v1/accounts/101/orders/export-email', null).subscribe();
+
+    const req = httpMock.expectOne('http://trade/api/v1/accounts/101/orders/export-email');
+    expect(req.request.headers.get('Authorization')).toBe('Bearer jwt-token');
+    req.flush({ message: 'Order history PDF will be sent to your registered email.' });
   });
 
   it('the advisor chat endpoint carries the bearer token, other advisor paths do not', () => {
@@ -92,6 +153,47 @@ describe('bearer token interceptor', () => {
     const refreshReq = httpMock.expectOne('http://auth/auth/refresh');
     expect(refreshReq.request.headers.has('Authorization')).toBe(false);
     refreshReq.flush({});
+  });
+
+  it('the funds routes carry the bearer token', () => {
+    const { http, httpMock } = setup('jwt-token');
+
+    http.post('http://trade/api/v1/accounts/101/deposits', {}).subscribe();
+    http.post('http://trade/api/v1/accounts/101/withdrawals', {}).subscribe();
+    http.get('http://trade/api/v1/accounts/101/transactions?limit=10').subscribe();
+
+    for (const url of [
+      'http://trade/api/v1/accounts/101/deposits',
+      'http://trade/api/v1/accounts/101/withdrawals',
+      'http://trade/api/v1/accounts/101/transactions?limit=10'
+    ]) {
+      const req = httpMock.expectOne(url);
+      expect(req.request.headers.get('Authorization')).toBe('Bearer jwt-token');
+      req.flush({});
+    }
+  });
+
+  it('the preferences routes carry the bearer token', () => {
+    const { http, httpMock } = setup('jwt-token');
+
+    http.get('http://trade/api/v1/accounts/101/preferences').subscribe();
+    http.put('http://trade/api/v1/accounts/101/preferences', {
+      currency: 'USD',
+      theme: 'DARK',
+      alertChannel: 'EMAIL'
+    }).subscribe();
+
+    const getReq = httpMock.expectOne(
+      (req) => req.method === 'GET' && req.url === 'http://trade/api/v1/accounts/101/preferences'
+    );
+    expect(getReq.request.headers.get('Authorization')).toBe('Bearer jwt-token');
+    getReq.flush({});
+
+    const putReq = httpMock.expectOne(
+      (req) => req.method === 'PUT' && req.url === 'http://trade/api/v1/accounts/101/preferences'
+    );
+    expect(putReq.request.headers.get('Authorization')).toBe('Bearer jwt-token');
+    putReq.flush({});
   });
 
   it('the protected auth route carries the bearer token', () => {
