@@ -1,6 +1,7 @@
 package com.neueda.learning.service;
 
 import com.neueda.learning.mapper.PortfolioHoldingMapper;
+import com.neueda.learning.mapper.StrategySymbolMapper;
 import com.neueda.learning.mapper.WatchlistSymbolMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -26,12 +27,15 @@ class SymbolProviderTest {
     @Mock
     private WatchlistSymbolMapper watchlistSymbolMapper;
 
+    @Mock
+    private StrategySymbolMapper strategySymbolMapper;
+
     private SymbolProvider symbolProvider;
 
     @BeforeEach
     void setUp() {
         MockitoAnnotations.openMocks(this);
-        symbolProvider = new SymbolProvider(holdingMapper, watchlistSymbolMapper);
+        symbolProvider = new SymbolProvider(holdingMapper, watchlistSymbolMapper, strategySymbolMapper);
     }
 
     /**
@@ -134,5 +138,34 @@ class SymbolProviderTest {
         assertEquals(2, symbols.size());
         assertTrue(symbols.contains("SBIN.NS"));
         assertTrue(symbols.contains("INFY.NS"));
+    }
+
+    /**
+     * Test: A symbol only an enabled strategy trades is polled too, deduplicated with the others.
+     */
+    @Test
+    void testStrategySymbols_ArePolledAndDeduplicated() {
+        when(holdingMapper.findAllHeldSymbols()).thenReturn(List.of("INFY.NS"));
+        when(watchlistSymbolMapper.findAllWatchlistSymbols()).thenReturn(List.of());
+        when(strategySymbolMapper.findAllStrategySymbols()).thenReturn(List.of("INFY.NS", "TCS.NS"));
+
+        Set<String> symbols = symbolProvider.getSymbolsToPoll();
+
+        assertEquals(Set.of("INFY.NS", "TCS.NS"), symbols);
+    }
+
+    /**
+     * Test: A database without the strategies table still polls holdings and watchlists.
+     */
+    @Test
+    void testStrategySymbolsUnavailable_StillPollsTheRest() {
+        when(holdingMapper.findAllHeldSymbols()).thenReturn(List.of("INFY.NS"));
+        when(watchlistSymbolMapper.findAllWatchlistSymbols()).thenReturn(List.of("SBIN.NS"));
+        when(strategySymbolMapper.findAllStrategySymbols())
+            .thenThrow(new org.springframework.jdbc.BadSqlGrammarException("select", "SELECT", new java.sql.SQLException("relation \"strategies\" does not exist")));
+
+        Set<String> symbols = symbolProvider.getSymbolsToPoll();
+
+        assertEquals(Set.of("INFY.NS", "SBIN.NS"), symbols);
     }
 }

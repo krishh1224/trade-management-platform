@@ -47,4 +47,32 @@ class SecurityConfigTest {
     void strongSecretBuildsDecoder() {
         assertNotNull(securityConfig.jwtDecoder(new JwtProperties("0123456789abcdef0123456789abcdef", "HS256", null, "auth-service")));
     }
+
+    private static final JwtProperties CUSTOMER = new JwtProperties("0123456789abcdef0123456789abcdef", "HS256", null, "auth-service");
+
+    @Test
+    void strategyKeyEqualToTheCustomerKeyFailsStartup() {
+        IllegalStateException exception = assertThrows(IllegalStateException.class,
+            () -> securityConfig.strategyJwtDecoder(new StrategyTokenProperties("0123456789abcdef0123456789abcdef", null), CUSTOMER));
+        assertTrue(exception.getMessage().contains("must differ from JWT_SECRET"));
+    }
+
+    @Test
+    void shortStrategyKeyFailsStartup() {
+        IllegalStateException exception = assertThrows(IllegalStateException.class,
+            () -> securityConfig.strategyJwtDecoder(new StrategyTokenProperties("too-short", null), CUSTOMER));
+        assertTrue(exception.getMessage().contains("STRATEGY_TOKEN_SECRET"));
+    }
+
+    @Test
+    void strategyTokenTtlIsBounded() {
+        assertThrows(IllegalStateException.class,
+            () -> new StrategyTokenProperties("fedcba9876543210fedcba9876543210", java.time.Duration.ofHours(1)));
+    }
+
+    @Test
+    void distinctStrongStrategyKeyBuildsDecoder() {
+        assertNotNull(securityConfig.strategyJwtDecoder(
+            new StrategyTokenProperties("fedcba9876543210fedcba9876543210", null), CUSTOMER));
+    }
 }

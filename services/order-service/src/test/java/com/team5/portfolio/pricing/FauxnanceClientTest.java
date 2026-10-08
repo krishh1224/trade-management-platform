@@ -145,6 +145,27 @@ class FauxnanceClientTest {
     }
 
     @Test
+    void aSyntheticBarWithNullVolume_isKeptWithZeroVolume() {
+        server.expect(requestTo("http://fauxnance/candles/AAPL"))
+            .andRespond(withSuccess("""
+                {"data":{"symbol":"AAPL","interval":"1d","currency":"USD","candles":[
+                  {"date":"2026-10-08","open":337.48156499,"high":347.66899097,"low":335.71214483,
+                   "close":345.8556653,"adjclose":345.8556653,"volume":null,"synthetic":true},
+                  {"date":"2026-10-07","open":330,"high":338,"low":329,"close":337,"synthetic":true},
+                  {"date":"2026-10-06","open":330,"high":338,"low":329,"close":337,"volume":"lots"}
+                ]}}""", MediaType.APPLICATION_JSON));
+
+        CandleSeries series = client.candles("AAPL");
+
+        // null or absent volume is kept as 0; a volume that is there but not a number is still malformed
+        assertEquals(2, series.candles().size());
+        Candle latest = series.candles().get(1);
+        assertEquals(LocalDate.parse("2026-10-08"), latest.date());
+        assertEquals(0L, latest.volume());
+        assertTrue(latest.synthetic());
+    }
+
+    @Test
     void aFailedCandleCallRaisesAFeedException() {
         server.expect(requestTo("http://fauxnance/candles/INFY.NS")).andRespond(withServerError());
 

@@ -110,6 +110,10 @@ paths:
 
         Retrying with the same `idempotencyKey` is not a way to poll for status. It returns
         `ORD-409`. Poll `GET /api/v1/accounts/{id}/orders` instead.
+
+        This is also the one route an automated strategy's delegated token (issuer
+        `strategy-automation`, scope `orders:place`) is accepted on; every rule above applies to it,
+        with the token's `accountId` as the authenticated account. See `strategies-api.yaml`.
       requestBody:
         required: true
         content:
