@@ -80,6 +80,9 @@ public class SecurityConfig {
                 // Error dispatches only follow a request that was already authorised, or rejected by the firewall.
                 .dispatcherTypeMatchers(DispatcherType.ERROR).permitAll()
                 .requestMatchers(HttpMethod.GET, "/health").permitAll()
+                // Swagger UI and the static spec it renders; the API routes it calls still need a token
+                .requestMatchers(HttpMethod.GET,
+                    "/docs", "/swagger-ui.html", "/swagger-ui/**", "/v3/api-docs/**", "/swagger.yaml").permitAll()
                 .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                 // The one route an automated strategy's delegated token may call. The route's own
                 // validation, accountId check and idempotency apply to it exactly as to a customer.
