@@ -19,6 +19,10 @@ public interface NotificationService {
     boolean recordCancelledOrder(long accountId, long persistentOrderId, String symbol, String side,
                                  Integer quantity, BigDecimal price);
 
+    // Records a request to email an order-history PDF. Delivery is done by the existing
+    // notification dispatcher and channel senders.
+    boolean queueOrderHistoryExport(long authenticatedAccountId, long accountId);
+
     List<NotificationResponse> listNotifications(
         long authenticatedAccountId,
         long accountId,

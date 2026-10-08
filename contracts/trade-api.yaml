@@ -392,6 +392,30 @@ paths:
         '404':
           $ref: '#/components/responses/AccountNotFound'
 
+  /api/v1/accounts/{id}/orders/export-email:
+    post:
+      tags: [Accounts]
+      operationId: emailOrderHistoryExport
+      summary: Queue an order-history PDF email
+      description: |
+        Queues an order-history export notification for the account. The notifications module sends
+        the PDF as an email attachment to the address on file for that account.
+      parameters:
+        - $ref: '#/components/parameters/AccountIdPath'
+      responses:
+        '202':
+          description: Export request accepted for asynchronous email delivery.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrderHistoryExportResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorised'
+        '403':
+          $ref: '#/components/responses/AccountNotActive'
+        '404':
+          $ref: '#/components/responses/AccountNotFound'
+
   /api/v1/accounts/{id}/advisor/signals:
     get:
       tags: [Advice]
@@ -916,6 +940,15 @@ components:
           type: string
           format: date-time
           example: '2026-09-28T09:14:22Z'
+
+    OrderHistoryExportResponse:
+      type: object
+      additionalProperties: false
+      required: [message]
+      properties:
+        message:
+          type: string
+          example: Order history PDF will be sent to your registered email.
 
     AccountResponse:
       type: object

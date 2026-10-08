@@ -2,6 +2,7 @@ package com.team5.notifications.delivery;
 
 import com.team5.notifications.domain.Notification;
 import com.team5.notifications.domain.NotificationStatus;
+import com.team5.notifications.domain.NotificationType;
 import com.team5.notifications.mapper.NotificationMapper;
 import com.team5.preferences.AlertChannel;
 import com.team5.preferences.CustomerPreferencesLookup;
@@ -70,7 +71,7 @@ public class NotificationDispatcher {
     }
 
     void dispatch(Notification notification) {
-        Optional<AlertChannel> resolved = preferencesLookup.findAlertChannel(notification.getAccountId());
+        Optional<AlertChannel> resolved = resolveChannel(notification);
 
         if (resolved.isEmpty()) {
             // decision: hold, not default. The message is not lost (it is in the inbox) and it
@@ -103,5 +104,12 @@ public class NotificationDispatcher {
             return;
         }
         deliveryLedger.markSent(notification, channel);
+    }
+
+    private Optional<AlertChannel> resolveChannel(Notification notification) {
+        if (notification.getType() == NotificationType.ORDER_HISTORY_EXPORT) {
+            return Optional.of(AlertChannel.EMAIL);
+        }
+        return preferencesLookup.findAlertChannel(notification.getAccountId());
     }
 }

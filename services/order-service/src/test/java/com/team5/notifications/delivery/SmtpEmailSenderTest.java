@@ -11,17 +11,28 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 import ch.qos.logback.classic.Logger;
 import ch.qos.logback.classic.spi.ILoggingEvent;
 import ch.qos.logback.core.read.ListAppender;
+import com.team5.domain.enums.OrderSide;
+import com.team5.domain.enums.OrderStatus;
+import com.team5.dto.response.OrderHistoryEntry;
+import com.team5.mapper.AccountQueryMapper;
 import com.team5.notifications.InMemoryNotificationMapper;
 import com.team5.notifications.domain.Notification;
 import com.team5.notifications.domain.NotificationStatus;
 import com.team5.notifications.domain.NotificationType;
 import com.team5.preferences.AlertChannel;
+import jakarta.mail.BodyPart;
+import jakarta.mail.Multipart;
+import jakarta.mail.Session;
+import jakarta.mail.internet.MimeMessage;
+import java.math.BigDecimal;
 import java.time.OffsetDateTime;
 import java.util.List;
+import java.util.Properties;
 import java.util.Optional;
 import java.util.UUID;
 import org.junit.jupiter.api.AfterEach;
@@ -40,6 +51,7 @@ class SmtpEmailSenderTest {
 
     private InMemoryNotificationMapper mapper;
     private JavaMailSender mailSender;
+    private AccountQueryMapper accountQueryMapper;
     private SmtpEmailSender sender;
     private ListAppender<ILoggingEvent> logs;
 
@@ -47,7 +59,14 @@ class SmtpEmailSenderTest {
     void setUp() {
         mapper = new InMemoryNotificationMapper();
         mailSender = mock(JavaMailSender.class);
-        sender = new SmtpEmailSender(mailSender, mapper, "alerts@artha.test", "http://localhost:4200/notifications");
+        accountQueryMapper = mock(AccountQueryMapper.class);
+        sender = new SmtpEmailSender(
+            mailSender,
+            mapper,
+            accountQueryMapper,
+            "alerts@artha.test",
+            "http://localhost:4200/notifications"
+        );
 
         logs = new ListAppender<>();
         logs.start();
@@ -172,6 +191,51 @@ class SmtpEmailSenderTest {
     void mask_keepsOnlyTheFirstCharacterAndTheDomain() {
         assertEquals("j***@gmail.com", SmtpEmailSender.mask("jane.doe@gmail.com"));
         assertEquals("***", SmtpEmailSender.mask("@gmail.com"));
+    }
+
+    @Test
+    void orderHistoryExport_sendsAPdfAttachment() throws Exception {
+        mapper.storeEmail(ACCOUNT, ADDRESS);
+        when(accountQueryMapper.getOrders(ACCOUNT, null, null, null)).thenReturn(List.of(
+            new OrderHistoryEntry(
+                "ORD-42",
+                ACCOUNT,
+                "INFY.NS",
+                OrderSide.BUY,
+                5,
+                new BigDecimal("1500.00"),
+                new BigDecimal("1498.75"),
+                OrderStatus.FILLED,
+                "idem-42",
+                OffsetDateTime.parse("2026-10-07T09:00:00Z"),
+                new BigDecimal("7493.75")
+            )
+        ));
+
+        MimeMessage mime = new MimeMessage(Session.getInstance(new Properties()));
+        when(mailSender.createMimeMessage()).thenReturn(mime);
+
+        sender.send(notification(NotificationType.ORDER_HISTORY_EXPORT,
+            "Your order history PDF report is ready and attached to this email."));
+
+        verify(mailSender).send(mime);
+        assertEquals("Artha: Order history report", mime.getSubject());
+        Object content = mime.getContent();
+        assertTrue(content instanceof Multipart);
+        Multipart multipart = (Multipart) content;
+
+        boolean hasPdf = false;
+        for (int i = 0; i < multipart.getCount(); i++) {
+            BodyPart part = multipart.getBodyPart(i);
+            String filename = part.getFileName();
+            String contentType = part.getContentType() == null ? "" : part.getContentType().toLowerCase();
+            if ((filename != null && filename.toLowerCase().contains(".pdf"))
+                || contentType.contains("application/pdf")) {
+                hasPdf = true;
+                break;
+            }
+        }
+        assertTrue(hasPdf);
     }
 
     private static Notification notification(NotificationType type, String message) {

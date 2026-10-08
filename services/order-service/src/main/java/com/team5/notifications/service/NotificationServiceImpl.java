@@ -115,6 +115,19 @@ public class NotificationServiceImpl implements NotificationService, AlertDelive
 
     @Override
     @Transactional
+    public boolean queueOrderHistoryExport(long authenticatedAccountId, long accountId) {
+        accountAccessAuthorizer.assertAuthorised(authenticatedAccountId, accountId);
+        return insert(
+            UUID.randomUUID(),
+            accountId,
+            NotificationType.ORDER_HISTORY_EXPORT,
+            null,
+            "Your order history PDF report is ready and attached to this email."
+        );
+    }
+
+    @Override
+    @Transactional
     public boolean deliver(PriceAlert alert) {
         if (alert == null || alert.alertId() == null || alert.accountId() <= 0
             || alert.threshold() == null || alert.triggerPrice() == null || alert.direction() == null) {

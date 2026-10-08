@@ -3,6 +3,7 @@ package com.team5.tradeapi.controller;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
@@ -33,6 +34,7 @@ import com.team5.dto.response.CashTransactionResponse;
 import com.team5.dto.response.CustomerPreferencesResponse;
 import com.team5.dto.response.OrderHistoryEntry;
 import com.team5.dto.response.PositionResponse;
+import com.team5.notifications.service.NotificationService;
 import com.team5.service.AccountService;
 import java.math.BigDecimal;
 import java.time.OffsetDateTime;
@@ -55,6 +57,9 @@ class AccountControllerTest {
 
     @MockBean
     private AccountService accountService;
+
+    @MockBean
+    private NotificationService notificationService;
 
     @Test
     void getAccount_shouldReturnAccountResponse() throws Exception {
@@ -160,6 +165,16 @@ class AccountControllerTest {
             .with(authenticatedAs(101L)))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$").isArray());
+    }
+
+    @Test
+    void exportOrdersByEmail_shouldQueueNotificationAndReturnAccepted() throws Exception {
+        mockMvc.perform(post("/api/v1/accounts/{id}/orders/export-email", 101L)
+                .with(authenticatedAs(101L)))
+            .andExpect(status().isAccepted())
+            .andExpect(jsonPath("$.message").value("Order history PDF will be sent to your registered email."));
+
+        verify(notificationService).queueOrderHistoryExport(101L, 101L);
     }
 
     @Test

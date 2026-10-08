@@ -27,6 +27,8 @@ public class MessageFormatter {
             case ORDER_REJECTED -> order + " was rejected" + reasonSuffix(facts.reasonCode()) + ".";
             case ORDER_CANCELLED -> order + " was cancelled.";
             case PRICE_ALERT -> throw new IllegalArgumentException("PRICE_ALERT is not a trade event");
+            case ORDER_HISTORY_EXPORT ->
+                throw new IllegalArgumentException("ORDER_HISTORY_EXPORT is not a trade event");
         };
     }
 

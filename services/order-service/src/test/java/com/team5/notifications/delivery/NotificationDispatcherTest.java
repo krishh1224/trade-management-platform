@@ -142,6 +142,19 @@ class NotificationDispatcherTest {
         assertEquals(1, email.sentIds.size());
     }
 
+    @Test
+    void orderHistoryExport_alwaysUsesEmailEvenWhenPreferenceIsDifferent() {
+        preferences.store(ACCOUNT, AlertChannel.SMS);
+        long id = queue(ACCOUNT, NotificationType.ORDER_HISTORY_EXPORT,
+            "Your order history PDF report is ready and attached to this email.");
+
+        dispatcher.dispatchPending();
+
+        assertEquals(List.of(id), email.sentIds);
+        assertTrue(sms.sentIds.isEmpty());
+        assertSent(id, AlertChannel.EMAIL);
+    }
+
     private void assertSent(long id, AlertChannel channel) {
         Notification sent = row(id);
         assertEquals(NotificationStatus.SENT, sent.getStatus());
@@ -151,11 +164,15 @@ class NotificationDispatcherTest {
     }
 
     private long queue(long accountId) {
+        return queue(accountId, NotificationType.ORDER_FILLED, "Your BUY order for 10 AAPL was filled at 187.25.");
+    }
+
+    private long queue(long accountId, NotificationType type, String message) {
         Notification notification = new Notification();
         notification.setEventId(UUID.randomUUID());
         notification.setAccountId(accountId);
-        notification.setType(NotificationType.ORDER_FILLED);
-        notification.setMessage("Your BUY order for 10 AAPL was filled at 187.25.");
+        notification.setType(type);
+        notification.setMessage(message);
         notification.setStatus(NotificationStatus.QUEUED);
         notification.setCreatedAt(OffsetDateTime.now());
         mapper.insertIfAbsent(notification);

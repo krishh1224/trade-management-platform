@@ -10,8 +10,10 @@ import com.team5.dto.response.CashTransactionResponse;
 import com.team5.dto.response.ClientProfileResponse;
 import com.team5.dto.response.CustomerPreferencesResponse;
 import com.team5.dto.response.InstrumentOptionResponse;
+import com.team5.dto.response.OrderHistoryExportResponse;
 import com.team5.dto.response.OrderHistoryEntry;
 import com.team5.dto.response.PositionResponse;
+import com.team5.notifications.service.NotificationService;
 import com.team5.service.AccountService;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Max;
@@ -36,9 +38,11 @@ import org.springframework.web.bind.annotation.RestController;
 public class AccountController {
 
     private final AccountService accountService;
+    private final NotificationService notificationService;
 
-    public AccountController(AccountService accountService) {
+    public AccountController(AccountService accountService, NotificationService notificationService) {
         this.accountService = accountService;
+        this.notificationService = notificationService;
     }
 
     @GetMapping("/{id}")
@@ -82,6 +86,16 @@ public class AccountController {
         @AuthenticatedAccountId long authenticatedAccountId
     ) {
         return ResponseEntity.ok(accountService.getOrders(authenticatedAccountId, id, status, from, to));
+    }
+
+    @PostMapping("/{id}/orders/export-email")
+    public ResponseEntity<OrderHistoryExportResponse> emailOrderHistoryExport(
+        @PathVariable("id") @Min(1) Long id,
+        @AuthenticatedAccountId long authenticatedAccountId
+    ) {
+        notificationService.queueOrderHistoryExport(authenticatedAccountId, id);
+        return ResponseEntity.accepted()
+            .body(new OrderHistoryExportResponse("Order history PDF will be sent to your registered email."));
     }
 
     @PostMapping("/{id}/deposits")

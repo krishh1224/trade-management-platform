@@ -63,6 +63,8 @@ export class BlotterComponent implements OnInit, OnChanges {
   readonly confirmingCancelId = signal<string | null>(null);
   readonly cancellingId = signal<string | null>(null);
   readonly cancelFeedback = signal<{ kind: 'success' | 'error'; text: string } | null>(null);
+  readonly exportSubmitting = signal(false);
+  readonly exportFeedback = signal<{ kind: 'success' | 'error'; text: string } | null>(null);
   readonly newOrderCount = computed(() => this.orderHistory().filter((entry) => entry.status === 'NEW').length);
   readonly rejectedOrderCount = computed(() => this.orderHistory().filter((entry) => entry.status === 'REJECTED').length);
   readonly filledOrderCount = computed(() => this.orderHistory().filter((entry) => entry.status === 'FILLED').length);
@@ -152,6 +154,32 @@ export class BlotterComponent implements OnInit, OnChanges {
 
   refreshOrderHistory(): void {
     this.fetchOrderHistory({ showLoading: true, resetPollingBound: true });
+  }
+
+  emailOrderHistoryPdf(): void {
+    const accountId = this.resolveAccountId();
+    if (accountId === null || this.exportSubmitting()) {
+      return;
+    }
+
+    this.exportSubmitting.set(true);
+    this.exportFeedback.set(null);
+    this.tradeService
+      .emailOrderHistoryExport(accountId)
+      .pipe(finalize(() => this.exportSubmitting.set(false)))
+      .subscribe({
+        next: (response) => {
+          this.exportFeedback.set({ kind: 'success', text: response.message });
+        },
+        error: (error: unknown) => {
+          this.exportFeedback.set({
+            kind: 'error',
+            text: toUserFacingErrorMessage(error, {
+              fallbackMessage: 'Could not queue the order history PDF email. Please try again.'
+            })
+          });
+        }
+      });
   }
 
   toggleStatusFilter(status: OrderStatus): void {

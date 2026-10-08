@@ -128,6 +128,15 @@
         <div class="header-actions">
           <button class="clear-filters-button" type="button" (click)="clearFilters()">Clear filters</button>
           <button
+            class="export-history-button"
+            type="button"
+            (click)="emailOrderHistoryPdf()"
+            [disabled]="exportSubmitting()"
+            data-testid="email-history-button"
+          >
+            {{ exportSubmitting() ? 'Queuing email…' : 'Email PDF' }}
+          </button>
+          <button
             class="refresh-history-button"
             type="button"
             (click)="refreshOrderHistory()"
@@ -151,6 +160,17 @@
           [class.error]="feedback.kind === 'error'"
           [attr.role]="feedback.kind === 'error' ? 'alert' : 'status'"
           data-testid="cancel-feedback"
+        >
+          {{ feedback.text }}
+        </p>
+      }
+
+      @if (exportFeedback(); as feedback) {
+        <p
+          class="cancel-feedback"
+          [class.error]="feedback.kind === 'error'"
+          [attr.role]="feedback.kind === 'error' ? 'alert' : 'status'"
+          data-testid="export-feedback"
         >
           {{ feedback.text }}
         </p>

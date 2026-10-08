@@ -111,6 +111,22 @@ describe('generated client facades', () => {
     expect(count).toBe(1);
   });
 
+  it('requests order-history PDF export by email', () => {
+    const http = setup();
+    let message = '';
+
+    TestBed.inject(TradeService)
+      .emailOrderHistoryExport(5)
+      .subscribe((response) => (message = response.message));
+
+    const req = http.expectOne(
+      (r) => r.url === 'http://trade/api/v1/accounts/5/orders/export-email' && r.method === 'POST'
+    );
+    expect(req.request.body).toBeNull();
+    req.flush({ message: 'Order history PDF will be sent to your registered email.' });
+    expect(message).toContain('Order history PDF');
+  });
+
   it('loads advice signals from the trade API', () => {
     const http = setup();
     let signals = 0;

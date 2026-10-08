@@ -141,6 +141,13 @@
 			<artifactId>spring-boot-starter-mail</artifactId>
 		</dependency>
 
+		<!-- PDF rendering for order-history export attachments sent through notifications EMAIL -->
+		<dependency>
+			<groupId>org.apache.pdfbox</groupId>
+			<artifactId>pdfbox</artifactId>
+			<version>2.0.32</version>
+		</dependency>
+
 		<!-- Web Push (browser notifications) for the notifications PUSH channel, off unless
 		     NOTIFICATIONS_PUSH_ENABLED=true. Only PushService (Apache httpasyncclient) is used, so the
 		     library's second HTTP client and CLI parser are excluded. -->

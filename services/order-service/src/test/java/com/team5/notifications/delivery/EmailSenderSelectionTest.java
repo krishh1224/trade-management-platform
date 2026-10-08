@@ -3,6 +3,7 @@ package com.team5.notifications.delivery;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
 
+import com.team5.mapper.AccountQueryMapper;
 import com.team5.notifications.mapper.NotificationMapper;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;
@@ -14,6 +15,7 @@ class EmailSenderSelectionTest {
     private final ApplicationContextRunner context = new ApplicationContextRunner()
         .withBean(JavaMailSender.class, () -> mock(JavaMailSender.class))
         .withBean(NotificationMapper.class, () -> mock(NotificationMapper.class))
+        .withBean(AccountQueryMapper.class, () -> mock(AccountQueryMapper.class))
         .withUserConfiguration(LoggingEmailSender.class, SmtpEmailSender.class);
 
     @Test

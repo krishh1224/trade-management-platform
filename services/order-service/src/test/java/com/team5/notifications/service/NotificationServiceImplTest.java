@@ -241,6 +241,23 @@ class NotificationServiceImplTest {
     }
 
     @Test
+    void queueOrderHistoryExport_recordsAQueuedNotification() {
+        boolean queued = service.queueOrderHistoryExport(OWNER, OWNER);
+
+        assertTrue(queued);
+        Notification row = onlyRow();
+        assertEquals(NotificationType.ORDER_HISTORY_EXPORT, row.getType());
+        assertEquals(NotificationStatus.QUEUED, row.getStatus());
+        assertEquals(OWNER, row.getAccountId());
+    }
+
+    @Test
+    void queueOrderHistoryExport_refusesAnotherAccountsPath() {
+        assertThrows(AccountAccessDeniedException.class,
+            () -> service.queueOrderHistoryExport(OTHER_ACCOUNT, OWNER));
+    }
+
+    @Test
     void singleNotification_ofAnotherAccount_isNotFound() {
         service.recordTradeEvent(envelope("ORDER_FILLED", filledPayload()));
         long id = onlyRow().getNotificationId();

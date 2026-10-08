@@ -152,7 +152,8 @@ export interface CustomerPreferences {
 }
 
 // contracts/notifications-api.yaml
-export type NotificationType = 'ORDER_FILLED' | 'ORDER_REJECTED' | 'ORDER_CANCELLED' | 'PRICE_ALERT';
+export type NotificationType =
+  'ORDER_FILLED' | 'ORDER_REJECTED' | 'ORDER_CANCELLED' | 'PRICE_ALERT' | 'ORDER_HISTORY_EXPORT';
 export type NotificationStatus = 'QUEUED' | 'HELD' | 'SENT' | 'FAILED' | 'SKIPPED';
 
 export interface CustomerNotification {
@@ -174,6 +175,10 @@ export interface CustomerNotification {
 export interface PushConfig {
   enabled: boolean;
   publicKey: string | null;
+}
+
+export interface OrderHistoryExportResponse {
+  message: string;
 }
 
 /** Hand-written facade over the generated Trade REST API client. Unwraps the HTTP envelope. */
@@ -205,6 +210,13 @@ export class TradeService {
 
   getOrders(accountId: number, filter: Omit<GetOrders$Params, 'id'> = {}): Observable<OrderHistoryRow[]> {
     return getOrders(this.http, this.config.rootUrl, { id: accountId, ...filter }).pipe(map((r) => r.body));
+  }
+
+  emailOrderHistoryExport(accountId: number): Observable<OrderHistoryExportResponse> {
+    return this.http.post<OrderHistoryExportResponse>(
+      `${this.config.rootUrl}/api/v1/accounts/${accountId}/orders/export-email`,
+      null
+    );
   }
 
   getAdviceSignals(accountId: number): Observable<TradeAdvice> {

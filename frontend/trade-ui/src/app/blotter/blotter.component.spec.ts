@@ -16,7 +16,8 @@ const authServiceMock = {
 const tradeServiceMock = {
   getOrders: vi.fn(),
   getBalance: vi.fn(),
-  cancelOrder: vi.fn()
+  cancelOrder: vi.fn(),
+  emailOrderHistoryExport: vi.fn()
 };
 
 const WORKING_UUID = '3e701b47-1375-478c-bfef-aa638eff477d';
@@ -34,6 +35,9 @@ describe('BlotterComponent', () => {
     tradeServiceMock.getBalance.mockReset();
     tradeServiceMock.getBalance.mockReturnValue(of({ cashBalance: 1000, currency: 'INR' }));
     tradeServiceMock.cancelOrder.mockReset();
+    tradeServiceMock.emailOrderHistoryExport.mockReset();
+    tradeServiceMock.emailOrderHistoryExport
+      .mockReturnValue(of({ message: 'Order history PDF will be sent to your registered email.' }));
 
     await TestBed.configureTestingModule({
       imports: [BlotterComponent],
@@ -340,6 +344,40 @@ describe('BlotterComponent', () => {
 
     expect(tradeServiceMock.getOrders).toHaveBeenCalled();
     expect(fixture.nativeElement.textContent).toContain('Order history could not be loaded');
+  });
+
+  it('queues order-history PDF email and shows success feedback', () => {
+    const fixture = TestBed.createComponent(BlotterComponent);
+    fixture.componentInstance.accountId = 101;
+    fixture.detectChanges();
+
+    click(fixture, 'email-history-button');
+
+    expect(tradeServiceMock.emailOrderHistoryExport).toHaveBeenCalledWith(101);
+    expect(fixture.nativeElement.querySelector('[data-testid="export-feedback"]')?.textContent)
+      .toContain('Order history PDF will be sent');
+  });
+
+  it('shows export error feedback when email queueing fails', () => {
+    tradeServiceMock.emailOrderHistoryExport.mockReturnValueOnce(
+      throwError(
+        () =>
+          new HttpErrorResponse({
+            status: 500,
+            error: { errorCode: 'ERR-500', message: 'Server error' }
+          })
+      )
+    );
+
+    const fixture = TestBed.createComponent(BlotterComponent);
+    fixture.componentInstance.accountId = 101;
+    fixture.detectChanges();
+
+    click(fixture, 'email-history-button');
+
+    const feedback = fixture.nativeElement.querySelector('[data-testid="export-feedback"]') as HTMLElement;
+    expect(feedback.getAttribute('role')).toBe('alert');
+    expect(feedback.textContent).toContain('Could not queue the order history PDF email');
   });
 });
 

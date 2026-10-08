@@ -6,8 +6,9 @@ info:
   summary: Notification history for a customer's own account, served by the Trade REST API.
   description: |
     The notifications module lives inside the Trade REST API (`com.team5.notifications`). It turns
-    `ORDER_FILLED`, `ORDER_REJECTED` and `ORDER_CANCELLED` events from the `trade-events` topic, and
-    price alerts raised by watchlists, into messages delivered on the channel the customer holds in
+    `ORDER_FILLED`, `ORDER_REJECTED` and `ORDER_CANCELLED` events from the `trade-events` topic,
+    price alerts raised by watchlists, and order-history export emails, into messages delivered on
+    the channel the customer holds in
     Customer Preferences. This contract covers the routes a customer can reach. Everything else the
     module does is driven by Kafka or by an in-process Java call.
 
@@ -320,7 +321,7 @@ components:
 
     NotificationType:
       type: string
-      enum: [ORDER_FILLED, ORDER_REJECTED, ORDER_CANCELLED, PRICE_ALERT]
+      enum: [ORDER_FILLED, ORDER_REJECTED, ORDER_CANCELLED, PRICE_ALERT, ORDER_HISTORY_EXPORT]
 
     NotificationResponse:
       type: object
