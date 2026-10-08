@@ -143,12 +143,15 @@ public class FauxnanceClient {
             BigDecimal high = price(node, "high");
             BigDecimal low = price(node, "low");
             BigDecimal close = price(node, "close");
+            // synthetic bars come with "volume": null (nothing was traded to count); that is 0, not malformed
             JsonNode volume = node.get("volume");
+            boolean noVolume = volume == null || volume.isNull();
             if (open == null || high == null || low == null || close == null || high.compareTo(low) < 0
-                || volume == null || !volume.canConvertToLong() || volume.asLong() < 0) {
+                || (!noVolume && (!volume.canConvertToLong() || volume.asLong() < 0))) {
                 return null;
             }
-            return new Candle(date, open, high, low, close, volume.asLong(), node.path("synthetic").asBoolean(false));
+            return new Candle(date, open, high, low, close, noVolume ? 0L : volume.asLong(),
+                node.path("synthetic").asBoolean(false));
         } catch (RuntimeException e) {
             return null;
         }

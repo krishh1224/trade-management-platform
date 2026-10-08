@@ -131,6 +131,8 @@ services:
       SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:-postgres}
       SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
       JWT_SECRET: ${JWT_SECRET:?JWT_SECRET must be set to a secret of at least 32 bytes}
+      # automated strategies sign their order tokens with this; unset = strategies cannot place orders
+      STRATEGY_TOKEN_SECRET: ${STRATEGY_TOKEN_SECRET:-}
       AUTH_STUB_BASE_URL: http://nest-auth:3000
       KAFKA_BOOTSTRAP_SERVERS: kafka:29092
     depends_on:

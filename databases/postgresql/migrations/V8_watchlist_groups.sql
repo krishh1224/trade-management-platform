@@ -53,11 +53,18 @@ ALTER TABLE watchlists
 ALTER TABLE watchlists
     DROP CONSTRAINT IF EXISTS uq_watchlists_account_instrument;
 
+-- dropped first so the file can be re-run (apply.sh runs every migration on every deploy)
+ALTER TABLE watchlists
+    DROP CONSTRAINT IF EXISTS fk_watchlists_group;
+
 ALTER TABLE watchlists
     ADD CONSTRAINT fk_watchlists_group
         FOREIGN KEY (watchlist_group_id)
             REFERENCES watchlist_groups(watchlist_group_id)
             ON DELETE CASCADE;
+
+ALTER TABLE watchlists
+    DROP CONSTRAINT IF EXISTS uq_watchlists_group_instrument;
 
 ALTER TABLE watchlists
     ADD CONSTRAINT uq_watchlists_group_instrument

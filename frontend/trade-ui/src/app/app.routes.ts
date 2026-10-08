@@ -10,6 +10,7 @@ import { OrdersComponent } from './orders/orders.component';
 import { PortfolioComponent } from './portfolio/portfolio.component';
 import { ProfileComponent } from './profile/profile.component';
 import { SignInComponent } from './sign-in/sign-in.component';
+import { StrategiesComponent } from './strategies/strategies.component';
 import { WatchlistComponent } from './watchlist/watchlist.component';
 
 export const routes: Routes = [
@@ -30,6 +31,7 @@ export const routes: Routes = [
       { path: 'blotter', component: BlotterComponent },
       { path: 'watchlist', component: WatchlistComponent },
       { path: 'alerts', component: AlertsComponent },
+      { path: 'strategies', component: StrategiesComponent },
       { path: 'advisor', component: AdvisorComponent },
       { path: 'notifications', component: NotificationsComponent },
       { path: 'profile', component: ProfileComponent },

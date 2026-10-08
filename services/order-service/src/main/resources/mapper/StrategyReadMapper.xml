@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+  PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+  "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.team5.strategies.mapper.StrategyReadMapper">
+
+  <!-- Read only: instruments, portfolio, portfolio_holdings, orders. Nothing here writes. -->
+
+  <select id="findTradableSymbol" resultType="java.lang.String">
+    SELECT ticker FROM instruments WHERE ticker = #{symbol} AND tradable = TRUE
+  </select>
+
+  <select id="findPosition" resultType="com.team5.strategies.domain.PositionSnapshot">
+    SELECT
+      COALESCE((
+        SELECT SUM(h.quantity)
+        FROM portfolio_holdings h
+        INNER JOIN portfolio p ON p.portfolio_id = h.portfolio_id
+        INNER JOIN instruments i ON i.instrument_id = h.instrument_id
+        WHERE p.account_id = #{accountId} AND i.ticker = #{symbol}
+      ), 0) AS held,
+      COALESCE((
+        SELECT SUM(o.quantity)
+        FROM orders o
+        INNER JOIN portfolio p ON p.portfolio_id = o.portfolio_id
+        INNER JOIN instruments i ON i.instrument_id = o.instrument_id
+        WHERE p.account_id = #{accountId} AND i.ticker = #{symbol} AND o.status = 'NEW' AND o.side = 'BUY'
+      ), 0) AS pendingBuy,
+      COALESCE((
+        SELECT SUM(o.quantity)
+        FROM orders o
+        INNER JOIN portfolio p ON p.portfolio_id = o.portfolio_id
+        INNER JOIN instruments i ON i.instrument_id = o.instrument_id
+        WHERE p.account_id = #{accountId} AND i.ticker = #{symbol} AND o.status = 'NEW' AND o.side = 'SELL'
+      ), 0) AS pendingSell
+  </select>
+
+  <select id="findOrderIdByIdempotencyKey" resultType="java.lang.String">
+    SELECT external_order_id FROM orders WHERE idempotency_key = #{idempotencyKey}
+  </select>
+
+</mapper>
