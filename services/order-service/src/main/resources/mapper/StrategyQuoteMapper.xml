@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+  PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+  "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.team5.strategies.mapper.StrategyQuoteMapper">
+
+  <!-- Writes strategy_quotes only, from the market-data consumer. -->
+
+  <resultMap id="storedQuote" type="com.team5.strategies.mapper.StrategyQuoteMapper$StoredQuote">
+    <result property="quotedAt" column="quoted_at"/>
+    <result property="eventId" column="event_id" typeHandler="org.apache.ibatis.type.ObjectTypeHandler"/>
+    <result property="price" column="price"/>
+  </resultMap>
+
+  <select id="findLatest" resultMap="storedQuote">
+    SELECT quoted_at, event_id
+    FROM strategy_quotes
+    WHERE symbol = #{symbol}
+    ORDER BY quoted_at DESC
+    LIMIT 1
+  </select>
+
+  <insert id="insert">
+    INSERT INTO strategy_quotes (symbol, quoted_at, price, event_id)
+    VALUES (#{symbol}, #{quotedAt}, #{price}, #{eventId, typeHandler=com.team5.notifications.mapper.UuidTypeHandler})
+    ON CONFLICT (symbol, quoted_at) DO NOTHING
+  </insert>
+
+  <select id="findRecentPrices" resultType="java.math.BigDecimal">
+    SELECT price
+    FROM strategy_quotes
+    WHERE symbol = #{symbol} AND quoted_at &lt;= #{upTo}
+    ORDER BY quoted_at DESC
+    LIMIT #{limit}
+  </select>
+
+  <select id="findRecentQuotes" resultMap="storedQuote">
+    SELECT quoted_at, event_id, price
+    FROM strategy_quotes
+    WHERE symbol = #{symbol}
+    ORDER BY quoted_at DESC
+    LIMIT #{limit}
+  </select>
+
+  <!-- with fewer than `keep` rows the subquery is NULL and nothing is deleted -->
+  <delete id="prune">
+    DELETE FROM strategy_quotes
+    WHERE symbol = #{symbol}
+      AND quoted_at &lt; (
+        SELECT quoted_at FROM strategy_quotes
+        WHERE symbol = #{symbol}
+        ORDER BY quoted_at DESC
+        OFFSET (#{keep} - 1) LIMIT 1
+      )
+  </delete>
+
+</mapper>

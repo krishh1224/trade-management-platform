@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+  PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+  "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.team5.mapper.TransactionMapper">
+
+  <insert id="insertTransaction">
+    INSERT INTO transactions (
+      transaction_id,
+      account_id,
+      order_id,
+      instrument_id,
+      transaction_type,
+      quantity,
+      price,
+      amount,
+      currency,
+      balance_before,
+      balance_after,
+      idempotency_key,
+      created_at
+    ) VALUES (
+      #{transactionId},
+      #{accountId},
+      #{orderId},
+      #{instrumentId},
+      #{transactionType},
+      #{quantity},
+      #{price},
+      #{amount},
+      #{currency},
+      #{balanceBefore},
+      #{balanceAfter},
+      #{idempotencyKey},
+      #{createdAt}
+    )
+  </insert>
+
+  <!-- keep columns in the same order as CashTransactionResponse -->
+  <select id="selectCashTransactions" resultType="com.team5.dto.response.CashTransactionResponse">
+    SELECT
+      t.transaction_id AS transactionId,
+      t.account_id AS accountId,
+      t.transaction_type AS type,
+      ROUND(t.amount, 2) AS amount,
+      t.currency AS currency,
+      ROUND(t.balance_before, 2) AS balanceBefore,
+      ROUND(t.balance_after, 2) AS balanceAfter,
+      t.created_at AS createdAt
+    FROM transactions t
+    WHERE t.account_id = #{accountId}
+      AND t.transaction_type IN ('DEPOSIT', 'WITHDRAWAL')
+    ORDER BY t.created_at DESC, t.transaction_id DESC
+    LIMIT #{limit}
+  </select>
+
+</mapper>

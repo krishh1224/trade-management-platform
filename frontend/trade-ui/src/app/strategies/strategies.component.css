@@ -1,0 +1,188 @@
+/* Strategies page only. The page shell comes from watchlist.component.css; the form controls,
+   .cell-sub and .visually-hidden from alerts.component.css. */
+
+.strategy-form input {
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+}
+
+.field-pair {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.field-pair label {
+  display: block;
+  margin-bottom: 8px;
+}
+
+.rule-help {
+  margin: 0 0 4px;
+  line-height: 1.45;
+}
+
+.limits {
+  display: grid;
+  gap: 8px;
+  margin: 6px 0 4px;
+  padding: 10px 12px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+}
+
+.limits legend {
+  padding: 0 6px;
+  color: var(--text);
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.secondary-button {
+  min-height: 36px;
+  padding: 0 12px;
+  border: 1px solid var(--accent);
+  border-radius: var(--radius-sm);
+  background: var(--accent-soft);
+  color: var(--accent-hover);
+  font-size: 0.84rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.secondary-button:disabled,
+.remove-button:disabled {
+  opacity: 0.55;
+  cursor: progress;
+}
+
+.strategies-table,
+.activity-table {
+  min-width: 640px;
+}
+
+.strategies-table th,
+.strategies-table td,
+.activity-table th,
+.activity-table td {
+  padding: 12px 14px;
+  vertical-align: middle;
+}
+
+.strategies-table td > span,
+.activity-table td > span {
+  display: block;
+}
+
+.strategies-table tbody tr {
+  cursor: pointer;
+}
+
+.strategies-table tbody tr.selected {
+  background: var(--accent-soft);
+}
+
+.strategies-table .cell-sub {
+  max-width: 220px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cell-actions {
+  white-space: nowrap;
+}
+
+.cell-actions button + button {
+  margin-left: 6px;
+}
+
+.disable-button {
+  border-color: var(--down);
+  color: var(--down);
+}
+
+.strategy-badge {
+  display: inline-block;
+  width: fit-content;
+  padding: 2px 9px;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+.strategy-badge.enabled {
+  background: var(--up-soft);
+  color: var(--up);
+}
+
+.strategy-badge.disabled {
+  background: var(--surface-2, #f1f3f8);
+  color: var(--text-muted);
+}
+
+.strategy-badge.halted {
+  background: var(--down-soft);
+  color: var(--down);
+}
+
+.activity-card {
+  margin-top: 16px;
+}
+
+.signal {
+  font-weight: 700;
+  font-size: 0.8rem;
+}
+
+.signal.buy {
+  color: var(--up);
+}
+
+.signal.sell {
+  color: var(--down);
+}
+
+.outcome {
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+
+.outcome.placed {
+  color: var(--up);
+}
+
+.outcome.failed {
+  color: var(--down);
+}
+
+.outcome.skipped_disabled,
+.outcome.skipped_spend_limit,
+.outcome.skipped_position_limit,
+.outcome.skipped_no_holding {
+  color: var(--warn);
+}
+
+.activity-table .detail {
+  max-width: 320px;
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  line-height: 1.4;
+}
+
+@media (max-width: 640px) {
+  .field-pair {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.chart-card {
+  margin-top: 16px;
+}
+
+.chart-card .panel-head {
+  flex-wrap: wrap;
+  gap: 8px;
+}

@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+  PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+  "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!-- Portfolio module: SELECT only. These tables belong to the order and executor modules. -->
+<mapper namespace="com.team5.portfolio.read.PortfolioReadMapper">
+
+  <select id="findCurrencies" resultType="com.team5.portfolio.read.InstrumentCurrency">
+    SELECT
+      i.ticker AS symbol,
+      i.currency AS currency
+    FROM instruments i
+    WHERE i.ticker IN
+    <foreach collection="symbols" item="symbol" open="(" separator="," close=")">
+      #{symbol}
+    </foreach>
+  </select>
+
+  <!-- Filled orders in the order the executor applied them. Seeded orders carry no executed_on, so
+       fall back to updated_at / created_at and break ties on order_id. -->
+  <select id="findFilledOrders" resultType="com.team5.portfolio.read.FilledOrder">
+    SELECT
+      o.order_id AS orderId,
+      i.ticker AS symbol,
+      i.currency AS instrumentCurrency,
+      o.side AS side,
+      o.quantity AS quantity,
+      COALESCE(o.executed_price, o.price) AS fillPrice,
+      o.fx_rate AS fxRate,
+      COALESCE(o.executed_on, o.updated_at, o.created_at) AS executedAt
+    FROM orders o
+    INNER JOIN portfolio p ON p.portfolio_id = o.portfolio_id
+    INNER JOIN instruments i ON i.instrument_id = o.instrument_id
+    WHERE p.account_id = #{accountId}
+      AND o.status = 'FILLED'
+    ORDER BY i.ticker, COALESCE(o.executed_on, o.updated_at, o.created_at), o.order_id
+  </select>
+
+  <!-- last resort price when Fauxnance is unreachable; written by the executor's poller -->
+  <select id="findSnapshots" resultType="com.team5.portfolio.read.SnapshotPrice">
+    SELECT
+      s.symbol AS symbol,
+      s.last_price AS lastPrice,
+      i.currency AS currency,
+      s.updated_at AS updatedAt
+    FROM market_quote_snapshots s
+    INNER JOIN instruments i ON i.ticker = s.symbol
+    WHERE s.symbol IN
+    <foreach collection="symbols" item="symbol" open="(" separator="," close=")">
+      #{symbol}
+    </foreach>
+  </select>
+
+</mapper>

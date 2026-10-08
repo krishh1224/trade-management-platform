@@ -1,0 +1,438 @@
+openapi: 3.1.0
+
+info:
+  title: Automated Strategy Execution API
+  version: 1.0.0
+  summary: Rules-based strategies that trade a customer's account from the real-time price stream.
+  description: |
+    The strategies module lives inside the Trade REST API (`com.team5.strategies`). A customer configures
+    a strategy once; the module evaluates it against every `market-data` quote for its symbol and, when
+    its rule fires, places an order **through `POST /api/v1/orders`**, the same route a customer uses,
+    with the same validation, account check and idempotency. Nobody confirms the order. That is the
+    feature, and it is why every limit below is enforced at the moment of each decision.
+
+    ## Rules
+
+    Both rules fire on a **crossing**, never on a state: while the condition holds, nothing fires again.
+    Windows count quotes, not time (the executor polls every few minutes, so `longWindow: 20` covers 20
+    polls).
+
+    | Type | BUY when | SELL when |
+    |---|---|---|
+    | `MA_CROSSOVER` | the `shortWindow` simple moving average crosses above the `longWindow` one | it crosses below |
+    | `BOLLINGER_BANDS` | the price crosses below `mean - bandWidth x sd` of the `bandWindow` prices before it | it crosses above `mean + bandWidth x sd` |
+
+    A rule needs `longWindow + 1` (crossover) or `bandWindow + 2` (bands) prices for its symbol before
+    it can fire. Quotes flagged `stale`, and quotes older than the newest one already consumed, are
+    never evaluated, and neither is a quote more than 5 minutes old when it is consumed (a backlog
+    after downtime): it is stored for the history but never traded on.
+
+    ## Limits, checked on every order at the point of decision
+
+    | Limit | Rule | When hit |
+    |---|---|---|
+    | `maxSpend` | the total of this strategy's BUY orders at their limit price never exceeds it (also a database constraint) | `SKIPPED_SPEND_LIMIT` |
+    | `maxPosition` | holdings plus unexecuted BUYs plus this order never exceed it | `SKIPPED_POSITION_LIMIT` |
+    | holdings | a SELL is never larger than what is held less unexecuted SELLs; with nothing left it is not sent | `SKIPPED_NO_HOLDING` |
+    | `maxConsecutiveFailures` | after this many failed orders in a row (default 3) the strategy is `HALTED` | status `HALTED`, `statusReason` says why |
+
+    Each order is `quantity` shares at a limit price 1% beyond the quote (above the ask for a BUY,
+    below the bid for a SELL), so the executor's own quote at fill time still fills it.
+
+    ## Disabling is immediate
+
+    `POST .../disable` takes the same lock as the order decision. If an order for the strategy is
+    being decided at that moment, the call waits for that one decision (bounded by the Trade API
+    timeout, 5 s) and returns once it is committed. **When it returns, no further order from the
+    strategy can be started**, including later in the same evaluation cycle.
+
+    ## Identity
+
+    A strategy runs while its customer is signed out, so it cannot use their token. Each order is
+    sent with a token minted for that one order: issuer `strategy-automation`, `sub`
+    `strategy:{strategyId}`, `accountId` = the strategy's owner (fixed when the customer created it,
+    from their own token), `scope` `orders:place`, valid 60 s, signed with a key that is not the
+    customer key. The Trade API accepts such a token on `POST /api/v1/orders` only; on every route in
+    this file, and every other route, it is `403 ACC-403`. A strategy can therefore never re-enable
+    itself, raise its own limits or act on another account.
+
+    ## Identifying strategy orders
+
+    Every order a strategy places carries the idempotency key `strat-{strategyId}-{quoteEventId}`, and
+    appears in the account's order history like any other order. `GET .../executions` lists what each
+    strategy did and why.
+
+servers:
+  - url: http://localhost:8081
+    description: Trade REST API
+
+security:
+  - bearerAuth: []
+
+tags:
+  - name: Strategies
+
+paths:
+  /api/v1/accounts/{id}/strategies:
+    parameters:
+      - $ref: '#/components/parameters/AccountId'
+    get:
+      tags: [Strategies]
+      operationId: listStrategies
+      summary: The account's strategies, newest first, with the per-account limit
+      responses:
+        '200':
+          description: Strategies
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StrategyListResponse'
+        '401': { $ref: '#/components/responses/Unauthorised' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+    post:
+      tags: [Strategies]
+      operationId: createStrategy
+      summary: Configure a strategy; it is ENABLED at once
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateStrategyRequest'
+            examples:
+              crossover:
+                value:
+                  name: INFY trend
+                  symbol: INFY.NS
+                  type: MA_CROSSOVER
+                  shortWindow: 5
+                  longWindow: 20
+                  quantity: 10
+                  maxSpend: 100000
+                  maxPosition: 50
+              bands:
+                value:
+                  name: TCS mean reversion
+                  symbol: TCS.NS
+                  type: BOLLINGER_BANDS
+                  bandWindow: 20
+                  bandWidth: 2
+                  quantity: 5
+                  maxSpend: 50000
+                  maxPosition: 20
+                  maxConsecutiveFailures: 2
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StrategyResponse'
+        '401': { $ref: '#/components/responses/Unauthorised' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404':
+          description: '`ACC-404` no such account, `INS-404` no such tradable instrument'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: |
+            `VAL-422`. `Invalid input` for a malformed body; otherwise the rule that failed, e.g.
+            `shortWindow must be smaller than longWindow`, `maxPosition must be at least quantity, or no
+            BUY could ever be placed`, `Strategy limit reached`.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/accounts/{id}/strategies/{strategyId}:
+    parameters:
+      - $ref: '#/components/parameters/AccountId'
+      - $ref: '#/components/parameters/StrategyId'
+    get:
+      tags: [Strategies]
+      operationId: getStrategy
+      responses:
+        '200':
+          description: The strategy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StrategyResponse'
+        '401': { $ref: '#/components/responses/Unauthorised' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/StrategyNotFound' }
+    delete:
+      tags: [Strategies]
+      operationId: deleteStrategy
+      summary: Delete a strategy and its execution history; waits for a decision in progress
+      responses:
+        '204':
+          description: Deleted
+        '401': { $ref: '#/components/responses/Unauthorised' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/StrategyNotFound' }
+
+  /api/v1/accounts/{id}/strategies/{strategyId}/disable:
+    parameters:
+      - $ref: '#/components/parameters/AccountId'
+      - $ref: '#/components/parameters/StrategyId'
+    post:
+      tags: [Strategies]
+      operationId: disableStrategy
+      summary: Switch a strategy off, effective before this call returns
+      responses:
+        '200':
+          description: The strategy, now DISABLED
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StrategyResponse'
+        '401': { $ref: '#/components/responses/Unauthorised' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/StrategyNotFound' }
+
+  /api/v1/accounts/{id}/strategies/{strategyId}/enable:
+    parameters:
+      - $ref: '#/components/parameters/AccountId'
+      - $ref: '#/components/parameters/StrategyId'
+    post:
+      tags: [Strategies]
+      operationId: enableStrategy
+      summary: Switch a DISABLED or HALTED strategy back on, clearing its failure run
+      responses:
+        '200':
+          description: The strategy, now ENABLED
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StrategyResponse'
+        '401': { $ref: '#/components/responses/Unauthorised' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/StrategyNotFound' }
+
+  /api/v1/accounts/{id}/strategies/{strategyId}/chart:
+    parameters:
+      - $ref: '#/components/parameters/AccountId'
+      - $ref: '#/components/parameters/StrategyId'
+    get:
+      tags: [Strategies]
+      operationId: getStrategyChart
+      summary: The stored prices for the strategy's symbol, the lines its rule compares, and where it fired
+      description: |
+        Up to the 250 most recent price updates stored for the symbol, oldest first. Each point carries
+        the values the rule compares at that price, computed by the same code that decides: for
+        `MA_CROSSOVER` `shortAverage` and `longAverage`, for `BOLLINGER_BANDS` `middleBand`,
+        `upperBand` and `lowerBand` (the band from the prices before the point). A value is null until
+        its window fits. `markers` are the firings whose quote is still stored.
+      responses:
+        '200':
+          description: The chart
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StrategyChartResponse'
+        '401': { $ref: '#/components/responses/Unauthorised' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/StrategyNotFound' }
+
+  /api/v1/accounts/{id}/strategies/{strategyId}/executions:
+    parameters:
+      - $ref: '#/components/parameters/AccountId'
+      - $ref: '#/components/parameters/StrategyId'
+    get:
+      tags: [Strategies]
+      operationId: listStrategyExecutions
+      summary: The 50 most recent times the strategy's rule fired, and what was done
+      responses:
+        '200':
+          description: Executions, newest first
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/StrategyExecutionResponse'
+        '401': { $ref: '#/components/responses/Unauthorised' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/StrategyNotFound' }
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: |
+        A customer JWT issued by the auth service (`auth-api.yaml`). A strategy's delegated token
+        (issuer `strategy-automation`) is refused on every route in this file.
+
+  parameters:
+    AccountId:
+      name: id
+      in: path
+      required: true
+      description: Must equal the token's `accountId`, otherwise `403 ACC-403`.
+      schema: { type: integer, format: int64, minimum: 1 }
+    StrategyId:
+      name: strategyId
+      in: path
+      required: true
+      description: Another account's strategy is `403 ACC-403`; an id no account has is `404 STR-404`.
+      schema: { type: integer, format: int64, minimum: 1 }
+
+  responses:
+    Unauthorised:
+      description: '`AUTH-401` missing or invalid token'
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorResponse' }
+    Forbidden:
+      description: '`ACC-403` the account is not the token''s or not ACTIVE, or the token is a strategy token'
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorResponse' }
+    StrategyNotFound:
+      description: '`STR-404` Strategy not found'
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorResponse' }
+
+  schemas:
+    StrategyType:
+      type: string
+      enum: [MA_CROSSOVER, BOLLINGER_BANDS]
+
+    StrategyStatus:
+      type: string
+      enum: [ENABLED, DISABLED, HALTED]
+      description: |
+        `ENABLED` evaluated and may trade; `DISABLED` switched off by the customer; `HALTED` switched
+        off by the module after `maxConsecutiveFailures` failed orders in a row.
+
+    CreateStrategyRequest:
+      type: object
+      additionalProperties: false
+      required: [name, symbol, type, quantity, maxSpend, maxPosition]
+      properties:
+        name: { type: string, minLength: 1, maxLength: 60 }
+        symbol: { type: string, minLength: 1, maxLength: 20, description: A tradable instrument's ticker }
+        type: { $ref: '#/components/schemas/StrategyType' }
+        shortWindow: { type: integer, minimum: 2, maximum: 199, description: 'MA_CROSSOVER only; below longWindow' }
+        longWindow: { type: integer, minimum: 3, maximum: 200, description: MA_CROSSOVER only }
+        bandWindow: { type: integer, minimum: 2, maximum: 200, description: BOLLINGER_BANDS only }
+        bandWidth: { type: number, exclusiveMinimum: 0, maximum: 5, description: 'BOLLINGER_BANDS only; standard deviations' }
+        quantity: { type: integer, minimum: 1, maximum: 100000, description: Shares per order }
+        maxSpend:
+          type: number
+          exclusiveMinimum: 0
+          description: The most this strategy will ever spend on BUY orders, valued at their limit price
+        maxPosition:
+          type: integer
+          format: int64
+          minimum: 1
+          description: The most of the symbol the account may hold, counting unexecuted BUYs; at least `quantity`
+        maxConsecutiveFailures: { type: integer, minimum: 1, maximum: 10, default: 3 }
+
+    StrategyResponse:
+      type: object
+      required: [strategyId, accountId, name, symbol, type, quantity, maxSpend, spent, remainingSpend,
+                 maxPosition, maxConsecutiveFailures, consecutiveFailures, ordersPlaced, status, createdAt, updatedAt]
+      properties:
+        strategyId: { type: integer, format: int64 }
+        accountId: { type: integer, format: int64 }
+        name: { type: string }
+        symbol: { type: string }
+        type: { $ref: '#/components/schemas/StrategyType' }
+        shortWindow: { type: [integer, 'null'] }
+        longWindow: { type: [integer, 'null'] }
+        bandWindow: { type: [integer, 'null'] }
+        bandWidth: { type: [number, 'null'] }
+        quantity: { type: integer }
+        maxSpend: { type: number }
+        spent: { type: number, description: BUY orders placed so far, at their limit price }
+        remainingSpend: { type: number }
+        maxPosition: { type: integer, format: int64 }
+        maxConsecutiveFailures: { type: integer }
+        consecutiveFailures: { type: integer }
+        ordersPlaced: { type: integer }
+        status: { $ref: '#/components/schemas/StrategyStatus' }
+        statusReason: { type: [string, 'null'] }
+        lastTriggeredAt: { type: [string, 'null'], format: date-time }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+
+    StrategyListResponse:
+      type: object
+      required: [maxStrategies, strategies]
+      properties:
+        maxStrategies: { type: integer, description: 'Strategies one account may hold (10 unless configured)' }
+        strategies:
+          type: array
+          items: { $ref: '#/components/schemas/StrategyResponse' }
+
+    StrategyExecutionResponse:
+      type: object
+      required: [executionId, quoteEventId, signal, outcome, quotePrice, createdAt]
+      properties:
+        executionId: { type: integer, format: int64 }
+        quoteEventId: { type: string, format: uuid, description: The market-data quote the rule fired on }
+        signal: { type: string, enum: [BUY, SELL] }
+        outcome:
+          type: string
+          enum: [PLACED, FAILED, SKIPPED_DISABLED, SKIPPED_SPEND_LIMIT, SKIPPED_POSITION_LIMIT, SKIPPED_NO_HOLDING]
+          description: Only `PLACED` means an order exists; `orderId` names it.
+        quotePrice: { type: number }
+        orderPrice: { type: [number, 'null'], description: The limit price sent, or that would have been }
+        quantity: { type: [integer, 'null'] }
+        orderId: { type: [string, 'null'] }
+        detail: { type: [string, 'null'], description: Why, in words; for FAILED the Trade API's answer }
+        createdAt: { type: string, format: date-time }
+
+    StrategyChartResponse:
+      type: object
+      required: [strategyId, symbol, type, requiredPrices, points, markers]
+      properties:
+        strategyId: { type: integer, format: int64 }
+        symbol: { type: string }
+        type: { $ref: '#/components/schemas/StrategyType' }
+        requiredPrices: { type: integer, description: Prices the rule needs before it can fire }
+        points:
+          type: array
+          items:
+            type: object
+            required: [quotedAt, price]
+            properties:
+              quotedAt: { type: string, format: date-time }
+              price: { type: number }
+              shortAverage: { type: [number, 'null'] }
+              longAverage: { type: [number, 'null'] }
+              middleBand: { type: [number, 'null'] }
+              upperBand: { type: [number, 'null'] }
+              lowerBand: { type: [number, 'null'] }
+        markers:
+          type: array
+          items:
+            type: object
+            required: [pointIndex, quotedAt, quotePrice, signal, outcome]
+            properties:
+              pointIndex: { type: integer, description: Index into points of the quote the rule fired on }
+              quotedAt: { type: string, format: date-time }
+              quotePrice: { type: number }
+              signal: { type: string, enum: [BUY, SELL] }
+              outcome:
+                type: string
+                enum: [PLACED, FAILED, SKIPPED_DISABLED, SKIPPED_SPEND_LIMIT, SKIPPED_POSITION_LIMIT, SKIPPED_NO_HOLDING]
+              orderId: { type: [string, 'null'] }
+              detail: { type: [string, 'null'] }
+
+    ErrorResponse:
+      type: object
+      additionalProperties: false
+      required: [errorCode, message]
+      properties:
+        errorCode:
+          type: string
+          enum: [AUTH-401, ACC-403, ACC-404, INS-404, STR-404, VAL-422]
+        message: { type: string }

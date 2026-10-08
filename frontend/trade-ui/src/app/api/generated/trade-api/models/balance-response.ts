@@ -4,10 +4,20 @@
 export interface BalanceResponse {
   accountId: number;
   asOf: string;
+
+  /**
+   * `cashBalance - heldForOrders`, never below zero.
+   */
+  availableToWithdraw: number;
   cashBalance: number;
 
   /**
    * ISO 4217 code.
    */
   currency: string;
+
+  /**
+   * Value of BUY orders still `NEW`. Part of `cashBalance`, but not withdrawable.
+   */
+  heldForOrders: number;
 }

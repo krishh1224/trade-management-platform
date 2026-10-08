@@ -1,0 +1,242 @@
+/* Alerts page only. The page shell, panels, tables and buttons come from watchlist.component.css. */
+
+.alert-form {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 8px;
+}
+
+.alert-form select,
+.alert-form .price-input,
+.alert-form .primary-button {
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+}
+
+.alert-form label {
+  color: var(--text-muted);
+  font-size: 0.82rem;
+}
+
+select {
+  height: 38px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2, #f8f9fd);
+  color: var(--text);
+  padding: 0 10px;
+}
+
+.current-price {
+  margin: -2px 0 4px;
+}
+
+.price-input {
+  display: flex;
+  align-items: center;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2, #f8f9fd);
+}
+
+.price-input-currency {
+  padding-left: 12px;
+  color: var(--text-muted);
+}
+
+.price-input input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  background: transparent;
+  padding-left: 6px;
+}
+
+.price-input:has(input.invalid) {
+  border-color: var(--down);
+}
+
+.alert-help {
+  margin: 14px 0 0;
+  line-height: 1.5;
+}
+
+.alert-help a,
+.muted a {
+  color: var(--accent-hover);
+}
+
+.alerts-card .panel-head {
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.filter-tabs {
+  display: flex;
+  gap: 4px;
+}
+
+.filter-tab {
+  white-space: nowrap;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--text-muted);
+  padding: 4px 11px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.filter-tab.active {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  color: var(--accent-hover);
+}
+
+.tab-count {
+  margin-left: 3px;
+  opacity: 0.75;
+}
+
+/* Alerts table: fixed column shares and one cell padding everywhere, so the gap between columns is
+   the same on every row whatever the content; secondary lines truncate instead of widening a column. */
+.watchlist-table.alerts-table {
+  table-layout: fixed;
+  min-width: 640px;
+}
+
+/* the action column is sized to its button; the four content columns share the rest */
+.col-symbol { width: 25%; }
+.col-condition { width: 26%; }
+.col-price { width: 16%; }
+.col-status { width: 25%; }
+.col-action { width: 104px; }
+
+.watchlist-table.alerts-table th,
+.watchlist-table.alerts-table td {
+  padding: 12px 16px;
+  vertical-align: middle;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.watchlist-table.alerts-table th.num,
+.watchlist-table.alerts-table td.num {
+  text-align: right;
+}
+
+.cell-sub {
+  display: block;
+  margin-top: 3px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--text-muted);
+  font-size: 0.74rem;
+}
+
+.cell-condition .mono,
+.cell-price {
+  font-weight: 500;
+}
+
+.no-price {
+  color: var(--text-faint, var(--text-muted));
+}
+
+.watchlist-table.alerts-table .cell-action {
+  text-overflow: clip;
+}
+
+.delete-alert {
+  min-height: 30px;
+  padding: 0 12px;
+}
+
+.alerts-table tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+/* Phones: one card per alert instead of a table that scrolls sideways. */
+@media (max-width: 640px) {
+  .watchlist-table.alerts-table,
+  .alerts-table tbody {
+    display: block;
+    min-width: 0;
+  }
+
+  .alerts-table thead {
+    display: none;
+  }
+
+  .alerts-table tbody tr {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas:
+      "symbol price"
+      "condition condition"
+      "status action";
+    gap: 8px 12px;
+    padding: 12px 14px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .alerts-table tbody tr:last-child {
+    border-bottom: 0;
+  }
+
+  .watchlist-table.alerts-table td {
+    padding: 0;
+    border-bottom: 0;
+  }
+
+  .cell-symbol { grid-area: symbol; }
+  .cell-price { grid-area: price; }
+  .cell-condition { grid-area: condition; }
+  .cell-status { grid-area: status; }
+  .cell-action { grid-area: action; align-self: end; }
+
+  .cell-condition .cell-sub {
+    display: inline;
+    margin-left: 6px;
+  }
+}
+
+.status-badge {
+  display: inline-block;
+  padding: 2px 9px;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.status-badge.active {
+  background: var(--accent-soft);
+  color: var(--accent-hover);
+}
+
+.status-badge.triggered {
+  background: var(--up-soft);
+  color: var(--up);
+}
+
+.limit-reached,
+.warn-text {
+  color: var(--warn);
+}
+
+.warn-text {
+  font-size: 0.83rem;
+}

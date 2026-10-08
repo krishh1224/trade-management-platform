@@ -45,3 +45,7 @@ Thumbs.db
 
 # Generated API clients (src/app/api/generated) are COMMITTED on purpose so a contract change shows up
 # as a reviewable diff. Do not ignore them and never hand-edit them; regenerate with `npm run generate:api`.
+
+# Playwright output
+/test-results/
+/playwright-report/

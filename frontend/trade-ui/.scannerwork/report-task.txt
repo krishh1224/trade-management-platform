@@ -1,0 +1,6 @@
+projectKey=angular-frontend
+serverUrl=https://franklin-lap-hosts-charge.trycloudflare.com
+serverVersion=26.7.0.124771
+dashboardUrl=https://franklin-lap-hosts-charge.trycloudflare.com/dashboard?id=angular-frontend
+ceTaskId=19169958-6ccd-47b2-965a-6af98fe3f8ba
+ceTaskUrl=https://franklin-lap-hosts-charge.trycloudflare.com/api/ce/task?id=19169958-6ccd-47b2-965a-6af98fe3f8ba

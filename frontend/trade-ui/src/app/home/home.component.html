@@ -1,22 +1,54 @@
 <div class="shell">
-  <header class="topbar">
+  <header class="topbar" [class.nav-open]="navOpen()">
     <div class="topbar-left">
+      <button
+        class="nav-toggle"
+        type="button"
+        aria-controls="primary-nav"
+        [attr.aria-expanded]="navOpen()"
+        [attr.aria-label]="navOpen() ? 'Close menu' : 'Open menu'"
+        (click)="navOpen.set(!navOpen())"
+        data-testid="nav-toggle"
+      >
+        @if (navOpen()) {
+          <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" /></svg>
+        } @else {
+          <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" /></svg>
+        }
+      </button>
+
       <div class="brand">
         <svg class="brand-mark" viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M2 20L12 3l10 17h-5.2L12 11.6 7.2 20z" fill="currentColor" /></svg>
         <span class="brand-name">Artha</span>
       </div>
 
-      <nav class="nav" aria-label="Primary">
+      <nav class="nav" id="primary-nav" aria-label="Primary" (click)="navOpen.set(false)">
         <span class="nav-link active" aria-current="page">Dashboard</span>
-        <span class="nav-link disabled" aria-disabled="true">Portfolio</span>
+        <a class="nav-link" routerLink="/portfolio">Portfolio</a>
         <a class="nav-link" routerLink="/orders">Orders</a>
         <a class="nav-link" routerLink="/blotter">Blotter</a>
         <a class="nav-link" routerLink="/watchlist">Watchlist</a>
+        <a class="nav-link" routerLink="/alerts">Alerts</a>
+        <a class="nav-link" routerLink="/strategies">Strategies</a>
         <a class="nav-link" routerLink="/advisor">Advisor</a>
       </nav>
     </div>
 
     <div class="topbar-right">
+      <button
+        class="funds-button"
+        type="button"
+        data-testid="funds-open"
+        aria-haspopup="dialog"
+        aria-label="Wallet: add or withdraw funds"
+        [attr.aria-expanded]="fundsOpen()"
+        (click)="fundsOpen.set(true)"
+      >
+        <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M4 7a2 2 0 012-2h11v4M4 7v11a2 2 0 002 2h13a1 1 0 001-1v-9a1 1 0 00-1-1H6a2 2 0 01-2-2zM16 14.5h.01" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" /></svg>
+        <span>Wallet</span>
+      </button>
+
+      <app-notification-bell />
       <div class="profile-menu-wrap">
         <button class="account-chip profile-trigger" type="button" (click)="toggleProfileMenu()" [attr.aria-expanded]="profileMenuOpen()" aria-haspopup="menu" data-testid="profile-trigger">
           <span class="avatar" aria-hidden="true">
@@ -72,12 +104,12 @@
         <strong class="stat-value mono">
           @if (balanceLoading()) {
             Loading...
-          } @else if (balanceAmount() === null) {
+          } @else if (displayBalanceAmount() === null) {
             —
           } @else if (balanceHidden()) {
             <span class="masked-dots">••••••••</span>
           } @else {
-            {{ balanceCurrency() }} {{ balanceAmount()! | number: '1.2-2' }}
+            {{ displayCurrency(displayBalanceCurrency()) }} {{ displayBalanceAmount()! | number: '1.2-2' }}
           }
         </strong>
         <div class="balance-actions">
@@ -106,6 +138,50 @@
         </strong>
         <span class="stat-hint">@if (accountStatus() === 'ACTIVE') {Only active accounts can place orders} @else {Contact support to reactivate}</span>
       </article>
+
+      <article class="stat stat-chart" data-testid="asset-class-diversification">
+        <span class="stat-label">Asset Class Diversification</span>
+        @if (positionsLoading()) {
+          <div class="chart-empty">Loading diversification...</div>
+        } @else if (assetClassSlices().length === 0) {
+          <div class="chart-empty">Place an order to view allocation.</div>
+        } @else {
+          <div class="pie-layout">
+            <svg class="pie" viewBox="0 0 42 42" role="img" aria-label="Portfolio diversification by asset class">
+              <circle cx="21" cy="21" r="15.915" fill="none" stroke="var(--surface-hover)" stroke-width="7"></circle>
+              @for (slice of assetClassSlices(); track slice.label) {
+                <circle
+                  cx="21"
+                  cy="21"
+                  r="15.915"
+                  fill="none"
+                  [attr.stroke]="slice.color"
+                  stroke-width="7"
+                  stroke-linecap="butt"
+                  pathLength="100"
+                  [attr.stroke-dasharray]="(slice.share * 100).toFixed(4) + ' 100'"
+                  [attr.stroke-dashoffset]="slice.offset"
+                  transform="rotate(-90 21 21)"
+                ></circle>
+              }
+            </svg>
+            <div class="pie-meta">
+              <strong>{{ topAssetClassLabel() }}</strong>
+              <span>Largest bucket by cost basis</span>
+            </div>
+          </div>
+
+          <ul class="pie-legend" aria-label="Diversification legend">
+            @for (slice of assetClassSlices(); track slice.label) {
+              <li>
+                <span class="swatch" [style.background]="slice.color" aria-hidden="true"></span>
+                <span class="legend-label">{{ slice.label }}</span>
+                <span class="legend-value">{{ formatPercent(slice.share) }}</span>
+              </li>
+            }
+          </ul>
+        }
+      </article>
     </section>
 
     <section class="panels">
@@ -115,7 +191,7 @@
             <h2>Positions</h2>
             <p>Holdings and average cost per instrument</p>
           </div>
-          <span class="soon-badge connected">Live</span>
+          <a class="panel-link" routerLink="/portfolio">View portfolio</a>
         </header>
 
         <div class="table-wrap">
@@ -238,5 +314,9 @@
       </article>
     </section>
   </main>
+
+  @if (fundsOpen()) {
+    <app-funds-dialog (closed)="fundsOpen.set(false)" />
+  }
   <app-footer></app-footer>
 </div>

@@ -1,0 +1,1758 @@
+openapi: 3.0.3
+info:
+  title: Order Service (Trade API)
+  version: 1.0.0
+  description: |
+    Every HTTP endpoint of `services/order-service` (Spring Boot, `com.team5`): orders, accounts,
+    cash movements, preferences, portfolio valuation and P&L, candles, watchlists, price alerts,
+    notifications, browser push, automated strategies, trade advice and the AI advisor chat.
+
+    **Authentication.** Every route except `GET /health` needs `Authorization: Bearer <JWT>`,
+    using a token issued by the auth service. The route compares the token's `accountId` claim
+    with the account in the path or body, and a mismatch is refused. An automated strategy's
+    delegated token (issuer `strategy`, scope `orders:place`) is accepted **only** on
+    `POST /api/v1/orders`. On every other route it gets `403 ACC-403`.
+
+    **Errors.** Every error body is `{ "errorCode": "...", "message": "..." }`:
+
+    | Code | HTTP | Meaning |
+    |------|------|---------|
+    | AUTH-401 | 401 | Missing, invalid or expired token |
+    | ACC-403 | 403 | Account not active / not accessible / wrong token type |
+    | ACC-404 | 404 | Account not found |
+    | INS-404 | 404 | Instrument not found |
+    | WTL-404 | 404 | Watchlist item / price alert not found |
+    | NTF-404 | 404 | Notification not found |
+    | STR-404 | 404 | Strategy not found |
+    | ORD-400 | 400 | Insufficient funds |
+    | CSH-400 | 400 | Withdrawal exceeds available funds |
+    | ORD-409 | 409 | Duplicate order, insufficient holdings, order not cancellable / not found |
+    | CSH-409 | 409 | Cash movement idempotency conflict |
+    | WTL-409 | 409 | Duplicate watchlist entry / price alert, Favourite group not deletable |
+    | VAL-422 | 422 | Request failed validation (also: price alert limit reached, invalid strategy) |
+    | ADV-429 | 429 | AI advisor rate-limited |
+    | MKT-503 | 503 | Pricing unavailable |
+    | ADV-503 | 503 | AI advisor unavailable |
+
+    **Identifiers.** `orderId` is a UUID string. `watchlistId` and `watchlistGroupId` are 63-bit
+    numbers, sent as JSON strings in responses so JavaScript keeps them exact.
+servers:
+  - url: http://localhost:8081
+    description: Local (SERVER_PORT defaults to 8081)
+security:
+  - bearerAuth: []
+tags:
+  - name: Orders
+    description: Place, cancel and list orders; email the order history.
+  - name: Accounts
+    description: Account, profile, balance, positions and instruments.
+  - name: Cash
+    description: Deposits, withdrawals and cash transactions.
+  - name: Preferences
+    description: Display currency, theme and alert channel.
+  - name: Portfolio
+    description: Live valuation, P&L and candles.
+  - name: Watchlists
+    description: Watchlist groups and entries.
+  - name: Price alerts
+    description: One-shot price alerts on watchlist entries.
+  - name: Notifications
+    description: The notification inbox.
+  - name: Push
+    description: Browser web-push registration.
+  - name: Strategies
+    description: Automated trading strategies.
+  - name: Advisor
+    description: Rule-based signals and the AI advisor chat.
+  - name: Health
+    description: Liveness and dependency status.
+
+paths:
+  # ---------------------------------------------------------------- Orders
+  /api/v1/orders:
+    post:
+      tags: [Orders]
+      operationId: placeOrder
+      summary: Place a limit order
+      description: |
+        Validates and stores the order as `NEW`. After the transaction commits, it publishes an
+        `ORDER_PLACED` event on the `orders` Kafka topic for the executor. Repeating a request with
+        the same `idempotencyKey` gets `409 ORD-409`. This is the only route a strategy's
+        delegated token may call.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PlaceOrderRequest'
+      responses:
+        '200':
+          description: Order accepted.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrderResponse'
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorised' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/InvalidInput' }
+
+  /api/v1/orders/{id}:
+    delete:
+      tags: [Orders]
+      operationId: cancelOrder
+      summary: Cancel a NEW order
+      description: |
+        Cancels the caller's order while it is still `NEW`. Publishes `ORDER_CANCELLED` on the
+        `orders` topic and records the customer's cancel notification straight away.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Order cancelled.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrderResponse'
+        '401': { $ref: '#/components/responses/Unauthorised' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/InvalidInput' }
+
+  # ---------------------------------------------------------------- Accounts
+  /api/v1/accounts/{id}:
+    get:
+      tags: [Accounts]
+      operationId: getAccount
+      summary: Get an account
+      parameters:
+        - $ref: '#/components/parameters/AccountId'
+      responses:
+        '200':
+          description: The account.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AccountResponse'
+        '401': { $ref: '#/components/responses/Unauthorised' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/InvalidInput' }
+
+  /api/v1/accounts/{id}/profile:
+    get:
+      tags: [Accounts]
+      operationId: getClientProfile
+      summary: Get the account holder's profile
+      parameters:
+        - $ref: '#/components/parameters/AccountId'
+      responses:
+        '200':
+          description: The client profile.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ClientProfileResponse'
+        '401': { $ref: '#/components/responses/Unauthorised' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/InvalidInput' }
+
+  /api/v1/accounts/{id}/balance:
+    get:
+      tags: [Accounts]
+      operationId: getBalance
+      summary: Get cash balance, held funds and available-to-withdraw
+      parameters:
+        - $ref: '#/components/parameters/AccountId'
+      responses:
+        '200':
+          description: The balance.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BalanceResponse'
+        '401': { $ref: '#/components/responses/Unauthorised' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/InvalidInput' }
+
+  /api/v1/accounts/{id}/positions:
+    get:
+      tags: [Accounts]
+      operationId: getPositions
+      summary: List holdings at average cost (unpriced)
+      parameters:
+        - $ref: '#/components/parameters/AccountId'
+      responses:
+        '200':
+          description: The positions.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/PositionResponse'
+        '401': { $ref: '#/components/responses/Unauthorised' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/InvalidInput' }
+
+  /api/v1/accounts/{id}/orders:
+    get:
+      tags: [Orders]
+      operationId: getOrderHistory
+      summary: List the account's order history
+      parameters:
+        - $ref: '#/components/parameters/AccountId'
+        - name: status
+          in: query
+          required: false
+          schema:
+            $ref: '#/components/schemas/OrderStatus'
+        - name: from
+          in: query
+          required: false
+          description: Only orders created at or after this instant (ISO-8601 with offset).
+          schema: { type: string, format: date-time }
+        - name: to
+          in: query
+          required: false
+          description: Only orders created at or before this instant (ISO-8601 with offset).
+          schema: { type: string, format: date-time }
+      responses:
+        '200':
+          description: The orders.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/OrderHistoryEntry'
+        '401': { $ref: '#/components/responses/Unauthorised' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/InvalidInput' }
+
+  /api/v1/accounts/{id}/orders/export-email:
+    post:
+      tags: [Orders]
+      operationId: emailOrderHistoryExport
+      summary: Email the order history as a PDF
+      description: |
+        Queues an `ORDER_HISTORY_EXPORT` notification. The PDF is generated and sent to the
+        account holder's registered email address in the background.
+      parameters:
+        - $ref: '#/components/parameters/AccountId'
+      responses:
+        '202':
+          description: Export queued.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrderHistoryExportResponse'
+        '401': { $ref: '#/components/responses/Unauthorised' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/InvalidInput' }
+
+  /api/v1/accounts/{id}/instruments:
+    get:
+      tags: [Accounts]
+      operationId: getInstruments
+      summary: List tradable instruments
+      parameters:
+        - $ref: '#/components/parameters/AccountId'
+        - name: prefix
+          in: query
+          required: false
+          description: Only symbols starting with this prefix.
+          schema: { type: string }
+      responses:
+        '200':
+          description: The instruments.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/InstrumentOptionResponse'
+        '401': { $ref: '#/components/responses/Unauthorised' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/InvalidInput' }
+
+  # ---------------------------------------------------------------- Cash
+  /api/v1/accounts/{id}/deposits:
+    post:
+      tags: [Cash]
+      operationId: deposit
+      summary: Deposit cash
+      parameters:
+        - $ref: '#/components/parameters/AccountId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CashMovementRequest'
+      responses:
+        '201':
+          description: Deposit recorded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CashTransactionResponse'
+        '401': { $ref: '#/components/responses/Unauthorised' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/InvalidInput' }
+
+  /api/v1/accounts/{id}/withdrawals:
+    post:
+      tags: [Cash]
+      operationId: withdraw
+      summary: Withdraw cash
+      parameters:
+        - $ref: '#/components/parameters/AccountId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CashMovementRequest'
+      responses:
+        '201':
+          description: Withdrawal recorded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CashTransactionResponse'
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorised' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/InvalidInput' }
+
+  /api/v1/accounts/{id}/transactions:
+    get:
+      tags: [Cash]
+      operationId: getCashTransactions
+      summary: List recent cash transactions, newest first
+      parameters:
+        - $ref: '#/components/parameters/AccountId'
+        - name: limit
+          in: query
+          required: false
+          schema: { type: integer, minimum: 1, maximum: 100, default: 20 }
+      responses:
+        '200':
+          description: The transactions.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/CashTransactionResponse'
+        '401': { $ref: '#/components/responses/Unauthorised' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/InvalidInput' }
+
+  # ---------------------------------------------------------------- Preferences
+  /api/v1/accounts/{id}/preferences:
+    get:
+      tags: [Preferences]
+      operationId: getPreferences
+      summary: Get display and alert preferences
+      parameters:
+        - $ref: '#/components/parameters/AccountId'
+      responses:
+        '200':
+          description: The preferences.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CustomerPreferencesResponse'
+        '401': { $ref: '#/components/responses/Unauthorised' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/InvalidInput' }
+    put:
+      tags: [Preferences]
+      operationId: updatePreferences
+      summary: Replace display and alert preferences
+      parameters:
+        - $ref: '#/components/parameters/AccountId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdatePreferencesRequest'
+      responses:
+        '200':
+          description: The stored preferences.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CustomerPreferencesResponse'
+        '401': { $ref: '#/components/responses/Unauthorised' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/InvalidInput' }
+
+  # ---------------------------------------------------------------- Portfolio
+  /api/v1/portfolio/{accountId}:
+    get:
+      tags: [Portfolio]
+      operationId: getPortfolioSummary
+      summary: Portfolio summary valued at live prices
+      parameters:
+        - $ref: '#/components/parameters/PortfolioAccountId'
+      responses:
+        '200':
+          description: The summary. `partial` is true when some positions could not be priced.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PortfolioSummaryResponse'
+        '401': { $ref: '#/components/responses/Unauthorised' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/InvalidInput' }
+        '503': { $ref: '#/components/responses/Unavailable' }
+
+  /api/v1/portfolio/{accountId}/positions:
+    get:
+      tags: [Portfolio]
+      operationId: getPricedPositions
+      summary: Positions valued at live prices
+      parameters:
+        - $ref: '#/components/parameters/PortfolioAccountId'
+        - name: symbol
+          in: query
+          required: false
+          schema: { type: string, maxLength: 20 }
+      responses:
+        '200':
+          description: The priced positions.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/PricedPositionResponse'
+        '401': { $ref: '#/components/responses/Unauthorised' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/InvalidInput' }
+        '503': { $ref: '#/components/responses/Unavailable' }
+
+  /api/v1/portfolio/{accountId}/pnl:
+    get:
+      tags: [Portfolio]
+      operationId: getPnl
+      summary: Realised and unrealised profit and loss
+      parameters:
+        - $ref: '#/components/parameters/PortfolioAccountId'
+        - name: from
+          in: query
+          required: false
+          description: Lower bound (inclusive) for realised P&L.
+          schema: { type: string, format: date }
+        - name: to
+          in: query
+          required: false
+          description: Upper bound (inclusive) for realised P&L.
+          schema: { type: string, format: date }
+        - name: bySymbol
+          in: query
+          required: false
+          description: Include a per-symbol breakdown.
+          schema: { type: boolean, default: false }
+      responses:
+        '200':
+          description: The P&L.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PnlResponse'
+        '401': { $ref: '#/components/responses/Unauthorised' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/InvalidInput' }
+        '503': { $ref: '#/components/responses/Unavailable' }
+
+  /api/v1/portfolio/{accountId}/candles/{symbol}:
+    get:
+      tags: [Portfolio]
+      operationId: getCandles
+      summary: Daily candles for an instrument
+      parameters:
+        - $ref: '#/components/parameters/PortfolioAccountId'
+        - name: symbol
+          in: path
+          required: true
+          schema: { type: string, minLength: 1, maxLength: 20 }
+        - name: range
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: ['1M', '3M', '6M', '1Y']
+            default: '3M'
+      responses:
+        '200':
+          description: The candle series. `stale` is true when an older cached copy was served.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CandlesResponse'
+        '401': { $ref: '#/components/responses/Unauthorised' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/InvalidInput' }
+        '503': { $ref: '#/components/responses/Unavailable' }
+
+  # ---------------------------------------------------------------- Watchlists
+  /api/v1/watchlists:
+    post:
+      tags: [Watchlists]
+      operationId: addToWatchlist
+      summary: Add an instrument to a watchlist group
+      description: Without `watchlistGroupId`, the instrument goes into the Favourite group.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AddToWatchlistRequest'
+      responses:
+        '201':
+          description: Added.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WatchlistItemResponse'
+        '401': { $ref: '#/components/responses/Unauthorised' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/InvalidInput' }
+    get:
+      tags: [Watchlists]
+      operationId: listWatchlist
+      summary: List the caller's watchlist entries
+      parameters:
+        - name: groupId
+          in: query
+          required: false
+          description: Only entries in this group.
+          schema: { type: integer, format: int64 }
+      responses:
+        '200':
+          description: The entries, with last price and change.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/WatchlistItemResponse'
+        '401': { $ref: '#/components/responses/Unauthorised' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '422': { $ref: '#/components/responses/InvalidInput' }
+
+  /api/v1/watchlists/groups:
+    get:
+      tags: [Watchlists]
+      operationId: listWatchlistGroups
+      summary: List the caller's watchlist groups
+      responses:
+        '200':
+          description: The groups.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/WatchlistGroupResponse'
+        '401': { $ref: '#/components/responses/Unauthorised' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+    post:
+      tags: [Watchlists]
+      operationId: createWatchlistGroup
+      summary: Create a watchlist group
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateWatchlistGroupRequest'
+      responses:
+        '201':
+          description: Created.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WatchlistGroupResponse'
+        '401': { $ref: '#/components/responses/Unauthorised' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/InvalidInput' }
+
+  /api/v1/watchlists/groups/{watchlistGroupId}:
+    delete:
+      tags: [Watchlists]
+      operationId: deleteWatchlistGroup
+      summary: Delete a watchlist group
+      description: The Favourite group can't be deleted (`409 WTL-409`).
+      parameters:
+        - name: watchlistGroupId
+          in: path
+          required: true
+          schema: { type: integer, format: int64 }
+      responses:
+        '204': { description: Deleted. }
+        '401': { $ref: '#/components/responses/Unauthorised' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/InvalidInput' }
+
+  /api/v1/watchlists/{watchlistId}:
+    delete:
+      tags: [Watchlists]
+      operationId: removeFromWatchlist
+      summary: Remove an entry from a watchlist
+      parameters:
+        - name: watchlistId
+          in: path
+          required: true
+          schema: { type: integer, format: int64 }
+      responses:
+        '204': { description: Removed. }
+        '401': { $ref: '#/components/responses/Unauthorised' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/InvalidInput' }
+
+  # ---------------------------------------------------------------- Price alerts
+  /api/v1/accounts/{id}/price-alerts:
+    get:
+      tags: [Price alerts]
+      operationId: listPriceAlerts
+      summary: List price alerts with the active-alert limit
+      parameters:
+        - $ref: '#/components/parameters/AccountId'
+      responses:
+        '200':
+          description: The alerts.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PriceAlertListResponse'
+        '401': { $ref: '#/components/responses/Unauthorised' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/InvalidInput' }
+    post:
+      tags: [Price alerts]
+      operationId: createPriceAlert
+      summary: Create a one-shot price alert on a watchlist entry
+      description: |
+        The alert fires once, when a `market-data` quote crosses `threshold` in `direction`.
+        Each account may have at most `watchlists.alerts.max-active-per-account` (default 20)
+        active alerts. Going past that gets `422 VAL-422 "Price alert limit reached"`.
+      parameters:
+        - $ref: '#/components/parameters/AccountId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreatePriceAlertRequest'
+      responses:
+        '201':
+          description: Created.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PriceAlertResponse'
+        '401': { $ref: '#/components/responses/Unauthorised' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/InvalidInput' }
+
+  /api/v1/accounts/{id}/price-alerts/{alertId}:
+    get:
+      tags: [Price alerts]
+      operationId: getPriceAlert
+      summary: Get one price alert
+      parameters:
+        - $ref: '#/components/parameters/AccountId'
+        - $ref: '#/components/parameters/AlertId'
+      responses:
+        '200':
+          description: The alert.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PriceAlertResponse'
+        '401': { $ref: '#/components/responses/Unauthorised' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/InvalidInput' }
+    delete:
+      tags: [Price alerts]
+      operationId: deletePriceAlert
+      summary: Delete a price alert
+      parameters:
+        - $ref: '#/components/parameters/AccountId'
+        - $ref: '#/components/parameters/AlertId'
+      responses:
+        '204': { description: Deleted. }
+        '401': { $ref: '#/components/responses/Unauthorised' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/InvalidInput' }
+
+  # ---------------------------------------------------------------- Notifications
+  /api/v1/accounts/{id}/notifications:
+    get:
+      tags: [Notifications]
+      operationId: listNotifications
+      summary: List the account's notification inbox, newest first
+      parameters:
+        - $ref: '#/components/parameters/AccountId'
+        - name: status
+          in: query
+          required: false
+          schema:
+            $ref: '#/components/schemas/NotificationStatus'
+        - name: limit
+          in: query
+          required: false
+          schema: { type: integer, minimum: 1, maximum: 100, default: 50 }
+      responses:
+        '200':
+          description: The notifications.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/NotificationResponse'
+        '401': { $ref: '#/components/responses/Unauthorised' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/InvalidInput' }
+
+  /api/v1/accounts/{id}/notifications/{notificationId}:
+    get:
+      tags: [Notifications]
+      operationId: getNotification
+      summary: Get one notification
+      parameters:
+        - $ref: '#/components/parameters/AccountId'
+        - $ref: '#/components/parameters/NotificationId'
+      responses:
+        '200':
+          description: The notification.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotificationResponse'
+        '401': { $ref: '#/components/responses/Unauthorised' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/InvalidInput' }
+
+  /api/v1/accounts/{id}/notifications/{notificationId}/read:
+    put:
+      tags: [Notifications]
+      operationId: markNotificationRead
+      summary: Mark a notification as read
+      parameters:
+        - $ref: '#/components/parameters/AccountId'
+        - $ref: '#/components/parameters/NotificationId'
+      responses:
+        '200':
+          description: The updated notification.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotificationResponse'
+        '401': { $ref: '#/components/responses/Unauthorised' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/InvalidInput' }
+
+  # ---------------------------------------------------------------- Push
+  /api/v1/accounts/{id}/push-subscription/config:
+    get:
+      tags: [Push]
+      operationId: getPushConfig
+      summary: What the browser needs to subscribe to web push
+      parameters:
+        - $ref: '#/components/parameters/AccountId'
+      responses:
+        '200':
+          description: Push configuration.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PushConfigResponse'
+        '401': { $ref: '#/components/responses/Unauthorised' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/InvalidInput' }
+
+  /api/v1/accounts/{id}/push-subscription:
+    put:
+      tags: [Push]
+      operationId: subscribePush
+      summary: Register this browser for web push
+      description: The body has the same shape as the browser's `PushSubscription.toJSON()`.
+      parameters:
+        - $ref: '#/components/parameters/AccountId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PushSubscriptionRequest'
+      responses:
+        '204': { description: Subscribed. }
+        '401': { $ref: '#/components/responses/Unauthorised' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/InvalidInput' }
+    delete:
+      tags: [Push]
+      operationId: unsubscribePush
+      summary: Unregister a browser push endpoint
+      parameters:
+        - $ref: '#/components/parameters/AccountId'
+        - name: endpoint
+          in: query
+          required: true
+          schema: { type: string, minLength: 1, maxLength: 1000 }
+      responses:
+        '204': { description: Unsubscribed. }
+        '401': { $ref: '#/components/responses/Unauthorised' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/InvalidInput' }
+
+  # ---------------------------------------------------------------- Strategies
+  /api/v1/accounts/{id}/strategies:
+    get:
+      tags: [Strategies]
+      operationId: listStrategies
+      summary: List automated trading strategies
+      parameters:
+        - $ref: '#/components/parameters/AccountId'
+      responses:
+        '200':
+          description: The strategies and the per-account limit.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StrategyListResponse'
+        '401': { $ref: '#/components/responses/Unauthorised' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/InvalidInput' }
+    post:
+      tags: [Strategies]
+      operationId: createStrategy
+      summary: Create an automated trading strategy
+      description: |
+        `MA_CROSSOVER` needs `shortWindow` < `longWindow`. `BOLLINGER_BANDS` needs `bandWindow`
+        and `bandWidth`. A strategy only places orders in response to `market-data` quotes; no
+        route triggers it.
+      parameters:
+        - $ref: '#/components/parameters/AccountId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateStrategyRequest'
+      responses:
+        '201':
+          description: Created.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StrategyResponse'
+        '401': { $ref: '#/components/responses/Unauthorised' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/InvalidInput' }
+
+  /api/v1/accounts/{id}/strategies/{strategyId}:
+    get:
+      tags: [Strategies]
+      operationId: getStrategy
+      summary: Get one strategy
+      parameters:
+        - $ref: '#/components/parameters/AccountId'
+        - $ref: '#/components/parameters/StrategyId'
+      responses:
+        '200':
+          description: The strategy.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StrategyResponse'
+        '401': { $ref: '#/components/responses/Unauthorised' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/InvalidInput' }
+    delete:
+      tags: [Strategies]
+      operationId: deleteStrategy
+      summary: Delete a strategy
+      parameters:
+        - $ref: '#/components/parameters/AccountId'
+        - $ref: '#/components/parameters/StrategyId'
+      responses:
+        '204': { description: Deleted. }
+        '401': { $ref: '#/components/responses/Unauthorised' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/InvalidInput' }
+
+  /api/v1/accounts/{id}/strategies/{strategyId}/disable:
+    post:
+      tags: [Strategies]
+      operationId: disableStrategy
+      summary: Disable a strategy
+      parameters:
+        - $ref: '#/components/parameters/AccountId'
+        - $ref: '#/components/parameters/StrategyId'
+      responses:
+        '200':
+          description: The strategy, now DISABLED.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StrategyResponse'
+        '401': { $ref: '#/components/responses/Unauthorised' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/InvalidInput' }
+
+  /api/v1/accounts/{id}/strategies/{strategyId}/enable:
+    post:
+      tags: [Strategies]
+      operationId: enableStrategy
+      summary: Enable (or re-enable a HALTED) strategy
+      parameters:
+        - $ref: '#/components/parameters/AccountId'
+        - $ref: '#/components/parameters/StrategyId'
+      responses:
+        '200':
+          description: The strategy, now ENABLED.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StrategyResponse'
+        '401': { $ref: '#/components/responses/Unauthorised' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/InvalidInput' }
+
+  /api/v1/accounts/{id}/strategies/{strategyId}/executions:
+    get:
+      tags: [Strategies]
+      operationId: listStrategyExecutions
+      summary: Every time the strategy's rule fired, and what happened
+      parameters:
+        - $ref: '#/components/parameters/AccountId'
+        - $ref: '#/components/parameters/StrategyId'
+      responses:
+        '200':
+          description: The executions.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/StrategyExecutionResponse'
+        '401': { $ref: '#/components/responses/Unauthorised' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/InvalidInput' }
+
+  /api/v1/accounts/{id}/strategies/{strategyId}/chart:
+    get:
+      tags: [Strategies]
+      operationId: getStrategyChart
+      summary: Prices, indicator lines and signal markers for drawing
+      parameters:
+        - $ref: '#/components/parameters/AccountId'
+        - $ref: '#/components/parameters/StrategyId'
+      responses:
+        '200':
+          description: The chart data.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StrategyChartResponse'
+        '401': { $ref: '#/components/responses/Unauthorised' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/InvalidInput' }
+
+  # ---------------------------------------------------------------- Advisor
+  /api/v1/accounts/{id}/advisor/signals:
+    get:
+      tags: [Advisor]
+      operationId: getTradeAdviceSignals
+      summary: Rule-based BUY / SELL / HOLD signals for held and watched instruments
+      parameters:
+        - $ref: '#/components/parameters/AccountId'
+      responses:
+        '200':
+          description: The signals, plus the instruments that were skipped and why.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TradeAdviceResponse'
+        '401': { $ref: '#/components/responses/Unauthorised' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/InvalidInput' }
+        '503': { $ref: '#/components/responses/Unavailable' }
+
+  /api/v1/advisor/chat:
+    post:
+      tags: [Advisor]
+      operationId: advisorChat
+      summary: Chat with the AI portfolio advisor
+      description: |
+        The account comes from the token only, never from the request. Send the whole
+        conversation so far (at most 20 messages). The last message should be the user's.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AdvisorChatRequest'
+      responses:
+        '200':
+          description: The advisor's reply.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdvisorChatResponse'
+        '401': { $ref: '#/components/responses/Unauthorised' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/InvalidInput' }
+        '429':
+          description: The AI provider is rate-limiting (`ADV-429`).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                errorCode: ADV-429
+                message: The advisor is busy. Please try again in a minute.
+        '503':
+          description: The advisor is unavailable (`ADV-503`).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                errorCode: ADV-503
+                message: The advisor is unavailable right now. Please try again later.
+
+  # ---------------------------------------------------------------- Health
+  /health:
+    get:
+      tags: [Health]
+      operationId: health
+      summary: Liveness plus dependency status
+      description: |
+        Always `200` while the service is running. A failing dependency changes `status` to
+        `degraded` but never fails the request, so the container isn't restarted.
+      security: []
+      responses:
+        '200':
+          description: Health report.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  parameters:
+    AccountId:
+      name: id
+      in: path
+      required: true
+      description: Numeric account key (`ACCOUNTS.id`); must match the token's `accountId` claim.
+      schema: { type: integer, format: int64, minimum: 1 }
+    PortfolioAccountId:
+      name: accountId
+      in: path
+      required: true
+      description: Numeric account key (`ACCOUNTS.id`); must match the token's `accountId` claim.
+      schema: { type: integer, format: int64, minimum: 1 }
+    AlertId:
+      name: alertId
+      in: path
+      required: true
+      schema: { type: integer, format: int64, minimum: 1 }
+    NotificationId:
+      name: notificationId
+      in: path
+      required: true
+      schema: { type: integer, format: int64, minimum: 1 }
+    StrategyId:
+      name: strategyId
+      in: path
+      required: true
+      schema: { type: integer, format: int64, minimum: 1 }
+
+  responses:
+    BadRequest:
+      description: Business rule failed (`ORD-400` insufficient funds, `CSH-400` withdrawal exceeds available).
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorResponse' }
+          example: { errorCode: ORD-400, message: Insufficient funds }
+    Unauthorised:
+      description: Missing, invalid or expired bearer token.
+      headers:
+        WWW-Authenticate:
+          schema: { type: string, example: Bearer }
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorResponse' }
+          example: { errorCode: AUTH-401, message: Unauthorised }
+    Forbidden:
+      description: Account not accessible or not active, or a strategy token was used on a customer-only route.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorResponse' }
+          example: { errorCode: ACC-403, message: Account not active }
+    NotFound:
+      description: Resource not found (`ACC-404`, `INS-404`, `WTL-404`, `NTF-404`, `STR-404`).
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorResponse' }
+          example: { errorCode: ACC-404, message: Account not found }
+    Conflict:
+      description: Conflicts with current state (`ORD-409`, `CSH-409`, `WTL-409`).
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorResponse' }
+          example: { errorCode: ORD-409, message: Duplicate order }
+    InvalidInput:
+      description: Request failed validation.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorResponse' }
+          example: { errorCode: VAL-422, message: Invalid input }
+    Unavailable:
+      description: Live pricing is unavailable (`MKT-503`).
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorResponse' }
+          example: { errorCode: MKT-503, message: Pricing unavailable }
+
+  schemas:
+    # ---------- shared
+    ErrorResponse:
+      type: object
+      required: [errorCode, message]
+      properties:
+        errorCode: { type: string, example: VAL-422 }
+        message: { type: string, example: Invalid input }
+
+    OrderSide:
+      type: string
+      enum: [BUY, SELL]
+    OrderStatus:
+      type: string
+      enum: [NEW, FILLED, REJECTED, CANCELLED]
+    AccountStatus:
+      type: string
+      enum: [ACTIVE, SUSPENDED, CLOSED]
+    TransactionType:
+      type: string
+      enum: [BUY, SELL, DEPOSIT, WITHDRAWAL]
+    AlertChannel:
+      type: string
+      enum: [EMAIL, PUSH, BROWSER, SMS, NONE]
+    NotificationStatus:
+      type: string
+      description: |
+        QUEUED = waiting for the dispatcher; HELD = no preference stored yet; SENT = handed to
+        the channel; FAILED = the channel refused it; SKIPPED = preference is NONE (inbox only).
+      enum: [QUEUED, HELD, SENT, FAILED, SKIPPED]
+    NotificationType:
+      type: string
+      enum: [ORDER_FILLED, ORDER_REJECTED, ORDER_CANCELLED, PRICE_ALERT, ORDER_HISTORY_EXPORT]
+    StrategyType:
+      type: string
+      description: |
+        MA_CROSSOVER buys when the short moving average crosses above the long one and sells when
+        it crosses below. BOLLINGER_BANDS buys when the price crosses below the lower band and
+        sells when it crosses above the upper band.
+      enum: [MA_CROSSOVER, BOLLINGER_BANDS]
+    StrategyStatus:
+      type: string
+      description: HALTED = switched off automatically after too many failed orders in a row.
+      enum: [ENABLED, DISABLED, HALTED]
+    ExecutionOutcome:
+      type: string
+      enum: [PLACED, FAILED, SKIPPED_DISABLED, SKIPPED_SPEND_LIMIT, SKIPPED_POSITION_LIMIT, SKIPPED_NO_HOLDING]
+    AlertDirection:
+      type: string
+      enum: [ABOVE, BELOW]
+    PriceAlertStatus:
+      type: string
+      enum: [ACTIVE, TRIGGERED]
+
+    # ---------- orders
+    PlaceOrderRequest:
+      type: object
+      required: [accountId, symbol, side, quantity, price, idempotencyKey]
+      properties:
+        accountId: { type: integer, format: int64, minimum: 1, example: 101 }
+        symbol: { type: string, minLength: 1, maxLength: 20, example: INFY.NS }
+        side: { $ref: '#/components/schemas/OrderSide' }
+        quantity: { type: integer, minimum: 1, example: 10 }
+        price:
+          type: number
+          description: Limit price; > 0, up to 15 integer digits and 2 decimals.
+          exclusiveMinimum: true
+          minimum: 0
+          example: 1520.50
+        idempotencyKey: { type: string, minLength: 8, maxLength: 100, example: 7c1e2b9a-order-1 }
+    OrderResponse:
+      type: object
+      properties:
+        orderId: { type: string, format: uuid }
+        status: { $ref: '#/components/schemas/OrderStatus' }
+        message: { type: string }
+        symbol: { type: string }
+        side: { $ref: '#/components/schemas/OrderSide' }
+        quantity: { type: integer }
+        price: { type: number }
+    OrderHistoryEntry:
+      type: object
+      properties:
+        orderId: { type: string, format: uuid }
+        accountId: { type: integer, format: int64 }
+        symbol: { type: string }
+        side: { $ref: '#/components/schemas/OrderSide' }
+        quantity: { type: integer }
+        price: { type: number }
+        executedPrice: { type: number, nullable: true }
+        status: { $ref: '#/components/schemas/OrderStatus' }
+        idempotencyKey: { type: string }
+        createdOn: { type: string, format: date-time }
+        settlementAmount:
+          type: number
+          nullable: true
+          description: >-
+            Cash actually moved for a FILLED order, in the account's base currency
+            (executedPrice x quantity x FX rate). Null until filled.
+    OrderHistoryExportResponse:
+      type: object
+      properties:
+        message:
+          type: string
+          example: Order history PDF will be sent to your registered email.
+
+    # ---------- accounts
+    AccountResponse:
+      type: object
+      properties:
+        id: { type: integer, format: int64 }
+        accountId: { type: string, description: Human-readable account number. }
+        holderName: { type: string }
+        cashBalance: { type: number }
+        status: { $ref: '#/components/schemas/AccountStatus' }
+        version: { type: integer }
+        lastUpdated: { type: string, format: date-time }
+    ClientProfileResponse:
+      type: object
+      properties:
+        accountId: { type: integer, format: int64 }
+        name: { type: string }
+        email: { type: string, format: email }
+        phone: { type: string }
+        dob: { type: string, format: date }
+    BalanceResponse:
+      type: object
+      properties:
+        accountId: { type: integer, format: int64 }
+        cashBalance: { type: number }
+        heldForOrders: { type: number, description: Cash reserved by open BUY orders. }
+        availableToWithdraw: { type: number }
+        currency: { type: string, example: INR }
+        asOf: { type: string, format: date-time }
+    PositionResponse:
+      type: object
+      properties:
+        accountId: { type: integer, format: int64 }
+        symbol: { type: string }
+        quantity: { type: integer }
+        averageCost: { type: number }
+    InstrumentOptionResponse:
+      type: object
+      properties:
+        symbol: { type: string, example: INFY.NS }
+        name: { type: string }
+        currency: { type: string, example: INR }
+        assetClass: { type: string }
+
+    # ---------- cash
+    CashMovementRequest:
+      type: object
+      required: [amount, idempotencyKey]
+      properties:
+        amount:
+          type: number
+          description: '> 0 and <= 9999999999.99, at most 2 decimals.'
+          exclusiveMinimum: true
+          minimum: 0
+          maximum: 9999999999.99
+          example: 5000.00
+        idempotencyKey: { type: string, minLength: 8, maxLength: 100 }
+    CashTransactionResponse:
+      type: object
+      properties:
+        transactionId: { type: integer, format: int64 }
+        accountId: { type: integer, format: int64 }
+        type: { $ref: '#/components/schemas/TransactionType' }
+        amount: { type: number }
+        currency: { type: string }
+        balanceBefore: { type: number }
+        balanceAfter: { type: number }
+        createdAt: { type: string, format: date-time }
+
+    # ---------- preferences
+    UpdatePreferencesRequest:
+      type: object
+      required: [currency, theme, alertChannel]
+      properties:
+        currency: { type: string, enum: [INR, USD] }
+        theme: { type: string, enum: [LIGHT, DARK] }
+        alertChannel: { $ref: '#/components/schemas/AlertChannel' }
+    CustomerPreferencesResponse:
+      type: object
+      properties:
+        currency: { type: string, enum: [INR, USD] }
+        theme: { type: string, enum: [LIGHT, DARK] }
+        alertChannel: { $ref: '#/components/schemas/AlertChannel' }
+
+    # ---------- portfolio
+    PortfolioSummaryResponse:
+      type: object
+      properties:
+        accountId: { type: integer, format: int64 }
+        baseCurrency: { type: string }
+        cashBalance: { type: number }
+        marketValue: { type: number }
+        costBasis: { type: number }
+        unrealisedPnl: { type: number }
+        unrealisedPnlPercent: { type: number }
+        realisedPnl: { type: number }
+        totalValue: { type: number }
+        positionCount: { type: integer }
+        partial: { type: boolean, description: True when some positions could not be priced. }
+        asOf: { type: string, format: date-time }
+    PricedPositionResponse:
+      type: object
+      properties:
+        accountId: { type: integer, format: int64 }
+        symbol: { type: string }
+        quantity: { type: integer }
+        averageCost: { type: number }
+        costBasis: { type: number }
+        lastPrice: { type: number, nullable: true }
+        marketValue: { type: number, nullable: true }
+        unrealisedPnl: { type: number, nullable: true }
+        unrealisedPnlPercent: { type: number, nullable: true }
+        currency: { type: string }
+        priceAsOf: { type: string, format: date-time, nullable: true }
+        stale: { type: boolean }
+    PnlResponse:
+      type: object
+      properties:
+        accountId: { type: integer, format: int64 }
+        baseCurrency: { type: string }
+        from: { type: string, format: date, nullable: true }
+        to: { type: string, format: date, nullable: true }
+        realisedPnl: { type: number }
+        unrealisedPnl: { type: number }
+        totalPnl: { type: number }
+        bySymbol:
+          type: array
+          description: Present only when `bySymbol=true`.
+          items: { $ref: '#/components/schemas/SymbolPnlResponse' }
+        asOf: { type: string, format: date-time }
+    SymbolPnlResponse:
+      type: object
+      properties:
+        symbol: { type: string }
+        realisedPnl: { type: number }
+        unrealisedPnl: { type: number }
+        totalPnl: { type: number }
+    CandlesResponse:
+      type: object
+      properties:
+        symbol: { type: string }
+        currency: { type: string }
+        interval: { type: string, example: 1d }
+        range: { type: string, enum: ['1M', '3M', '6M', '1Y'] }
+        stale: { type: boolean }
+        asOf: { type: string, format: date-time }
+        candles:
+          type: array
+          items: { $ref: '#/components/schemas/Candle' }
+    Candle:
+      type: object
+      properties:
+        date: { type: string, format: date }
+        open: { type: number }
+        high: { type: number }
+        low: { type: number }
+        close: { type: number }
+        volume: { type: integer, format: int64 }
+        synthetic: { type: boolean, description: The provider estimated this bar rather than observed it. }
+
+    # ---------- watchlists
+    AddToWatchlistRequest:
+      type: object
+      required: [accountId, symbol]
+      properties:
+        accountId: { type: integer, format: int64, minimum: 1 }
+        symbol: { type: string, minLength: 1, maxLength: 20 }
+        watchlistGroupId: { type: integer, format: int64, minimum: 1, description: Defaults to the Favourite group. }
+    CreateWatchlistGroupRequest:
+      type: object
+      required: [name]
+      properties:
+        name: { type: string, minLength: 1, maxLength: 50 }
+    WatchlistItemResponse:
+      type: object
+      properties:
+        watchlistId: { type: string, description: 63-bit id serialised as a string. }
+        watchlistGroupId: { type: string, description: 63-bit id serialised as a string. }
+        watchlistName: { type: string }
+        instrumentId: { type: integer, format: int64 }
+        symbol: { type: string }
+        instrumentName: { type: string }
+        addedAt: { type: string, format: date-time }
+        lastPrice: { type: number, nullable: true }
+        changePct: { type: number, nullable: true }
+        currency: { type: string, description: ISO 4217 code the instrument is quoted in. }
+    WatchlistGroupResponse:
+      type: object
+      properties:
+        watchlistGroupId: { type: string, description: 63-bit id serialised as a string. }
+        name: { type: string }
+        createdAt: { type: string, format: date-time }
+
+    # ---------- price alerts
+    CreatePriceAlertRequest:
+      type: object
+      required: [watchlistId, direction, threshold]
+      properties:
+        watchlistId:
+          type: integer
+          format: int64
+          minimum: 1
+          description: The watchlist entry the alert is attached to (the browser may send it as a string).
+        direction: { $ref: '#/components/schemas/AlertDirection' }
+        threshold:
+          type: number
+          exclusiveMinimum: true
+          minimum: 0
+          description: '> 0, up to 15 integer digits and 4 decimals, in the instrument currency.'
+    PriceAlertResponse:
+      type: object
+      properties:
+        alertId: { type: integer, format: int64 }
+        watchlistId: { type: string, description: 63-bit id serialised as a string. }
+        symbol: { type: string }
+        instrumentName: { type: string }
+        direction: { $ref: '#/components/schemas/AlertDirection' }
+        threshold: { type: number }
+        status: { $ref: '#/components/schemas/PriceAlertStatus' }
+        createdAt: { type: string, format: date-time }
+        triggeredAt: { type: string, format: date-time, nullable: true }
+        triggerPrice: { type: number, nullable: true }
+        lastPrice: { type: number, nullable: true }
+        currency: { type: string }
+    PriceAlertListResponse:
+      type: object
+      properties:
+        maxActiveAlerts: { type: integer, example: 20 }
+        activeAlerts: { type: integer }
+        alerts:
+          type: array
+          items: { $ref: '#/components/schemas/PriceAlertResponse' }
+
+    # ---------- notifications
+    NotificationResponse:
+      type: object
+      properties:
+        notificationId: { type: integer, format: int64 }
+        type: { $ref: '#/components/schemas/NotificationType' }
+        orderId: { type: integer, format: int64, nullable: true }
+        title: { type: string, example: Order filled }
+        message: { type: string }
+        status: { $ref: '#/components/schemas/NotificationStatus' }
+        channel:
+          type: string
+          enum: [EMAIL, PUSH, BROWSER, SMS, NONE]
+          nullable: true
+          description: The channel the notification was sent on; null until resolved.
+        createdAt: { type: string, format: date-time }
+        sentAt: { type: string, format: date-time, nullable: true }
+        readAt: { type: string, format: date-time, nullable: true }
+    PushConfigResponse:
+      type: object
+      properties:
+        enabled: { type: boolean }
+        publicKey:
+          type: string
+          nullable: true
+          description: VAPID public key (not a secret); null when push is switched off.
+    PushSubscriptionRequest:
+      type: object
+      required: [endpoint, keys]
+      properties:
+        endpoint: { type: string, maxLength: 1000 }
+        keys:
+          type: object
+          required: [p256dh, auth]
+          properties:
+            p256dh: { type: string, maxLength: 200 }
+            auth: { type: string, maxLength: 100 }
+
+    # ---------- strategies
+    CreateStrategyRequest:
+      type: object
+      required: [name, symbol, type, quantity, maxSpend, maxPosition]
+      properties:
+        name: { type: string, maxLength: 60 }
+        symbol: { type: string, minLength: 1, maxLength: 20 }
+        type: { $ref: '#/components/schemas/StrategyType' }
+        shortWindow: { type: integer, minimum: 2, maximum: 199, description: MA_CROSSOVER only. }
+        longWindow: { type: integer, minimum: 3, maximum: 200, description: MA_CROSSOVER only. }
+        bandWindow: { type: integer, minimum: 2, maximum: 200, description: BOLLINGER_BANDS only. }
+        bandWidth:
+          type: number
+          exclusiveMinimum: true
+          minimum: 0
+          maximum: 5.0
+          description: BOLLINGER_BANDS only; standard deviations, up to 3 decimals.
+        quantity: { type: integer, minimum: 1, maximum: 100000, description: Shares per order. }
+        maxSpend:
+          type: number
+          exclusiveMinimum: true
+          minimum: 0
+          description: The most this strategy may ever spend on BUY orders, at their limit price.
+        maxPosition:
+          type: integer
+          format: int64
+          minimum: 1
+          maximum: 10000000
+          description: The most of this symbol the account may hold after a strategy BUY (counting pending BUYs).
+        maxConsecutiveFailures:
+          type: integer
+          minimum: 1
+          maximum: 10
+          default: 3
+          description: Failed orders in a row before the strategy is HALTED.
+    StrategyResponse:
+      type: object
+      properties:
+        strategyId: { type: integer, format: int64 }
+        accountId: { type: integer, format: int64 }
+        name: { type: string }
+        symbol: { type: string }
+        type: { $ref: '#/components/schemas/StrategyType' }
+        shortWindow: { type: integer, nullable: true }
+        longWindow: { type: integer, nullable: true }
+        bandWindow: { type: integer, nullable: true }
+        bandWidth: { type: number, nullable: true }
+        quantity: { type: integer }
+        maxSpend: { type: number }
+        spent: { type: number }
+        remainingSpend: { type: number }
+        maxPosition: { type: integer, format: int64 }
+        maxConsecutiveFailures: { type: integer }
+        consecutiveFailures: { type: integer }
+        ordersPlaced: { type: integer }
+        status: { $ref: '#/components/schemas/StrategyStatus' }
+        statusReason: { type: string, nullable: true }
+        lastTriggeredAt: { type: string, format: date-time, nullable: true }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+    StrategyListResponse:
+      type: object
+      properties:
+        maxStrategies: { type: integer }
+        strategies:
+          type: array
+          items: { $ref: '#/components/schemas/StrategyResponse' }
+    StrategyExecutionResponse:
+      type: object
+      properties:
+        executionId: { type: integer, format: int64 }
+        quoteEventId: { type: string, format: uuid }
+        signal: { $ref: '#/components/schemas/OrderSide' }
+        outcome: { $ref: '#/components/schemas/ExecutionOutcome' }
+        quotePrice: { type: number }
+        orderPrice: { type: number, nullable: true }
+        quantity: { type: integer, nullable: true }
+        orderId: { type: string, nullable: true }
+        detail: { type: string, nullable: true }
+        createdAt: { type: string, format: date-time }
+    StrategyChartResponse:
+      type: object
+      description: |
+        For MA_CROSSOVER, points carry `shortAverage` and `longAverage`. For BOLLINGER_BANDS, they
+        carry `middleBand`, `upperBand` and `lowerBand`. The fields for the other type are null.
+      properties:
+        strategyId: { type: integer, format: int64 }
+        symbol: { type: string }
+        type: { $ref: '#/components/schemas/StrategyType' }
+        requiredPrices: { type: integer, description: Prices needed before the rule can fire. }
+        points:
+          type: array
+          items:
+            type: object
+            properties:
+              quotedAt: { type: string, format: date-time }
+              price: { type: number }
+              shortAverage: { type: number, nullable: true }
+              longAverage: { type: number, nullable: true }
+              middleBand: { type: number, nullable: true }
+              upperBand: { type: number, nullable: true }
+              lowerBand: { type: number, nullable: true }
+        markers:
+          type: array
+          items:
+            type: object
+            properties:
+              pointIndex: { type: integer }
+              quotedAt: { type: string, format: date-time }
+              quotePrice: { type: number }
+              signal: { $ref: '#/components/schemas/OrderSide' }
+              outcome: { $ref: '#/components/schemas/ExecutionOutcome' }
+              orderId: { type: string, nullable: true }
+              detail: { type: string, nullable: true }
+
+    # ---------- advisor
+    TradeAdviceResponse:
+      type: object
+      properties:
+        accountId: { type: integer, format: int64 }
+        generatedAt: { type: string, format: date-time }
+        signals:
+          type: array
+          items: { $ref: '#/components/schemas/AdviceSignalResponse' }
+        skipped:
+          type: array
+          items: { $ref: '#/components/schemas/SkippedSignalResponse' }
+    AdviceSignalResponse:
+      type: object
+      properties:
+        symbol: { type: string }
+        instrumentName: { type: string }
+        origin: { type: string, description: 'Why the instrument was considered, for example held or watched.' }
+        signal: { type: string, example: BUY }
+        reasoning:
+          type: array
+          items: { type: string }
+        lastPrice: { type: number }
+        changePct: { type: number, nullable: true }
+        unrealisedPnlPercent: { type: number, nullable: true }
+        currency: { type: string }
+        priceAsOf: { type: string, format: date-time }
+        stale: { type: boolean }
+    SkippedSignalResponse:
+      type: object
+      properties:
+        symbol: { type: string }
+        instrumentName: { type: string }
+        origin: { type: string }
+        reason: { type: string }
+    AdvisorChatRequest:
+      type: object
+      required: [messages]
+      properties:
+        messages:
+          type: array
+          minItems: 1
+          maxItems: 20
+          items: { $ref: '#/components/schemas/ChatMessage' }
+    ChatMessage:
+      type: object
+      required: [role, content]
+      properties:
+        role: { type: string, enum: [user, assistant] }
+        content: { type: string, minLength: 1, maxLength: 4000 }
+    AdvisorChatResponse:
+      type: object
+      properties:
+        reply: { type: string }
+        toolsUsed:
+          type: array
+          items: { type: string }
+        model: { type: string }
+        generatedAt: { type: string, format: date-time }
+
+    # ---------- health
+    HealthResponse:
+      type: object
+      properties:
+        status: { type: string, enum: [ok, degraded] }
+        dependencies:
+          type: array
+          items:
+            type: object
+            properties:
+              name: { type: string, enum: [postgres, fauxnance] }
+              status: { type: string, enum: [ok, degraded, down] }
+              quotaRemaining:
+                type: integer
+                nullable: true
+                description: Only on the fauxnance entry.
+        asOf: { type: string, format: date-time }
+      example:
+        status: ok
+        dependencies:
+          - { name: postgres, status: ok }
+          - { name: fauxnance, status: ok, quotaRemaining: 1840 }
+        asOf: '2026-10-08T09:30:00Z'

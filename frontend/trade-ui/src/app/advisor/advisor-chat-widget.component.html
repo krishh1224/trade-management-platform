@@ -1,0 +1,89 @@
+@if (isAuthenticated()) {
+  <button
+    class="chat-fab"
+    type="button"
+    (click)="toggleChat()"
+    [attr.aria-expanded]="chatOpen()"
+    [attr.aria-label]="chatOpen() ? 'Close advisor chat' : 'Open advisor chat'"
+    data-testid="advisor-chat-fab"
+  >
+    <span class="chat-fab-icon" aria-hidden="true">
+      <svg viewBox="0 0 24 24" width="24" height="24"><path d="M12 3c4.97 0 9 3.58 9 8 0 1.88-.73 3.61-1.95 5l.7 4-4.21-1.3A10.2 10.2 0 0 1 12 20c-4.97 0-9-3.58-9-8s4.03-8 9-8z" fill="currentColor" opacity="0.92"/><path d="M8 11h8M8 14h5M16.8 6.2l.5-1.4.5 1.4 1.4.5-1.4.5-.5 1.4-.5-1.4-1.4-.5z" fill="none" stroke="#fff" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </span>
+    <span class="chat-fab-text">Advisor chat</span>
+  </button>
+
+  @if (chatOpen()) {
+    <aside class="chat-widget" aria-label="Advisor chatbot" data-testid="advisor-chat-widget">
+      <header class="chat-header">
+        <div>
+          <p class="chat-eyebrow">Artha advisor</p>
+          <h2>Ask the chatbot</h2>
+        </div>
+        <button type="button" class="chat-close" (click)="closeChat()" aria-label="Close advisor chat">
+          <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" /></svg>
+        </button>
+      </header>
+
+      <div class="chat-thread" role="log" aria-live="polite" data-testid="advisor-thread">
+        @if (conversation().length === 0) {
+          <div class="chat-empty">
+            <p>Ask about holdings, prices, FX conversion, order history or the current buy, sell and hold signals.</p>
+            <div class="chat-suggestions">
+              @for (question of suggestions; track question) {
+                <button type="button" class="chat-suggestion" (click)="useSuggestion(question)" [disabled]="chatSending()">{{ question }}</button>
+              }
+            </div>
+          </div>
+        }
+
+        @for (message of conversation(); track $index) {
+          @if (message.role === 'user') {
+            <div class="chat-message user" data-testid="advisor-user-message">{{ message.content }}</div>
+          } @else {
+            <div class="chat-message assistant" data-testid="advisor-reply">
+              <div class="markdown" [innerHTML]="message.html"></div>
+              @if (sourcesLabel(message.toolsUsed); as sources) {
+                <p class="sources">{{ sources }}</p>
+              }
+            </div>
+          }
+        }
+
+        @if (chatSending()) {
+          <div class="chat-message assistant thinking" role="status">
+            <span class="dot"></span><span class="dot"></span><span class="dot"></span>
+            <span class="sr-only">The advisor is thinking</span>
+          </div>
+        }
+      </div>
+
+      @if (chatErrorMessage()) {
+        <div class="form-error" role="alert" data-testid="advisor-chat-error">{{ chatErrorMessage() }}</div>
+      }
+
+      <form class="chat-composer" (ngSubmit)="send()">
+        <textarea
+          name="question"
+          rows="2"
+          data-testid="advisor-input"
+          placeholder="Ask about your holdings, prices, orders or signals…"
+          [maxlength]="maxLength"
+          [ngModel]="draft()"
+          (ngModelChange)="draft.set($event)"
+          (keydown)="onKeydown($event)"
+          [disabled]="chatSending()"
+          aria-label="Your question"
+        ></textarea>
+        <div class="chat-actions">
+          @if (conversation().length > 0) {
+            <button type="button" class="ghost-button" (click)="clearConversation()" [disabled]="chatSending()">New chat</button>
+          }
+          <button type="submit" class="primary-button" data-testid="advisor-send" [disabled]="!canSend()">
+            {{ chatSending() ? 'Thinking…' : 'Send' }}
+          </button>
+        </div>
+      </form>
+    </aside>
+  }
+}

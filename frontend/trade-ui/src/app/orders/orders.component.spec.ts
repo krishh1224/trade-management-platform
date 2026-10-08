@@ -7,6 +7,7 @@ import { vi } from 'vitest';
 import { AuthService } from '../api/auth.service';
 import { TradeService } from '../api/trade.service';
 import { OrdersComponent } from './orders.component';
+import { provideNotificationCountStub } from '../notifications/notification-count.testing';
 
 const authServiceMock = {
   login: vi.fn()
@@ -40,6 +41,7 @@ describe('OrdersComponent', () => {
     await TestBed.configureTestingModule({
       imports: [OrdersComponent],
       providers: [
+        provideNotificationCountStub(),
         provideRouter([]),
         { provide: AuthService, useValue: authServiceMock },
         { provide: TradeService, useValue: tradeServiceMock }
@@ -129,7 +131,8 @@ describe('OrdersComponent', () => {
     expect(component.currentSymbolCurrency()).toBe('USD');
     expect(component.settlementNote()).toContain('settled from your INR balance at the live USD/INR rate');
     expect(fixture.nativeElement.querySelector('[data-testid="order-settlement-note"]')).not.toBeNull();
-    expect(fixture.nativeElement.textContent).toContain('Price (USD)');
+    // the label shows the currency symbol: $ for USD, ₹ for INR, the code for anything else
+    expect(fixture.nativeElement.textContent).toContain('Price ($)');
   });
 
   it('an INR instrument on an INR account shows no settlement note', () => {
@@ -142,6 +145,26 @@ describe('OrdersComponent', () => {
     expect(component.currentSymbolCurrency()).toBe('INR');
     expect(component.settlementNote()).toBe('');
     expect(fixture.nativeElement.querySelector('[data-testid="order-settlement-note"]')).toBeNull();
+  });
+
+  it('filters instrument suggestions by both ticker and instrument name', () => {
+    tradeServiceMock.getInstruments.mockReturnValue(
+      of([
+        { symbol: 'AAPL', name: 'Apple Inc.', currency: 'USD' },
+        { symbol: 'MSFT', name: 'Microsoft Corporation', currency: 'USD' }
+      ])
+    );
+
+    const fixture = TestBed.createComponent(OrdersComponent);
+    const component = fixture.componentInstance;
+
+    component.orderForm.controls.symbol.setValue('msf');
+    component.onInstrumentInput();
+    expect(component.filteredInstrumentOptions().map((option) => option.symbol)).toEqual(['MSFT']);
+
+    component.orderForm.controls.symbol.setValue('apple');
+    component.onInstrumentInput();
+    expect(component.filteredInstrumentOptions().map((option) => option.symbol)).toEqual(['AAPL']);
   });
 });
 

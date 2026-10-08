@@ -1,0 +1,371 @@
+openapi: 3.0.3
+info:
+  title: Auth Service API
+  version: 1.0.0
+  description: |
+    Registration, login, token refresh, password change and current-user lookup for the
+    Enterprise Trading Platform (NestJS, `services/auth-service`).
+
+    Every endpoint the service exposes is listed here, including `GET /health`, which is
+    hidden from the Swagger document the running service generates at `/docs`
+    (`@ApiExcludeController`).
+
+    Access tokens are signed JWTs that live for 900 seconds (15 minutes). Refresh tokens are
+    opaque, stored on the server, and replaced on every use.
+
+    Errors use one body shape, `{ "errorCode": "...", "message": "..." }`. A request that fails
+    field validation always gets `422 VAL-422 "Invalid input"`. Any other failed login, refresh or
+    token check gets `401 AUTH-401 "Unauthorised"`, so callers can't tell why it failed.
+servers:
+  - url: http://localhost:3000
+    description: Local (PORT defaults to 3000)
+tags:
+  - name: Auth
+    description: Registration, login and token lifecycle.
+  - name: Profile
+    description: The authenticated user.
+  - name: Health
+    description: Liveness and dependency status.
+
+paths:
+  /auth/register:
+    post:
+      tags: [Auth]
+      operationId: register
+      security: []
+      summary: Register a user
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterRequest'
+      responses:
+        '201':
+          description: User created.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserResponse'
+        '409':
+          description: The username is already taken (`AUTH-409 Registration failed`).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                errorCode: AUTH-409
+                message: Registration failed
+        '422':
+          $ref: '#/components/responses/InvalidInput'
+
+  /auth/login:
+    post:
+      tags: [Auth]
+      operationId: login
+      security: []
+      summary: Log in with username and password
+      description: |
+        Exchanges credentials for an access token and a refresh token. Failed attempts are
+        throttled per username and caller IP. A throttled caller gets the same `401` as one
+        with wrong credentials.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '201':
+          description: Logged in; a new token pair. (NestJS default status for POST.)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TokenResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorised'
+        '422':
+          $ref: '#/components/responses/InvalidInput'
+
+  /auth/refresh:
+    post:
+      tags: [Auth]
+      operationId: refresh
+      security: []
+      summary: Exchange a refresh token for a new token pair
+      description: |
+        The presented refresh token is used up and a new one is issued in the same token family.
+        If a used token is presented again, the whole family is revoked.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RefreshRequest'
+      responses:
+        '200':
+          description: A new token pair.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TokenResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorised'
+        '422':
+          $ref: '#/components/responses/InvalidInput'
+
+  /auth/me:
+    get:
+      tags: [Profile]
+      operationId: getCurrentUser
+      summary: Get the authenticated user
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: The authenticated user.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorised'
+
+  /auth/password:
+    patch:
+      tags: [Profile]
+      operationId: updatePassword
+      summary: Update password for the authenticated user
+      description: A wrong `currentPassword` gets `401 AUTH-401`.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChangePasswordRequest'
+      responses:
+        '200':
+          description: Password updated.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PasswordUpdateResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorised'
+        '422':
+          $ref: '#/components/responses/InvalidInput'
+
+  /health:
+    get:
+      tags: [Health]
+      operationId: health
+      security: []
+      summary: Service and Postgres health
+      responses:
+        '200':
+          description: The service is up and Postgres is reachable.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthStatus'
+              example:
+                status: UP
+                postgresReachable: true
+        '503':
+          description: Postgres is unreachable.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthStatus'
+              example:
+                status: DOWN
+                postgresReachable: false
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  responses:
+    Unauthorised:
+      description: Authentication failed.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            errorCode: AUTH-401
+            message: Unauthorised
+    InvalidInput:
+      description: The request failed field validation (unknown fields are rejected too).
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            errorCode: VAL-422
+            message: Invalid input
+
+  schemas:
+    RegisterRequest:
+      type: object
+      additionalProperties: false
+      required: [username, password, accountId]
+      properties:
+        username:
+          type: string
+          minLength: 3
+          maxLength: 64
+          pattern: '^[a-zA-Z0-9._-]+$'
+          example: priya.menon
+        password:
+          type: string
+          format: password
+          writeOnly: true
+          minLength: 12
+          maxLength: 128
+          description: >-
+            At least 12 characters, with an uppercase letter, a lowercase letter, a digit and a
+            special character (!@#$%^&*()_+-=[]{}|;:,.<>?).
+          example: MySecure!Pass123
+        accountId:
+          type: integer
+          format: int64
+          minimum: 1
+          description: The numeric trading account key, `ACCOUNTS.id`, that this user will trade.
+          example: 101
+        roles:
+          type: array
+          minItems: 1
+          description: Optional. Defaults to `["USER"]`.
+          items:
+            type: string
+            enum: [USER, ADMIN]
+          example: [USER]
+
+    LoginRequest:
+      type: object
+      additionalProperties: false
+      required: [username, password]
+      properties:
+        username:
+          type: string
+          maxLength: 64
+          example: priya.menon
+        password:
+          type: string
+          format: password
+          writeOnly: true
+          maxLength: 128
+          example: correct horse battery staple
+
+    RefreshRequest:
+      type: object
+      additionalProperties: false
+      required: [refreshToken]
+      properties:
+        refreshToken:
+          type: string
+          description: The refresh token issued by the previous login or refresh.
+
+    ChangePasswordRequest:
+      type: object
+      additionalProperties: false
+      required: [currentPassword, newPassword]
+      properties:
+        currentPassword:
+          type: string
+          format: password
+          writeOnly: true
+          maxLength: 128
+          example: OldPassword!123
+        newPassword:
+          type: string
+          format: password
+          writeOnly: true
+          minLength: 12
+          maxLength: 128
+          description: Same strength rules as `RegisterRequest.password`.
+          example: MyUpdated!Pass123
+
+    UserResponse:
+      type: object
+      required: [id, username, accountId, roles]
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: The value carried in the `sub` claim.
+          example: 8f14e45f-ceea-4c1b-9d3b-1a2b3c4d5e6f
+        username:
+          type: string
+          example: priya.menon
+        accountId:
+          type: integer
+          format: int64
+          description: The numeric trading account key, `ACCOUNTS.id`.
+          example: 101
+        roles:
+          type: array
+          minItems: 1
+          items:
+            type: string
+            enum: [USER, ADMIN]
+          example: [USER]
+        createdOn:
+          type: string
+          format: date-time
+          example: '2026-10-05T08:00:00Z'
+
+    TokenResponse:
+      type: object
+      required: [accessToken, refreshToken, tokenType, expiresIn]
+      properties:
+        accessToken:
+          type: string
+          description: Signed JWT carrying `sub`, `accountId` and `roles`.
+        refreshToken:
+          type: string
+          description: Opaque, stored server-side, revocable, rotated on every use.
+        tokenType:
+          type: string
+          enum: [Bearer]
+          example: Bearer
+        expiresIn:
+          type: integer
+          description: Access token lifetime in seconds.
+          example: 900
+
+    PasswordUpdateResponse:
+      type: object
+      required: [message]
+      properties:
+        message:
+          type: string
+          example: Password updated successfully.
+
+    HealthStatus:
+      type: object
+      required: [status, postgresReachable]
+      properties:
+        status:
+          type: string
+          enum: [UP, DOWN]
+        postgresReachable:
+          type: boolean
+
+    ErrorResponse:
+      type: object
+      required: [errorCode, message]
+      properties:
+        errorCode:
+          type: string
+          enum: [AUTH-401, AUTH-409, VAL-422]
+          example: AUTH-401
+        message:
+          type: string
+          example: Unauthorised

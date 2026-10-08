@@ -1,0 +1,295 @@
+openapi: 3.1.0
+info:
+  title: Executor Service (messaging interface)
+  version: 1.0.0
+  description: |
+    `services/executor-service` (Spring Boot, `com.neueda.learning`) has **no HTTP endpoints**.
+    The code has no `@RestController` and no Spring Boot Actuator, so `paths` is empty. Its
+    embedded web server on port 8082 serves only Spring's default error page.
+
+    Its whole interface is Kafka. The service:
+
+    | Direction | Topic | Key | Event types |
+    |-----------|-------|-----|-------------|
+    | consumes | `orders` (group `trade-executor`) | — | `ORDER_PLACED`, `ORDER_CANCELLED` |
+    | produces | `trade-events` | accountId | `ORDER_FILLED`, `ORDER_REJECTED`, `ORDER_CANCELLED` |
+    | produces | `market-data` | symbol | `QUOTE` (from the market data poller, every `market-data.poll-interval-seconds`, default 60s) |
+    | produces | `orders.DLT` | original key | messages from `orders` that failed permanently or ran out of retries |
+
+    Kafka messages are not HTTP calls, but OpenAPI can't describe them any other way. So each
+    message is listed under `webhooks` (shown as `POST` in Swagger UI) with its JSON body.
+    Read each webhook as "a message on this topic", not as a URL anyone calls.
+
+    Every message is wrapped in a `KafkaEnvelope`. `source` is `trade-api` on `orders` and
+    `executor` on the topics this service produces. `schemaVersion` is 1.
+
+    **Processing `ORDER_PLACED`.** The executor loads the order and skips it unless its status is
+    `NEW`. It fetches a Fauxnance quote and decides FILLED or REJECTED. It then settles cash and
+    holdings, with optimistic-lock retries and FX conversion to the account's base currency, and
+    publishes `ORDER_FILLED` or `ORDER_REJECTED`. A redelivered order that is already settled
+    publishes nothing.
+
+    **Failures.** Transient failures (database errors, settlement version conflicts, unexpected
+    errors) are retried with exponential backoff: 100 ms initial, x2, at most 5 s, 3 attempts.
+    Permanent failures go straight to `orders.DLT`: `MALFORMED_JSON`, `UNEXPECTED_EVENT_TYPE`,
+    `MISSING_PAYLOAD`, `MISSING_ORDER_ID`, `ORDER_NOT_FOUND`, `PORTFOLIO_NOT_FOUND`,
+    `ACCOUNT_MISMATCH` and `SETTLEMENT_FAILED`.
+security: []
+servers:
+  - url: http://localhost:8082
+    description: Embedded web server (no application routes)
+tags:
+  - name: orders (consumed)
+    description: Commands from the order service.
+  - name: trade-events (produced)
+    description: Order outcomes.
+  - name: market-data (produced)
+    description: Polled quotes.
+
+paths: {}
+
+webhooks:
+  orders.ORDER_PLACED:
+    post:
+      tags: ['orders (consumed)']
+      operationId: consumeOrderPlaced
+      summary: 'Consumed from `orders`: execute and settle a new order'
+      description: |
+        Published by the order service after `POST /api/v1/orders` commits. The executor
+        acknowledges the message only after settlement and the outcome event have been handled.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '#/components/schemas/KafkaEnvelope'
+                - type: object
+                  properties:
+                    eventType: { const: ORDER_PLACED }
+                    payload: { $ref: '#/components/schemas/OrderPlacedPayload' }
+            example:
+              eventId: 3f6c2a10-8d7b-4c1e-9a55-0b8e5d4f7a21
+              eventType: ORDER_PLACED
+              eventTime: '2026-10-08T09:30:00+05:30'
+              source: trade-api
+              schemaVersion: 1
+              payload:
+                orderId: 0000017f-0000-0000-0000-00000000002a
+                accountId: 101
+                symbol: INFY.NS
+                side: BUY
+                quantity: 10
+                price: 1520.50
+                idempotencyKey: 7c1e2b9a-order-1
+                createdOn: '2026-10-08T09:29:59+05:30'
+      responses:
+        '200':
+          description: Processed and acknowledged (filled, rejected, or skipped because the order is no longer NEW).
+        '500':
+          description: Transient failure; redelivered with backoff, then sent to `orders.DLT`.
+        '422':
+          description: Permanent failure; sent straight to `orders.DLT`.
+
+  orders.ORDER_CANCELLED:
+    post:
+      tags: ['orders (consumed)']
+      operationId: consumeOrderCancelled
+      summary: 'Consumed from `orders`: confirm a cancel and announce it'
+      description: |
+        Published by the order service after `DELETE /api/v1/orders/{id}` commits. The executor
+        checks that the order exists, belongs to `payload.accountId` and really is `CANCELLED`
+        in the database. Only then does it publish `trade-events` `ORDER_CANCELLED`.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '#/components/schemas/KafkaEnvelope'
+                - type: object
+                  properties:
+                    eventType: { const: ORDER_CANCELLED }
+                    payload: { $ref: '#/components/schemas/OrderPlacedPayload' }
+      responses:
+        '200':
+          description: Acknowledged (announced, or ignored because the database does not say CANCELLED).
+        '422':
+          description: '`MISSING_ORDER_ID`, `ORDER_NOT_FOUND` or `ACCOUNT_MISMATCH`; sent to `orders.DLT`.'
+
+  trade-events.ORDER_FILLED:
+    post:
+      tags: ['trade-events (produced)']
+      operationId: publishOrderFilled
+      summary: 'Produced on `trade-events`: the order was filled and settled'
+      description: Keyed by accountId. Consumed by the order service's notifications module.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '#/components/schemas/KafkaEnvelope'
+                - type: object
+                  properties:
+                    eventType: { const: ORDER_FILLED }
+                    source: { const: executor }
+                    payload: { $ref: '#/components/schemas/OrderFilledPayload' }
+      responses:
+        '200': { description: Published (acks=all). }
+
+  trade-events.ORDER_REJECTED:
+    post:
+      tags: ['trade-events (produced)']
+      operationId: publishOrderRejected
+      summary: 'Produced on `trade-events`: the order was rejected'
+      description: Keyed by accountId.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '#/components/schemas/KafkaEnvelope'
+                - type: object
+                  properties:
+                    eventType: { const: ORDER_REJECTED }
+                    source: { const: executor }
+                    payload: { $ref: '#/components/schemas/OrderRejectedPayload' }
+      responses:
+        '200': { description: Published (acks=all). }
+
+  trade-events.ORDER_CANCELLED:
+    post:
+      tags: ['trade-events (produced)']
+      operationId: publishOrderCancelled
+      summary: 'Produced on `trade-events`: the cancel is confirmed'
+      description: |
+        Keyed by accountId. The `eventId` is not random. It is
+        `UUID.nameUUIDFromBytes("ORDER_CANCELLED:" + orderId)`, the same id the order service
+        uses when it records the cancel notification. So whichever copy arrives first, the
+        customer is notified once.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '#/components/schemas/KafkaEnvelope'
+                - type: object
+                  properties:
+                    eventType: { const: ORDER_CANCELLED }
+                    source: { const: executor }
+                    payload: { $ref: '#/components/schemas/OrderCancelledPayload' }
+      responses:
+        '200': { description: Published (acks=all). }
+
+  market-data.QUOTE:
+    post:
+      tags: ['market-data (produced)']
+      operationId: publishQuote
+      summary: 'Produced on `market-data`: a polled bid/ask quote'
+      description: |
+        One message per symbol per poll, keyed by symbol. The symbols are the union of
+        instruments that are held, watched or used by a strategy. Consumed by the order service's
+        watchlists (price alerts) and strategies modules.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '#/components/schemas/KafkaEnvelope'
+                - type: object
+                  properties:
+                    eventType: { const: QUOTE }
+                    source: { const: executor }
+                    payload: { $ref: '#/components/schemas/QuotePayload' }
+            example:
+              eventId: 9b2d0e4c-1f3a-4b6d-8e7f-2a1c3b4d5e6f
+              eventType: QUOTE
+              eventTime: '2026-10-08T09:31:00+05:30'
+              source: executor
+              schemaVersion: 1
+              payload:
+                symbol: INFY.NS
+                bid: 1519.80
+                ask: 1520.40
+      responses:
+        '200': { description: Published. Failures are logged and do not stop the poller. }
+
+components:
+  schemas:
+    KafkaEnvelope:
+      type: object
+      required: [eventId, eventType, eventTime, source, schemaVersion, payload]
+      properties:
+        eventId: { type: string, format: uuid }
+        eventType:
+          type: string
+          enum: [ORDER_PLACED, ORDER_CANCELLED, ORDER_FILLED, ORDER_REJECTED, QUOTE]
+        eventTime: { type: string, format: date-time }
+        source: { type: string, enum: [trade-api, executor] }
+        schemaVersion: { type: integer, const: 1 }
+        payload: { type: object }
+
+    OrderPlacedPayload:
+      type: object
+      description: Payload of ORDER_PLACED and ORDER_CANCELLED on `orders`. Unknown fields are ignored.
+      required: [orderId, accountId]
+      properties:
+        orderId:
+          type: string
+          format: uuid
+          description: Encodes the numeric `orders.id` that the executor looks up.
+        accountId: { type: integer, format: int64 }
+        symbol: { type: string }
+        side: { type: string, enum: [BUY, SELL] }
+        quantity: { type: integer }
+        price: { type: number }
+        idempotencyKey: { type: string }
+        createdOn: { type: string, format: date-time }
+
+    OrderFilledPayload:
+      type: object
+      properties:
+        orderId: { type: integer, format: int64 }
+        accountId: { type: integer, format: int64 }
+        executedPrice: { type: number, description: In the instrument's quote currency. }
+        executedOn: { type: string, format: date-time }
+        quantity: { type: integer }
+        symbol: { type: string }
+        side: { type: string, enum: [BUY, SELL] }
+        fxRate:
+          type: [number, 'null']
+          description: Rate from the instrument currency to the account's base currency.
+        settlementCurrency: { type: [string, 'null'], description: The account's base currency. }
+        settlementAmount:
+          type: [number, 'null']
+          description: Cash moved on the account, in settlementCurrency.
+
+    OrderRejectedPayload:
+      type: object
+      properties:
+        orderId: { type: integer, format: int64 }
+        accountId: { type: integer, format: int64 }
+        rejectionReason: { type: string }
+
+    OrderCancelledPayload:
+      type: object
+      properties:
+        orderId: { type: integer, format: int64 }
+        accountId: { type: integer, format: int64 }
+        symbol: { type: string }
+        side: { type: string, enum: [BUY, SELL] }
+        quantity: { type: integer }
+        price: { type: number }
+        status: { type: string, const: CANCELLED }
+        cancelledOn: { type: string, format: date-time }
+
+    QuotePayload:
+      type: object
+      properties:
+        symbol: { type: string, example: INFY.NS }
+        bid: { type: number }
+        ask: { type: number }

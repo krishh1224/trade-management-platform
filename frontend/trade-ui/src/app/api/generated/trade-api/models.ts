@@ -3,7 +3,11 @@
 
 export type { AccountResponse } from './models/account-response';
 export type { AccountStatus } from './models/account-status';
+export type { AddToWatchlistRequest } from './models/add-to-watchlist-request';
 export type { BalanceResponse } from './models/balance-response';
+export type { CashMovementRequest } from './models/cash-movement-request';
+export type { CashMovementType } from './models/cash-movement-type';
+export type { CashTransactionResponse } from './models/cash-transaction-response';
 export type { ErrorResponse } from './models/error-response';
 export type { OrderHistoryEntry } from './models/order-history-entry';
 export type { OrderResponse } from './models/order-response';
@@ -11,3 +15,4 @@ export type { OrderSide } from './models/order-side';
 export type { OrderStatus } from './models/order-status';
 export type { PlaceOrderRequest } from './models/place-order-request';
 export type { PositionResponse } from './models/position-response';
+export type { WatchlistItemResponse } from './models/watchlist-item-response';
