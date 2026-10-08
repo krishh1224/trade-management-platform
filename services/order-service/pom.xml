@@ -190,12 +190,29 @@
     		<scope>test</scope>
 		</dependency>
 
-
-		
+		<!-- Swagger UI at /docs, rendering the hand-written swagger.yaml (see the resources below) -->
+		<dependency>
+			<groupId>org.springdoc</groupId>
+			<artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
+			<version>2.8.13</version>
+		</dependency>
 
 	</dependencies>
 
 	<build>
+		<resources>
+			<resource>
+				<directory>src/main/resources</directory>
+			</resource>
+			<!-- serve the one swagger.yaml at the module root as /swagger.yaml, so there is no second copy to drift -->
+			<resource>
+				<directory>${project.basedir}</directory>
+				<includes>
+					<include>swagger.yaml</include>
+				</includes>
+				<targetPath>static</targetPath>
+			</resource>
+		</resources>
 		<plugins>
 
 			<!-- Spring Boot executable jar -->
