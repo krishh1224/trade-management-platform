@@ -21,3 +21,4 @@ database:
 
 kafka:
   host: kafka
+  port: 29092
