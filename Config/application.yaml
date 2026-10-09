@@ -16,8 +16,9 @@ services:
 database:
   host: localhost
   port: 5432
-  name: trading_system_db
+  name: trade_management
   user: postgres
 
 kafka:
   host: kafka
+  port: 29092
