@@ -142,11 +142,11 @@ public class SecurityConfig {
         return new JwtAuthenticationToken(token, List.of(), String.valueOf(token.getClaims().get(AccountClaims.ACCOUNT_ID)));
     }
 
-    // same as nest-auth, only the angular app on 4200 is allowed
+    // same as nest-auth, only the angular app on 4200 (localhost or 127.0.0.1) is allowed
     @Bean
     CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-        configuration.setAllowedOrigins(List.of("http://localhost:4200"));
+        configuration.setAllowedOrigins(List.of("http://localhost:4200", "http://127.0.0.1:4200"));
         configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
         configuration.setAllowedHeaders(List.of("Authorization", "Content-Type"));
         configuration.setAllowCredentials(false);
