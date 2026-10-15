@@ -10,7 +10,7 @@ pipeline {
 
   parameters {
     string(name: 'AWS_REGION', defaultValue: 'ap-south-1', description: 'AWS region')
-    string(name: 'RDS_HOST', defaultValue: 'database-1.cxmygi0w0y9d.ap-south-1.rds.amazonaws.com', description: 'RDS endpoint')
+    string(name: 'RDS_HOST', defaultValue: 'database-1.c9scqk8cq82i.ap-south-1.rds.amazonaws.com', description: 'RDS endpoint')
     string(name: 'RDS_PORT', defaultValue: '5432', description: 'RDS PostgreSQL port')
     string(name: 'RDS_DATABASE', defaultValue: 'postgres', description: 'RDS database name')
     string(name: 'RDS_USER', defaultValue: 'postgres', description: 'RDS database user')
@@ -21,7 +21,7 @@ pipeline {
   }
 
   environment {
-    EKS_CLUSTER_NAME = 'etp-cluster-1'
+    EKS_CLUSTER_NAME = 'etp-cluster-3'
     AUTH_REPO = 'etp-auth-service'
     ORDER_REPO = 'etp-order-service'
     EXECUTOR_REPO = 'etp-executor-service'
@@ -157,9 +157,9 @@ pipeline {
           # Secrets are hardcoded here; no Jenkins credential is used.
           cat > k8s/base/secrets.env <<'SECRETS_EOF'
 # Same database password three times: auth + order read POSTGRES_PASSWORD, executor reads SPRING_DATASOURCE_PASSWORD.
-POSTGRES_PASSWORD=password
-SPRING_DATASOURCE_PASSWORD=password
-DB_PASSWORD=password
+POSTGRES_PASSWORD=Password123
+SPRING_DATASOURCE_PASSWORD=Password123
+DB_PASSWORD=Password123
 JWT_SECRET=local-dev-only-trade-api-jwt-secret-not-for-production-use-000001
 FAUXNANCE_API_KEY=fnx_dev_IfHUDYh6cCEfDBolmu5YrapNcWc8bUwL
 STRATEGY_TOKEN_SECRET=cdmOODcT/ic2xn3KD3c6Ma3pG1donK0FTFk3h5usWiY=
@@ -167,8 +167,8 @@ MAIL_PASSWORD=mztcljfptxcvnlfs
 MAIL_USERNAME=ananyaniks3@gmail.com
 GEMINI_API_KEY=AQ.Ab8RN6JkIvqvkQ-FO1GWiJf4s0zrrSNFpxj1iI9aN2JbxUpEMg
 SECRETS_EOF
-          kubectl -n "$K8S_NAMESPACE" apply --dry-run=server -k "$K8S_OVERLAY"
-          kubectl -n "$K8S_NAMESPACE" apply -k "$K8S_OVERLAY"
+          kubectl apply --dry-run=server -k "$K8S_OVERLAY"
+          kubectl apply -k "$K8S_OVERLAY"
           kubectl -n "$K8S_NAMESPACE" set image deployment/auth-service auth-service="$REGISTRY/$AUTH_REPO:$IMAGE_TAG"
           kubectl -n "$K8S_NAMESPACE" set image deployment/order-service order-service="$REGISTRY/$ORDER_REPO:$IMAGE_TAG"
           kubectl -n "$K8S_NAMESPACE" set image deployment/executor-service executor-service="$REGISTRY/$EXECUTOR_REPO:$IMAGE_TAG"
