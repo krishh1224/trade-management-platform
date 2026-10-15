@@ -206,6 +206,28 @@ describe('bearer token interceptor', () => {
     req.flush({});
   });
 
+  it('both APIs on one origin (single-hostname ingress) still get the token on their protected routes', () => {
+    TestBed.configureTestingModule({
+      providers: [
+        provideApi({ tradeApi: 'http://app', authApi: 'http://app' }),
+        provideHttpClientTesting(),
+        { provide: AuthSessionService, useValue: { token: () => 'jwt-token' } }
+      ]
+    });
+    const http = TestBed.inject(HttpClient);
+    const httpMock = TestBed.inject(HttpTestingController);
+
+    http.get('http://app/auth/me').subscribe();
+    http.get('http://app/api/v1/accounts/101').subscribe();
+    http.post('http://app/auth/login', {}).subscribe();
+
+    expect(httpMock.expectOne('http://app/auth/me').request.headers.get('Authorization')).toBe('Bearer jwt-token');
+    expect(httpMock.expectOne('http://app/api/v1/accounts/101').request.headers.get('Authorization')).toBe(
+      'Bearer jwt-token'
+    );
+    expect(httpMock.expectOne('http://app/auth/login').request.headers.has('Authorization')).toBe(false);
+  });
+
   it('does not add authorization when no token exists', () => {
     const { http, httpMock } = setup(null);
 

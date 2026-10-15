@@ -11,7 +11,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.function.Supplier;
+import java.util.stream.Stream;
 import javax.crypto.spec.SecretKeySpec;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -142,11 +144,18 @@ public class SecurityConfig {
         return new JwtAuthenticationToken(token, List.of(), String.valueOf(token.getClaims().get(AccountClaims.ACCOUNT_ID)));
     }
 
-    // same as nest-auth, only the angular app on 4200 (localhost or 127.0.0.1) is allowed
+    // same as nest-auth: the angular app on 4200 (localhost or 127.0.0.1), plus any deployed
+    // frontend origins from CORS_ALLOWED_ORIGINS (comma-separated)
     @Bean
-    CorsConfigurationSource corsConfigurationSource() {
+    CorsConfigurationSource corsConfigurationSource(@Value("${CORS_ALLOWED_ORIGINS:}") String extraOrigins) {
         CorsConfiguration configuration = new CorsConfiguration();
-        configuration.setAllowedOrigins(List.of("http://localhost:4200", "http://127.0.0.1:4200"));
+        configuration.setAllowedOrigins(Stream.concat(
+                Stream.of("http://localhost:4200", "http://127.0.0.1:4200"),
+                Arrays.stream(extraOrigins.split(","))
+                    .map(origin -> origin.trim().replaceAll("/$", ""))
+                    .filter(origin -> !origin.isEmpty()))
+            .distinct()
+            .toList());
         configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
         configuration.setAllowedHeaders(List.of("Authorization", "Content-Type"));
         configuration.setAllowCredentials(false);

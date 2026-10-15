@@ -83,8 +83,13 @@ export function bearerTokenInterceptor(urls: ApiUrls): HttpInterceptorFn {
 }
 
 function shouldAttachToken(requestUrl: URL, tradeOrigin: string | null, authOrigin: string | null): boolean {
-  if (tradeOrigin && requestUrl.origin === tradeOrigin) {
-    return TRADE_PROTECTED_PATH_PATTERNS.some((pattern) => pattern.test(requestUrl.pathname));
+  // Both APIs can share one origin (single-hostname ingress), so check each by path, not origin alone.
+  if (
+    tradeOrigin &&
+    requestUrl.origin === tradeOrigin &&
+    TRADE_PROTECTED_PATH_PATTERNS.some((pattern) => pattern.test(requestUrl.pathname))
+  ) {
+    return true;
   }
 
   if (authOrigin && requestUrl.origin === authOrigin) {

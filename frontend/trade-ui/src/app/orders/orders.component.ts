@@ -10,6 +10,7 @@ import { AuthSessionService } from '../auth/auth-session.service';
 import { DEFAULT_ACCOUNT_CURRENCY, currencyForSymbol } from '../instruments/instrument-currency';
 import { ThemeService } from '../theme/theme.service';
 import { FooterComponent } from '../shared/footer.component';
+import { newIdempotencyKey } from '../shared/idempotency-key';
 import { NotificationBellComponent } from '../notifications/notification-bell.component';
 
 @Component({
@@ -173,7 +174,7 @@ export class OrdersComponent {
         side,
         quantity: Number(quantity),
         price: Number(price),
-        idempotencyKey: crypto.randomUUID()
+        idempotencyKey: newIdempotencyKey()
       })
       .pipe(finalize(() => this.orderSubmitting.set(false)))
       .subscribe({

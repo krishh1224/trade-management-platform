@@ -16,6 +16,7 @@ import { finalize } from 'rxjs';
 
 import { CashMovementType, CashTransactionResponse } from '../api/generated/trade-api/models';
 import { FundsStore, describeFundsError, errorCodeOf } from './funds.store';
+import { newIdempotencyKey } from '../shared/idempotency-key';
 
 const AMOUNT_PATTERN = /^\d{1,10}(\.\d{1,2})?$/;
 
@@ -228,11 +229,4 @@ function amountFormat(control: AbstractControl<string>): ValidationErrors | null
     return { format: true };
   }
   return Number(value) > 0 ? null : { format: true };
-}
-
-function newIdempotencyKey(): string {
-  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
-    return crypto.randomUUID();
-  }
-  return `funds-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 12)}`;
 }
