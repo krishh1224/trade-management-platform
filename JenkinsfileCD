@@ -167,8 +167,8 @@ MAIL_PASSWORD=mztcljfptxcvnlfs
 MAIL_USERNAME=ananyaniks3@gmail.com
 GEMINI_API_KEY=AQ.Ab8RN6JkIvqvkQ-FO1GWiJf4s0zrrSNFpxj1iI9aN2JbxUpEMg
 SECRETS_EOF
-          kubectl apply --dry-run=server -k "$K8S_OVERLAY"
-          kubectl apply -k "$K8S_OVERLAY"
+          kubectl -n "$K8S_NAMESPACE" apply --dry-run=server -k "$K8S_OVERLAY"
+          kubectl -n "$K8S_NAMESPACE" apply -k "$K8S_OVERLAY"
           kubectl -n "$K8S_NAMESPACE" set image deployment/auth-service auth-service="$REGISTRY/$AUTH_REPO:$IMAGE_TAG"
           kubectl -n "$K8S_NAMESPACE" set image deployment/order-service order-service="$REGISTRY/$ORDER_REPO:$IMAGE_TAG"
           kubectl -n "$K8S_NAMESPACE" set image deployment/executor-service executor-service="$REGISTRY/$EXECUTOR_REPO:$IMAGE_TAG"
