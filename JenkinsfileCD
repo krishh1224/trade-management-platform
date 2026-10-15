@@ -161,9 +161,9 @@ POSTGRES_PASSWORD=password
 DB_PASSWORD=password
 
 # at least 32 bytes:  node -e "console.log(require('crypto').randomBytes(48).toString('base64url'))"
-JWT_SECRET=whatthehell
+JWT_SECRET=local-dev-only-trade-api-jwt-secret-not-for-production-use-000001
 FAUXNANCE_API_KEY=fnx_dev_IfHUDYh6cCEfDBolmu5YrapNcWc8bUwL
-SMTP_PASS=lolllololo
+MAIL_PASSWORD=mztcljfptxcvnlfs
 SECRETS_EOF
           kubectl apply --dry-run=server -k "$K8S_OVERLAY"
           kubectl apply -k "$K8S_OVERLAY"
