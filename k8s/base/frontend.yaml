@@ -1,0 +1,60 @@
+
+# Angular static site on nginx. API endpoints are baked into the production image.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: frontend
+spec:
+  replicas: 1
+  selector:
+    matchLabels: { app: frontend }
+  template:
+    metadata:
+      labels: { app: frontend }
+    spec:
+      containers:
+        - name: frontend
+          image: etp-frontend
+          ports:
+            - { name: http, containerPort: 80 }
+          envFrom:
+            - configMapRef: { name: etp-urls }
+          # The page calls its own origin (FRONTEND_URL from etp-urls) and nginx forwards /api to
+          # order-service and /auth to auth-service unchanged, so no CORS is needed. Targets use the
+          # service ClusterIPs because the image's nginx resolver (127.0.0.11) is Docker-only.
+          # The last pair is a fallback for crypto.randomUUID(), which browsers only provide on HTTPS or
+          # localhost: over plain HTTP it is replaced with a v4 UUID built from crypto.getRandomValues.
+          # Pairs are split on spaces, so the replacement must contain no spaces (or * ? [ ]).
+          env:
+            - name: URL_REWRITES
+              value: >-
+                http://localhost:3000=$(FRONTEND_URL)
+                http://localhost:8081=$(FRONTEND_URL)
+                crypto.randomUUID()=Array.from(crypto.getRandomValues(new(Uint8Array)(16)),b=>b.toString(16).padStart(2,"0")).join("").replace(/^(.{8})(.{4}).(.{3}).(.{3})(.{12})$/,"$1-$2-4$3-a$4-$5")
+            - name: FRONTEND_PROXY_KEEP_PATHS
+              value: api
+            - name: FRONTEND_PROXY_KEEP_TARGET
+              value: http://$(ORDER_SERVICE_SERVICE_HOST):$(ORDER_SERVICE_SERVICE_PORT)
+            - name: FRONTEND_PROXY_KEEP2_PATHS
+              value: auth
+            - name: FRONTEND_PROXY_KEEP2_TARGET
+              value: http://$(AUTH_SERVICE_SERVICE_HOST):$(AUTH_SERVICE_SERVICE_PORT)
+          readinessProbe:
+            httpGet: { path: /, port: http }
+            periodSeconds: 10
+          livenessProbe:
+            httpGet: { path: /, port: http }
+            periodSeconds: 20
+          resources:
+            requests: { cpu: 50m, memory: 64Mi }
+            limits: { memory: 256Mi }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: frontend
+spec:
+  type: ClusterIP
+  selector: { app: frontend }
+  ports:
+    - { name: http, port: 80, targetPort: http }
