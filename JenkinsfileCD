@@ -10,9 +10,9 @@ pipeline {
 
   parameters {
     string(name: 'AWS_REGION', defaultValue: 'ap-south-1', description: 'AWS region')
-    string(name: 'RDS_HOST', defaultValue: 'database-1.c52m040i8bb8.ap-south-1.rds.amazonaws.com', description: 'RDS endpoint')
+    string(name: 'RDS_HOST', defaultValue: 'database-1.cxmygi0w0y9d.ap-south-1.rds.amazonaws.com', description: 'RDS endpoint')
     string(name: 'RDS_PORT', defaultValue: '5432', description: 'RDS PostgreSQL port')
-    string(name: 'RDS_DATABASE', defaultValue: 'trading_system_db', description: 'RDS database name')
+    string(name: 'RDS_DATABASE', defaultValue: 'postgres', description: 'RDS database name')
     string(name: 'RDS_USER', defaultValue: 'postgres', description: 'RDS database user')
     string(name: 'IMAGE_TAG', defaultValue: '', description: 'Required ECR tag produced by JenkinsfileCI')
     string(name: 'K8S_OVERLAY', defaultValue: 'k8s/overlays/four-lb', description: 'Kustomize overlay')
@@ -50,7 +50,7 @@ pipeline {
       steps {
         sh '''#!/usr/bin/env bash
             set -euo pipefail
-            sed -i -E "s#^DB_HOST=.*#DB_HOST=$DB_HOST#; s#^DB_PORT=.*#DB_PORT=$DB_PORT#; s#^DB_NAME=.*#DB_NAME=$DB_NAME#; s#^DB_USER=.*#DB_USER=$DB_USER#" k8s/base/config.env
+            sed -i -E "s#^POSTGRES_HOST=.*#POSTGRES_HOST=$DB_HOST#; s#^POSTGRES_PORT=.*#POSTGRES_PORT=$DB_PORT#; s#^POSTGRES_DB=.*#POSTGRES_DB=$DB_NAME#; s#^POSTGRES_USER=.*#POSTGRES_USER=$DB_USER#; s#^DB_NAME=.*#DB_NAME=$DB_NAME#; s#^DB_USER=.*#DB_USER=$DB_USER#; s#^SPRING_DATASOURCE_URL=.*#SPRING_DATASOURCE_URL=jdbc:postgresql://$DB_HOST:$DB_PORT/$DB_NAME?currentSchema=public\\&sslmode=require#" k8s/base/config.env
             command -v aws >/dev/null
             command -v kubectl >/dev/null
             test -f "$K8S_OVERLAY/kustomization.yaml"
@@ -71,10 +71,10 @@ pipeline {
         script {
             def result = sh(script: '''#!/usr/bin/env bash
               set +e
-              DB_HOST=$(awk -F= '$1 == "DB_HOST" {print $2}' k8s/base/config.env)
-              DB_PORT=$(awk -F= '$1 == "DB_PORT" {print $2}' k8s/base/config.env)
-              DB_NAME=$(awk -F= '$1 == "DB_NAME" {print $2}' k8s/base/config.env)
-              DB_USER=$(awk -F= '$1 == "DB_USER" {print $2}' k8s/base/config.env)
+              DB_HOST=$(awk -F= '$1 == "POSTGRES_HOST" {print $2}' k8s/base/config.env)
+              DB_PORT=$(awk -F= '$1 == "POSTGRES_PORT" {print $2}' k8s/base/config.env)
+              DB_NAME=$(awk -F= '$1 == "POSTGRES_DB" {print $2}' k8s/base/config.env)
+              DB_USER=$(awk -F= '$1 == "POSTGRES_USER" {print $2}' k8s/base/config.env)
               kubectl run jenkins-rds-test --rm -i --restart=Never \\
                 --image=postgres:16 \\
                 --env="DB_HOST=$DB_HOST" --env="DB_PORT=$DB_PORT" \\
@@ -98,7 +98,7 @@ pipeline {
       steps {
         sh '''#!/usr/bin/env bash
             set -euo pipefail
-            DB_HOST=$(awk -F= '$1 == "DB_HOST" {print $2}' k8s/base/config.env)
+            DB_HOST=$(awk -F= '$1 == "POSTGRES_HOST" {print $2}' k8s/base/config.env)
             NODEGROUP=$(aws eks list-nodegroups --region "$AWS_REGION" --cluster-name "$EKS_CLUSTER_NAME" --query 'nodegroups[0]' --output text)
             RDS_INSTANCE_ID=$(aws rds describe-db-instances --region "$AWS_REGION" --query "DBInstances[?Endpoint.Address=='$DB_HOST'].DBInstanceIdentifier | [0]" --output text)
             test -n "$RDS_INSTANCE_ID" -a "$RDS_INSTANCE_ID" != None
@@ -122,10 +122,10 @@ pipeline {
       steps {
         sh '''#!/usr/bin/env bash
           set -euo pipefail
-          DB_HOST=$(awk -F= '$1 == "DB_HOST" {print $2}' k8s/base/config.env)
-          DB_PORT=$(awk -F= '$1 == "DB_PORT" {print $2}' k8s/base/config.env)
-          DB_NAME=$(awk -F= '$1 == "DB_NAME" {print $2}' k8s/base/config.env)
-          DB_USER=$(awk -F= '$1 == "DB_USER" {print $2}' k8s/base/config.env)
+          DB_HOST=$(awk -F= '$1 == "POSTGRES_HOST" {print $2}' k8s/base/config.env)
+          DB_PORT=$(awk -F= '$1 == "POSTGRES_PORT" {print $2}' k8s/base/config.env)
+          DB_NAME=$(awk -F= '$1 == "POSTGRES_DB" {print $2}' k8s/base/config.env)
+          DB_USER=$(awk -F= '$1 == "POSTGRES_USER" {print $2}' k8s/base/config.env)
           kubectl run jenkins-rds-test --rm -i --restart=Never \
             --image=postgres:16 \
             --env="DB_HOST=$DB_HOST" --env="DB_PORT=$DB_PORT" \
@@ -156,13 +156,16 @@ pipeline {
           set -euo pipefail
           # Secrets are hardcoded here; no Jenkins credential is used.
           cat > k8s/base/secrets.env <<'SECRETS_EOF'
-# SECRETS. Copy to secrets.env (git-ignored) and fill in. Copied to base/secrets.env and turned into the Secret etp-secrets (guide 7.2).
-DB_PASSWORD=iykykykyk
-
-# at least 32 bytes:  node -e "console.log(require('crypto').randomBytes(48).toString('base64url'))"
-JWT_SECRET=whatthehell
-FAUXNANCE_API_KEY=dont_steal
-SMTP_PASS=lolllololo
+# Same database password three times: auth + order read POSTGRES_PASSWORD, executor reads SPRING_DATASOURCE_PASSWORD.
+POSTGRES_PASSWORD=password
+SPRING_DATASOURCE_PASSWORD=password
+DB_PASSWORD=password
+JWT_SECRET=local-dev-only-trade-api-jwt-secret-not-for-production-use-000001
+FAUXNANCE_API_KEY=fnx_dev_IfHUDYh6cCEfDBolmu5YrapNcWc8bUwL
+STRATEGY_TOKEN_SECRET=cdmOODcT/ic2xn3KD3c6Ma3pG1donK0FTFk3h5usWiY=
+MAIL_PASSWORD=mztcljfptxcvnlfs
+MAIL_USERNAME=ananyaniks3@gmail.com
+GEMINI_API_KEY=AQ.Ab8RN6JkIvqvkQ-FO1GWiJf4s0zrrSNFpxj1iI9aN2JbxUpEMg
 SECRETS_EOF
           kubectl apply --dry-run=server -k "$K8S_OVERLAY"
           kubectl apply -k "$K8S_OVERLAY"
