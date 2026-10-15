@@ -773,8 +773,8 @@ services:
     build:
       context: ${ORDER_SERVICE_DIR:-./services/order-service}
       dockerfile: ${ORDER_SERVICE_DOCKERFILE:-Dockerfile}
-      # additional_contexts:
-      #   extra: ${ORDER_SERVICE_EXTRA_DIR:-./DockerFile}
+      additional_contexts:
+        extra: ${ORDER_SERVICE_EXTRA_DIR:-./DockerFile}
       args:
         JAVA_VERSION: ${ORDER_SERVICE_JAVA_VERSION:-21}
         MAVEN_VERSION: ${MAVEN_VERSION:-3.9.9}
@@ -847,8 +847,8 @@ services:
     build:
       context: ${FRONTEND_DIR:-./frontend/trade-ui}
       dockerfile: ${FRONTEND_DOCKERFILE:-Dockerfile}
-      # additional_contexts:
-      #   extra: ${FRONTEND_EXTRA_DIR:-./DockerFile}
+      additional_contexts:
+        extra: ${FRONTEND_EXTRA_DIR:-./DockerFile}
       args:
         NODE_VERSION: ${FRONTEND_NODE_VERSION:-22}
         BUILD_SCRIPT: ${FRONTEND_BUILD_SCRIPT:-build}
