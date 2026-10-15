@@ -38,10 +38,10 @@ pipeline {
           if (!params.IMAGE_TAG?.trim()) {
             error('IMAGE_TAG is required. Run JenkinsfileCI first and enter its pushed ECR tag.')
           }
-          env.DB_HOST = params.RDS_HOST.trim()
-          env.DB_PORT = params.RDS_PORT.trim()
-          env.DB_NAME = params.RDS_DATABASE.trim()
-          env.DB_USER = params.RDS_USER.trim()
+          env.POSTGRES_HOST = params.RDS_HOST.trim()
+          env.POSTGRES_PORT = params.RDS_PORT.trim()
+          env.POSTGRES_NAME = params.RDS_DATABASE.trim()
+          env.POSTGRES_USER = params.RDS_USER.trim()
         }
       }
     }
@@ -50,7 +50,7 @@ pipeline {
       steps {
         sh '''#!/usr/bin/env bash
             set -euo pipefail
-            sed -i -E "s#^DB_HOST=.*#DB_HOST=$DB_HOST#; s#^DB_PORT=.*#DB_PORT=$DB_PORT#; s#^DB_NAME=.*#DB_NAME=$DB_NAME#; s#^DB_USER=.*#DB_USER=$DB_USER#" k8s/base/config.env
+sed -i -E "s#^POSTGRES_HOST=.*#POSTGRES_HOST=$POSTGRES_HOST#; s#^POSTGRES_PORT=.*#POSTGRES_PORT=$POSTGRES_PORT#; s#^POSTGRES_NAME=.*#POSTGRES_NAME=$POSTGRES_NAME#; s#^POSTGRES_USER=.*#POSTGRES_USER=$POSTGRES_USER#" k8s/base/config.env
             command -v aws >/dev/null
             command -v kubectl >/dev/null
             test -f "$K8S_OVERLAY/kustomization.yaml"
@@ -71,10 +71,10 @@ pipeline {
         script {
             def result = sh(script: '''#!/usr/bin/env bash
               set +e
-              DB_HOST=$(awk -F= '$1 == "DB_HOST" {print $2}' k8s/base/config.env)
-              DB_PORT=$(awk -F= '$1 == "DB_PORT" {print $2}' k8s/base/config.env)
-              DB_NAME=$(awk -F= '$1 == "DB_NAME" {print $2}' k8s/base/config.env)
-              DB_USER=$(awk -F= '$1 == "DB_USER" {print $2}' k8s/base/config.env)
+              DB_HOST=$(awk -F= '$1 == "POSTGRES_HOST" {print $2}' k8s/base/config.env)
+              DB_PORT=$(awk -F= '$1 == "POSTGRES_PORT" {print $2}' k8s/base/config.env)
+              DB_NAME=$(awk -F= '$1 == "POSTGRES_NAME" {print $2}' k8s/base/config.env)
+              DB_USER=$(awk -F= '$1 == "POSTGRES_USER" {print $2}' k8s/base/config.env)
               kubectl run jenkins-rds-test --rm -i --restart=Never \\
                 --image=postgres:16 \\
                 --env="DB_HOST=$DB_HOST" --env="DB_PORT=$DB_PORT" \\
@@ -98,7 +98,7 @@ pipeline {
       steps {
         sh '''#!/usr/bin/env bash
             set -euo pipefail
-            DB_HOST=$(awk -F= '$1 == "DB_HOST" {print $2}' k8s/base/config.env)
+            DB_HOST=$(awk -F= '$1 == "POSTGRES_HOST" {print $2}' k8s/base/config.env)
             NODEGROUP=$(aws eks list-nodegroups --region "$AWS_REGION" --cluster-name "$EKS_CLUSTER_NAME" --query 'nodegroups[0]' --output text)
             RDS_INSTANCE_ID=$(aws rds describe-db-instances --region "$AWS_REGION" --query "DBInstances[?Endpoint.Address=='$DB_HOST'].DBInstanceIdentifier | [0]" --output text)
             test -n "$RDS_INSTANCE_ID" -a "$RDS_INSTANCE_ID" != None
@@ -122,10 +122,10 @@ pipeline {
       steps {
         sh '''#!/usr/bin/env bash
           set -euo pipefail
-          DB_HOST=$(awk -F= '$1 == "DB_HOST" {print $2}' k8s/base/config.env)
-          DB_PORT=$(awk -F= '$1 == "DB_PORT" {print $2}' k8s/base/config.env)
-          DB_NAME=$(awk -F= '$1 == "DB_NAME" {print $2}' k8s/base/config.env)
-          DB_USER=$(awk -F= '$1 == "DB_USER" {print $2}' k8s/base/config.env)
+          DB_HOST=$(awk -F= '$1 == "POSTGRES_HOST" {print $2}' k8s/base/config.env)
+          DB_PORT=$(awk -F= '$1 == "POSTGRES_PORT" {print $2}' k8s/base/config.env)
+          DB_NAME=$(awk -F= '$1 == "POSTGRES_NAME" {print $2}' k8s/base/config.env)
+          DB_USER=$(awk -F= '$1 == "POSTGRES_USER" {print $2}' k8s/base/config.env)
           kubectl run jenkins-rds-test --rm -i --restart=Never \
             --image=postgres:16 \
             --env="DB_HOST=$DB_HOST" --env="DB_PORT=$DB_PORT" \
