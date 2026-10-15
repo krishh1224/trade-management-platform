@@ -2,6 +2,7 @@
 #   /auth/*    -> auth-service     /api/v1/* -> order-service     everything else -> frontend
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
+namespace: etp
 resources:
   - ../../base
   - ingress.yaml
