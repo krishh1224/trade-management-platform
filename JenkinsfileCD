@@ -10,7 +10,7 @@ pipeline {
 
   parameters {
     string(name: 'AWS_REGION', defaultValue: 'ap-south-1', description: 'AWS region')
-    string(name: 'RDS_HOST', defaultValue: 'database-1.c9scqk8cq82i.ap-south-1.rds.amazonaws.com', description: 'RDS endpoint')
+    string(name: 'RDS_HOST', defaultValue: 'database-1.cdygoi6gen5w.ap-south-1.rds.amazonaws.com', description: 'RDS endpoint')
     string(name: 'RDS_PORT', defaultValue: '5432', description: 'RDS PostgreSQL port')
     string(name: 'RDS_DATABASE', defaultValue: 'postgres', description: 'RDS database name')
     string(name: 'RDS_USER', defaultValue: 'postgres', description: 'RDS database user')
