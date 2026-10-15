@@ -25,14 +25,14 @@ if [ "${1:-}" != "-y" ]; then
 fi
 
 echo "== 1. PRUNE"
-docker-compose stop
+docker compose stop
 docker image prune -af
 
 echo "== 2. BUILD (one image at a time)"
 for s in auth-service order-service executor-service frontend; do
-  if docker-compose config --services | grep -qx "$s"; then
+  if docker compose config --services | grep -qx "$s"; then
     echo "-- building $s"
-    docker-compose build "$s" || { echo "BUILD FAILED: $s  (fix it, then run again)" >&2; exit 1; }
+    docker compose build "$s" || { echo "BUILD FAILED: $s  (fix it, then run again)" >&2; exit 1; }
   else
     echo "-- $s: not in COMPOSE_PROFILES, skipped"
   fi
@@ -40,4 +40,4 @@ done
 docker images | grep -E "^(frontend|auth-service|order-service|executor-service) " || true
 
 echo "== 3. UP"
-docker-compose up -d
+docker compose up -d
