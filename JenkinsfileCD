@@ -16,11 +16,12 @@ pipeline {
     string(name: 'RDS_USER', defaultValue: 'postgres', description: 'RDS database user')
     string(name: 'IMAGE_TAG', defaultValue: '', description: 'Required ECR tag produced by JenkinsfileCI')
     string(name: 'K8S_OVERLAY', defaultValue: 'k8s/overlays/four-lb', description: 'Kustomize overlay')
-    string(name: 'K8S_NAMESPACE', defaultValue: 'default', description: 'Namespace used by the current manifests')
+    string(name: 'K8S_NAMESPACE', defaultValue: 'etp', description: 'Namespace used by the current manifests')
     booleanParam(name: 'AUTO_AUTHORIZE_RDS', defaultValue: true, description: 'Only after RDS connectivity fails, add the EKS node SG to RDS on TCP 5432')
   }
 
-    environment {
+  
+   environment {
     EKS_CLUSTER_NAME = 'etp-cluster-1'
     AUTH_REPO = 'etp-auth-service'
     ORDER_REPO = 'etp-order-service'
@@ -34,15 +35,15 @@ pipeline {
       steps {
         deleteDir()
         checkout scm
-        sh 'git rev-parse HEAD; test -f k8s/base/generated/application.yml'
+        sh 'git rev-parse HEAD; mkdir -p k8s/base/generated; cp Config/application.yaml k8s/base/generated/application.yml'
         script {
           if (!params.IMAGE_TAG?.trim()) {
             error('IMAGE_TAG is required. Run JenkinsfileCI first and enter its pushed ECR tag.')
           }
-          env.POSTGRES_HOST = params.RDS_HOST.trim()
-          env.POSTGRES_PORT = params.RDS_PORT.trim()
-          env.POSTGRES_NAME = params.RDS_DATABASE.trim()
-          env.POSTGRES_USER = params.RDS_USER.trim()
+          env.DB_HOST = params.RDS_HOST.trim()
+          env.DB_PORT = params.RDS_PORT.trim()
+          env.DB_NAME = params.RDS_DATABASE.trim()
+          env.DB_USER = params.RDS_USER.trim()
         }
       }
     }
@@ -51,7 +52,7 @@ pipeline {
       steps {
         sh '''#!/usr/bin/env bash
             set -euo pipefail
-sed -i -E "s#^POSTGRES_HOST=.*#POSTGRES_HOST=$POSTGRES_HOST#; s#^POSTGRES_PORT=.*#POSTGRES_PORT=$POSTGRES_PORT#; s#^POSTGRES_NAME=.*#POSTGRES_NAME=$POSTGRES_NAME#; s#^POSTGRES_USER=.*#POSTGRES_USER=$POSTGRES_USER#" k8s/base/config.env
+            sed -i -E "s#^POSTGRES_HOST=.*#POSTGRES_HOST=$DB_HOST#; s#^POSTGRES_PORT=.*#POSTGRES_PORT=$DB_PORT#; s#^POSTGRES_DB=.*#POSTGRES_DB=$DB_NAME#; s#^POSTGRES_USER=.*#POSTGRES_USER=$DB_USER#; s#^DB_NAME=.*#DB_NAME=$DB_NAME#; s#^DB_USER=.*#DB_USER=$DB_USER#; s#^SPRING_DATASOURCE_URL=.*#SPRING_DATASOURCE_URL=jdbc:postgresql://$DB_HOST:$DB_PORT/$DB_NAME?currentSchema=public\\&sslmode=require#" k8s/base/config.env
             command -v aws >/dev/null
             command -v kubectl >/dev/null
             test -f "$K8S_OVERLAY/kustomization.yaml"
@@ -74,7 +75,7 @@ sed -i -E "s#^POSTGRES_HOST=.*#POSTGRES_HOST=$POSTGRES_HOST#; s#^POSTGRES_PORT=.
               set +e
               DB_HOST=$(awk -F= '$1 == "POSTGRES_HOST" {print $2}' k8s/base/config.env)
               DB_PORT=$(awk -F= '$1 == "POSTGRES_PORT" {print $2}' k8s/base/config.env)
-              DB_NAME=$(awk -F= '$1 == "POSTGRES_NAME" {print $2}' k8s/base/config.env)
+              DB_NAME=$(awk -F= '$1 == "POSTGRES_DB" {print $2}' k8s/base/config.env)
               DB_USER=$(awk -F= '$1 == "POSTGRES_USER" {print $2}' k8s/base/config.env)
               kubectl run jenkins-rds-test --rm -i --restart=Never \\
                 --image=postgres:16 \\
@@ -125,7 +126,7 @@ sed -i -E "s#^POSTGRES_HOST=.*#POSTGRES_HOST=$POSTGRES_HOST#; s#^POSTGRES_PORT=.
           set -euo pipefail
           DB_HOST=$(awk -F= '$1 == "POSTGRES_HOST" {print $2}' k8s/base/config.env)
           DB_PORT=$(awk -F= '$1 == "POSTGRES_PORT" {print $2}' k8s/base/config.env)
-          DB_NAME=$(awk -F= '$1 == "POSTGRES_NAME" {print $2}' k8s/base/config.env)
+          DB_NAME=$(awk -F= '$1 == "POSTGRES_DB" {print $2}' k8s/base/config.env)
           DB_USER=$(awk -F= '$1 == "POSTGRES_USER" {print $2}' k8s/base/config.env)
           kubectl run jenkins-rds-test --rm -i --restart=Never \
             --image=postgres:16 \
@@ -157,33 +158,46 @@ sed -i -E "s#^POSTGRES_HOST=.*#POSTGRES_HOST=$POSTGRES_HOST#; s#^POSTGRES_PORT=.
           sh '''#!/usr/bin/env bash
             set -euo pipefail
             install -m 600 "$SECRETS_FILE" k8s/base/secrets.env
-            for key in PGPASSWORD JWT_SECRET FAUXNANCE_API_KEY AUTH_ADMIN_PASSWORD SPRING_MAIL_USERNAME SPRING_MAIL_PASSWORD; do
+            for key in POSTGRES_PASSWORD SPRING_DATASOURCE_PASSWORD JWT_SECRET FAUXNANCE_API_KEY STRATEGY_TOKEN_SECRET MAIL_USERNAME MAIL_PASSWORD; do
               grep -q "^$key=." k8s/base/secrets.env || { echo "secrets.env is missing a value for $key" >&2; exit 1; }
             done
           '''
         }
         sh '''#!/usr/bin/env bash
           set -euo pipefail
+          sed -i -E "s#(newName: ).*/(etp-[a-z-]+)#\\1$REGISTRY/\\2#; s#(newTag: ).*#\\1\\"$IMAGE_TAG\\"#" k8s/base/kustomization.yaml
+          test "$(grep -c "newTag: \\"$IMAGE_TAG\\"" k8s/base/kustomization.yaml)" -eq 4
+          grep -E 'newName:|newTag:' k8s/base/kustomization.yaml
+
+          # A finished Job is immutable; topics are created with --if-not-exists, so re-running it is safe.
+          kubectl -n "$K8S_NAMESPACE" delete job kafka-topics --ignore-not-found
+
           kubectl apply --dry-run=server -k "$K8S_OVERLAY"
           kubectl apply -k "$K8S_OVERLAY"
-          kubectl -n "$K8S_NAMESPACE" set image deployment/auth-service auth-service="$REGISTRY/$AUTH_REPO:$IMAGE_TAG"
-          kubectl -n "$K8S_NAMESPACE" set image deployment/order-service order-service="$REGISTRY/$ORDER_REPO:$IMAGE_TAG"
-          kubectl -n "$K8S_NAMESPACE" set image deployment/executor-service executor-service="$REGISTRY/$EXECUTOR_REPO:$IMAGE_TAG"
-          kubectl -n "$K8S_NAMESPACE" set image deployment/frontend frontend="$REGISTRY/$FRONTEND_REPO:$IMAGE_TAG"
+
           kubectl -n "$K8S_NAMESPACE" rollout status deployment/auth-service --timeout=180s
-          kubectl -n "$K8S_NAMESPACE" rollout status deployment/order-service --timeout=180s
+          kubectl -n "$K8S_NAMESPACE" rollout status deployment/order-service --timeout=300s
           kubectl -n "$K8S_NAMESPACE" rollout status deployment/executor-service --timeout=180s
           kubectl -n "$K8S_NAMESPACE" rollout status deployment/frontend --timeout=180s
           kubectl -n "$K8S_NAMESPACE" get pods -o wide
           kubectl -n "$K8S_NAMESPACE" get svc
+
+          echo "Load balancer hostnames (keep $K8S_OVERLAY/urls.env in sync with these):"
+          kubectl -n "$K8S_NAMESPACE" get svc \\
+            -o jsonpath='{range .items[?(@.spec.type=="LoadBalancer")]}{.metadata.name}{"\\t"}{.status.loadBalancer.ingress[0].hostname}{"\\n"}{end}'
         '''
       }
     }
   }
 
+
   post {
     always {
-      sh 'rm -f k8s/base/secrets.env'
+      sh '''#!/usr/bin/env bash
+        rm -f k8s/base/secrets.env
+        kubectl -n "${K8S_NAMESPACE:-etp}" delete pod jenkins-rds-test --ignore-not-found >/dev/null 2>&1 || true
+      '''
     }
   }
+
 }
