@@ -16,7 +16,7 @@ pipeline {
     string(name: 'RDS_USER', defaultValue: 'postgres', description: 'RDS database user')
     string(name: 'IMAGE_TAG', defaultValue: '', description: 'Required ECR tag produced by JenkinsfileCI')
     string(name: 'K8S_OVERLAY', defaultValue: 'k8s/overlays/four-lb', description: 'Kustomize overlay')
-    string(name: 'K8S_NAMESPACE', defaultValue: 'etp', description: 'Namespace used by the current manifests')
+    string(name: 'K8S_NAMESPACE', defaultValue: 'default', description: 'Namespace used by the current manifests')
     booleanParam(name: 'AUTO_AUTHORIZE_RDS', defaultValue: true, description: 'Only after RDS connectivity fails, add the EKS node SG to RDS on TCP 5432')
   }
 
