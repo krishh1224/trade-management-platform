@@ -156,16 +156,7 @@ pipeline {
           set -euo pipefail
           # Secrets are hardcoded here; no Jenkins credential is used.
           cat > k8s/base/secrets.env <<'SECRETS_EOF'
-# Same database password three times: auth + order read POSTGRES_PASSWORD, executor reads SPRING_DATASOURCE_PASSWORD.
-POSTGRES_PASSWORD=Password123
-SPRING_DATASOURCE_PASSWORD=Password123
-DB_PASSWORD=Password123
-JWT_SECRET=local-dev-only-trade-api-jwt-secret-not-for-production-use-000001
-FAUXNANCE_API_KEY=fnx_dev_IfHUDYh6cCEfDBolmu5YrapNcWc8bUwL
-STRATEGY_TOKEN_SECRET=cdmOODcT/ic2xn3KD3c6Ma3pG1donK0FTFk3h5usWiY=
-MAIL_PASSWORD=mztcljfptxcvnlfs
-MAIL_USERNAME=ananyaniks3@gmail.com
-GEMINI_API_KEY=AQ.Ab8RN6JkIvqvkQ-FO1GWiJf4s0zrrSNFpxj1iI9aN2JbxUpEMg
+
 SECRETS_EOF
           kubectl apply --dry-run=server -k "$K8S_OVERLAY"
           kubectl apply -k "$K8S_OVERLAY"
