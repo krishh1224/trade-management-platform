@@ -20,12 +20,13 @@ pipeline {
     booleanParam(name: 'AUTO_AUTHORIZE_RDS', defaultValue: true, description: 'Only after RDS connectivity fails, add the EKS node SG to RDS on TCP 5432')
   }
 
-  environment {
-    EKS_CLUSTER_NAME = 'eks-cluster-1'
+    environment {
+    EKS_CLUSTER_NAME = 'etp-cluster-1'
     AUTH_REPO = 'etp-auth-service'
     ORDER_REPO = 'etp-order-service'
     EXECUTOR_REPO = 'etp-executor-service'
     FRONTEND_REPO = 'etp-frontend'
+    SECRETS_CREDENTIAL_ID = 'riya'
   }
 
   stages {
@@ -152,21 +153,17 @@ sed -i -E "s#^POSTGRES_HOST=.*#POSTGRES_HOST=$POSTGRES_HOST#; s#^POSTGRES_PORT=.
 
     stage('Inject secrets and deploy selected images') {
       steps {
+        withCredentials([file(credentialsId: env.SECRETS_CREDENTIAL_ID, variable: 'SECRETS_FILE')]) {
+          sh '''#!/usr/bin/env bash
+            set -euo pipefail
+            install -m 600 "$SECRETS_FILE" k8s/base/secrets.env
+            for key in PGPASSWORD JWT_SECRET FAUXNANCE_API_KEY AUTH_ADMIN_PASSWORD SPRING_MAIL_USERNAME SPRING_MAIL_PASSWORD; do
+              grep -q "^$key=." k8s/base/secrets.env || { echo "secrets.env is missing a value for $key" >&2; exit 1; }
+            done
+          '''
+        }
         sh '''#!/usr/bin/env bash
           set -euo pipefail
-          # Secrets are hardcoded here; no Jenkins credential is used.
-          cat > k8s/base/secrets.env <<'SECRETS_EOF'
-# SECRETS. Copy to secrets.env (git-ignored) and fill in. Copied to base/secrets.env and turned into the Secret etp-secrets (guide 7.2).
-POSTGRES_PASSWORD=Riya.rangwani18
-JWT_SECRET=local-dev-only-trade-api-jwt-secret-not-for-production-use-000001
-# FAUXNANCE_API_KEY=fnx_dev_fVYDFYdZvgh3QfQz1JYMs17PO5iAkdxh
-FAUXNANCE_API_KEY=fnx_dev_IfHUDYh6cCEfDBolmu5YrapNcWc8bUwL
-GEMINI_API_KEY=AQ.Ab8RN6LN-7seNQZVywMQCuhV3vI2Tj_5S1ZroFugIZ3jWg7LQw
-STRATEGY_TOKEN_SECRET=cdmOODcT/ic2xn3KD3c6Ma3pG1donK0FTFk3h5usWiY=
-MAIL_USERNAME=ananyaniks3@gmail.com
-MAIL_PASSWORD=mztcljfptxcvnlfs
-SPRING_DATASOURCE_PASSWORD=Riya.rangwani18mztcljfptxcvnlfs
-SECRETS_EOF
           kubectl apply --dry-run=server -k "$K8S_OVERLAY"
           kubectl apply -k "$K8S_OVERLAY"
           kubectl -n "$K8S_NAMESPACE" set image deployment/auth-service auth-service="$REGISTRY/$AUTH_REPO:$IMAGE_TAG"
